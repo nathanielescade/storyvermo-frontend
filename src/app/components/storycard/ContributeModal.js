@@ -259,7 +259,7 @@ const ContributeModal = ({
                                     {editingVerse ? 'EDIT VERSE' : 'CONTRIBUTE TO STORY'}
                                 </h2>
                                 <p className="text-gray-400 text-sm mt-1">
-                                    {editingVerse ? 'Update your verse in' : 'Add a verse to'} "{story.title || 'this story'}"
+                                    {editingVerse ? 'Update your verse in' : 'Add a verse to'} &ldquo;{story.title || 'this story'}&rdquo;
                                 </p>
                             </div>
                         </div>

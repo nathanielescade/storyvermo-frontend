@@ -36,7 +36,7 @@ const DeleteModal = ({
                 
                 <div className="relative z-10 p-8">
                     <p className="text-gray-300 text-lg mb-2">
-                        Are you sure you want to delete <span className="text-white font-semibold">"{story.title}"</span>?
+                        Are you sure you want to delete <span className="text-white font-semibold">&ldquo;{story.title}&rdquo;</span>?
                     </p>
                     <p className="text-gray-400 text-sm">
                         All verses and comments will be permanently removed.

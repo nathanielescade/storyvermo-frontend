@@ -1,6 +1,5 @@
 // RecommendModal.js
-import React, { useState, useEffect } from 'react';
-// import { userApi } from '../../../../lib/api';
+import React, { useState, useEffect, useCallback } from 'react';
 import { userApi, storyApi, storiesApi } from '../../../../lib/api';
 
 const RecommendModal = ({ 
@@ -15,13 +14,7 @@ const RecommendModal = ({
     const [followers, setFollowers] = useState([]);
     const [loading, setLoading] = useState(true);
     
-    useEffect(() => {
-        if (showRecommendModal && isAuthenticated && currentUser) {
-            fetchFollowers();
-        }
-    }, [showRecommendModal, isAuthenticated, currentUser]);
-    
-    const fetchFollowers = async () => {
+    const fetchFollowers = useCallback(async () => {
         try {
             setLoading(true);
             const response = await userApi.getFollowers(currentUser.username);
@@ -32,7 +25,13 @@ const RecommendModal = ({
         } finally {
             setLoading(false);
         }
-    };
+    }, [currentUser.username]);
+    
+    useEffect(() => {
+        if (showRecommendModal && isAuthenticated && currentUser) {
+            fetchFollowers();
+        }
+    }, [showRecommendModal, isAuthenticated, currentUser, fetchFollowers]);
 
     const handleSelectAll = (e) => {
         if (e.target.checked) {
@@ -99,7 +98,7 @@ const RecommendModal = ({
                                     RECOMMEND STORY
                                 </h2>
                                 <p className="text-gray-400 text-sm mt-1">
-                                    Recommend "{story.title || 'this story'}" to your followers
+                                    Recommend &ldquo;{story.title || 'this story'}&rdquo; to your followers
                                 </p>
                             </div>
                         </div>
@@ -150,7 +149,7 @@ const RecommendModal = ({
                                 ) : followers.length === 0 ? (
                                     <div className="text-center py-8 text-gray-400">
                                         <i className="fas fa-user-slash text-3xl mb-3"></i>
-                                        <p>You don't have any followers yet</p>
+                                        <p>You don&apos;t have any followers yet</p>
                                     </div>
                                 ) : (
                                     <>
@@ -198,7 +197,7 @@ const RecommendModal = ({
                                             ) : (
                                                 <div className="text-center py-8 text-gray-400">
                                                     <i className="fas fa-user-slash text-3xl mb-3"></i>
-                                                    <p>No followers found matching "{searchTerm}"</p>
+                                                    <p>No followers found matching &ldquo;{searchTerm}&rdquo;</p>
                                                 </div>
                                             )}
                                         </div>
