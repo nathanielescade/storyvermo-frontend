@@ -7,6 +7,7 @@ export const metadata = {
   robots: 'noindex, follow',
 };
 
+// Make the page server-side rendered but with no actual search results during build
 export default function SearchPage() {
   return <SearchClient />;
 }

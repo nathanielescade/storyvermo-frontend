@@ -75,10 +75,11 @@ export function SearchClient() {
 
   // Effect to handle initial search from URL
   useEffect(() => {
-    if (query) {
+    // Only run search on client side
+    if (typeof window !== 'undefined' && query) {
       debouncedSearch(query);
     }
-  }, []);
+  }, [query, debouncedSearch]);
 
   // Handle story card click
   const handleStoryClick = (e, index) => {
@@ -147,6 +148,15 @@ export function SearchClient() {
       stories: prev.stories.filter(story => story.slug !== slug)
     }));
   };
+
+  // Don't render anything during server-side rendering
+  if (typeof window === 'undefined') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 flex items-center justify-center">
+        <div className="text-white">Loading search...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950">
