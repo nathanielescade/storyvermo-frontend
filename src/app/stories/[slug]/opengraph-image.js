@@ -1,3 +1,4 @@
+// src/app/stories/[slug]/opengraph-image/route.js
 import { ImageResponse } from 'next/og';
 import { storiesApi } from '../../../../lib/api';
 
@@ -125,4 +126,9 @@ export async function GET(request) {
       },
     );
   }
+}
+
+// Add default export to fix the error
+export default function Page() {
+  return null;
 }
