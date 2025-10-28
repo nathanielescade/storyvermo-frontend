@@ -7,6 +7,9 @@ export const metadata = {
   robots: 'noindex, follow',
 };
 
+// Add this to prevent static generation
+export const dynamic = 'force-dynamic';
+
 export default function SearchPage() {
   return <SearchClient />;
 }
