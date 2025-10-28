@@ -136,26 +136,25 @@ export default function ProfileClient({ username }) {
   };
 
   // Handle following/unfollowing a user in the modal
-// ProfileClient.js - handleFollowUser function
-const handleFollowUser = async (userToFollow) => {
+  const handleFollowUser = async (userToFollow) => {
     if (!isAuthenticated) {
-        openAuthModal();
-        return;
+      openAuthModal();
+      return;
     }
 
     try {
-        const response = await userApi.followUser(userToFollow.username);
-        
-        // Update the current user's following list
-        if (response.is_following) {
-            setCurrentUserFollowing(prev => [...prev, userToFollow.username]);
-        } else {
-            setCurrentUserFollowing(prev => prev.filter(u => u !== userToFollow.username));
-        }
+      const response = await userApi.followUser(userToFollow.username);
+      
+      // Update the current user's following list
+      if (response.is_following) {
+        setCurrentUserFollowing(prev => [...prev, userToFollow.username]);
+      } else {
+        setCurrentUserFollowing(prev => prev.filter(u => u !== userToFollow.username));
+      }
     } catch (error) {
-        console.error('Error following user:', error);
+      console.error('Error following user:', error);
     }
-};
+  };
 
   // Fixed image upload function
   const handleImageUpload = async (file, type) => {

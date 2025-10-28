@@ -1,3 +1,4 @@
+// src/app/[username]/metadata.js
 import { userApi, absoluteUrl } from '../../../lib/api';
 
 export async function generateMetadata({ params }) {

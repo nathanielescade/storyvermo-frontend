@@ -10,7 +10,7 @@ export default async function Page({ params }) {
   // Return 404 if no username
   if (!username) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-gray-950 to-slate-900">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-950 to-slate-900">
         <div className="text-gray-400">User not found</div>
       </div>
     );
