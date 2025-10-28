@@ -1,5 +1,6 @@
+// src/app/tags/[tag]/page.js
 import Home from '../../page';
-import { tagsApi, absoluteUrl } from '../../../../lib/api';
+import { absoluteUrl } from '../../../../lib/api';
 
 // Provide SEO metadata for the /tags/[tag] page so crawlers see useful content.
 export async function generateMetadata({ params }) {
@@ -21,29 +22,39 @@ export async function generateMetadata({ params }) {
 
   // Try to enrich metadata from the API but fall back to defaults on any error.
   try {
-    const seo = await tagsApi.getTagSEO(tagSlug);
-    const apiTagName = seo?.tag?.name;
-    const apiDescription = seo?.tag?.description;
-    if (apiTagName) {
-      // prefer API-provided name/description when available
-      const aTitle = `${apiTagName} — StoryVermo`;
-      const aDesc = apiDescription || description;
-      return {
-        title: aTitle,
-        description: aDesc,
-        openGraph: {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tags/${encodeURIComponent(tagSlug)}/seo/`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    });
+    
+    if (response.ok) {
+      const seo = await response.json();
+      const apiTagName = seo?.tag?.name;
+      const apiDescription = seo?.tag?.description;
+      if (apiTagName) {
+        // prefer API-provided name/description when available
+        const aTitle = `${apiTagName} — StoryVermo`;
+        const aDesc = apiDescription || description;
+        return {
           title: aTitle,
           description: aDesc,
-          url,
-          siteName: 'StoryVermo',
-        },
-        twitter: {
-          card: 'summary_large_image',
-          title: aTitle,
-          description: aDesc,
-        },
-        alternates: { canonical: url }
-      };
+          openGraph: {
+            title: aTitle,
+            description: aDesc,
+            url,
+            siteName: 'StoryVermo',
+          },
+          twitter: {
+            card: 'summary_large_image',
+            title: aTitle,
+            description: aDesc,
+          },
+          alternates: { canonical: url }
+        };
+      }
     }
   } catch (e) {
     // ignore and fall back to defaults below
@@ -67,6 +78,7 @@ export async function generateMetadata({ params }) {
     alternates: { canonical: url }
   };
 }
+
 // Only render the interactive homepage on this route. Metadata above provides
 // SEO content for crawlers; we avoid adding any server-side visible text here.
 export default function TagPage() {

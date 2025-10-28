@@ -1,3 +1,4 @@
+// src/app/search/page.js
 import { SearchClient } from './SearchClient';
 
 export const metadata = {

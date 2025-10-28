@@ -1,8 +1,9 @@
+// src/app/search/SearchClient.js
 'use client';
 import { useState, useCallback, useEffect } from 'react';
 import StoryCard from '../components/StoryCard';
 import debounce from 'lodash/debounce';
-import { apiRequest, searchApi, storiesApi, userApi, absoluteUrl } from '../../../lib/api'; 
+import { searchApi, storiesApi, userApi, absoluteUrl } from '../../../lib/api'; 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -40,7 +41,7 @@ export function SearchClient() {
         const [storiesRes, versesRes, creatorsRes] = await Promise.allSettled([
           searchApi.searchStories(searchQuery),
           searchApi.searchVerses(searchQuery),
-          searchApi.getRecommendedCreators(searchQuery) // Fixed: use searchApi instead of userApi and pass query
+          searchApi.getRecommendedCreators(searchQuery)
         ]);
 
         // Process the results

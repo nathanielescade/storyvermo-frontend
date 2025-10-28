@@ -1,5 +1,6 @@
+// src/app/tags/page.js
 import Link from 'next/link';
-import { tagsApi, absoluteUrl } from '../../../lib/api';
+import { absoluteUrl } from '../../../lib/api';
 
 export async function generateMetadata() {
   const title = 'Tags — StoryVermo';
@@ -29,13 +30,41 @@ export async function generateMetadata() {
 
 export default async function TagsPage() {
   let tags = [];
+  let error = null;
+  
   try {
-    tags = await tagsApi.getTrending();
-    if (!Array.isArray(tags) || tags.length === 0) {
-      tags = await tagsApi.getRecent();
+    // Try to fetch tags but handle any errors gracefully
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tags/trending/`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    });
+    
+    if (response.ok) {
+      tags = await response.json();
+      
+      // If no trending tags, try recent tags
+      if (!Array.isArray(tags) || tags.length === 0) {
+        const recentResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tags/recent/`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        });
+        
+        if (recentResponse.ok) {
+          tags = await recentResponse.json();
+        }
+      }
+    } else {
+      error = `Failed to fetch tags: ${response.status}`;
     }
   } catch (e) {
     console.warn('[tags page] failed to fetch tags', e);
+    error = e.message;
     tags = [];
   }
 
@@ -49,17 +78,20 @@ export default async function TagsPage() {
               <div>
                 <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-500">Tags</h1>
                 <p className="text-sm text-gray-300 mt-2">Explore tags and discover stories. Click a tag to open its SEO-friendly page.</p>
+                {error && (
+                  <p className="text-sm text-red-400 mt-2">Unable to load tags: {error}</p>
+                )}
               </div>
             </header>
 
             <section className="relative z-10 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          {Array.isArray(tags) && tags.length > 0 ? (
-            tags.map((t) => {
-              const name = t?.name || String(t);
-              const slug = t?.slug || String(name).toLowerCase().replace(/\s+/g, '-');
-              const count = t?.story_count || t?.count || null;
+              {Array.isArray(tags) && tags.length > 0 ? (
+                tags.map((t) => {
+                  const name = t?.name || String(t);
+                  const slug = t?.slug || String(name).toLowerCase().replace(/\s+/g, '-');
+                  const count = t?.story_count || t?.count || null;
 
-              return (
+                  return (
                     <Link
                       key={t?.id || slug}
                       href={`/tags/${encodeURIComponent(slug)}/`}
@@ -68,11 +100,13 @@ export default async function TagsPage() {
                       <span className="font-semibold text-white truncate">#{name}</span>
                       {count !== null && <span className="text-xs text-gray-400">{count}</span>}
                     </Link>
-              );
-            })
-          ) : (
-            <div className="col-span-full text-center text-gray-400">No tags found.</div>
-          )}
+                  );
+                })
+              ) : (
+                <div className="col-span-full text-center text-gray-400">
+                  {error ? 'Unable to load tags at this time.' : 'No tags found.'}
+                </div>
+              )}
             </section>
           </div>
         </div>
