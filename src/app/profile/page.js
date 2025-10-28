@@ -1,14 +1,15 @@
-// pages/profile/[username].js
+'use client'
+
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
-import Head from 'next/head';
+import { usePathname, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { fetchUserData, fetchUserStories, followUser, uploadProfileImage } from '../../lib/api';
+import { userApi, storiesApi } from '../../../lib/api';
 
 export default function ProfilePage() {
-  const router = useRouter();
-  const { username } = router.query;
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const username = pathname.split('/').pop() || searchParams.get('username');
   
   const [user, setUser] = useState(null);
   const [stories, setStories] = useState([]);
@@ -29,8 +30,8 @@ export default function ProfilePage() {
       const fetchData = async () => {
         try {
           setLoading(true);
-          const userData = await fetchUserData(username);
-          const storiesData = await fetchUserStories(username);
+          const userData = await userApi.getProfile(username);
+          const storiesData = await userApi.getUserStories(username);
           
           setUser(userData);
           setStories(storiesData.stories || []);
@@ -52,7 +53,7 @@ export default function ProfilePage() {
 
   const handleFollow = async () => {
     try {
-      const response = await followUser(username);
+      const response = await userApi.followUser(username);
       setIsFollowing(response.is_following);
       setFollowers(response.followers);
     } catch (error) {
@@ -62,7 +63,11 @@ export default function ProfilePage() {
 
   const handleImageUpload = async (file, type) => {
     try {
-      const response = await uploadProfileImage(file, type);
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('type', type);
+      
+      const response = await userApi.updateProfileImage(username, formData);
       if (response.success) {
         // Update user state with new image
         setUser(prev => ({
@@ -117,67 +122,6 @@ export default function ProfilePage() {
 
   return (
     <div className="min-h-screen bg-[#0a0e27] text-white">
-      <Head>
-        <title>{`${user.get_full_name || user.username} - StoryVermo`}</title>
-        <meta name="description" content={user.meta_description} />
-        <meta name="author" content={user.get_full_name || user.username} />
-        <meta name="keywords" content={`StoryVermo, ${user.get_full_name || user.username}, storyteller, creative writer, stories, verses`} />
-        <link rel="canonical" href={user.meta_canonical_url} />
-        
-        {/* OpenGraph meta tags */}
-        <meta property="og:title" content={user.meta_title} />
-        <meta property="og:description" content={user.meta_description} />
-        <meta property="og:type" content="profile" />
-        <meta property="og:url" content={user.meta_canonical_url} />
-        <meta property="og:image" content={user.meta_image_url} />
-        <meta property="og:site_name" content="StoryVermo" />
-        <meta property="profile:username" content={user.username} />
-        {user.first_name && <meta property="profile:first_name" content={user.first_name} />}
-        {user.last_name && <meta property="profile:last_name" content={user.last_name} />}
-        
-        {/* Twitter Card meta tags */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={user.meta_title} />
-        <meta name="twitter:description" content={user.meta_description} />
-        <meta name="twitter:image" content={user.meta_image_url} />
-        <meta name="twitter:site" content="@storyvermo" />
-        {user.twitter_handle && <meta name="twitter:creator" content={`@${user.twitter_handle}`} />}
-        
-        {/* JSON-LD structured data */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "Person",
-              "@id": user.meta_canonical_url,
-              "name": `${user.first_name} ${user.last_name || user.username}`,
-              "givenName": user.first_name,
-              "familyName": user.last_name || "",
-              "alternateName": `@${user.username}`,
-              ...(user.bio && { "description": user.bio }),
-              ...(user.profile_image_url && { "image": user.profile_image_url }),
-              ...(user.website && { "url": user.website }),
-              "mainEntityOfPage": {
-                "@type": "ProfilePage",
-                "@id": user.meta_canonical_url
-              },
-              "identifier": {
-                "@type": "PropertyValue",
-                "propertyID": "StoryVermo username",
-                "value": user.username
-              },
-              ...(user.location && {
-                "homeLocation": {
-                  "@type": "Place",
-                  "name": user.location
-                }
-              })
-            })
-          }}
-        />
-      </Head>
-
       {/* Badge Notification Modal */}
       {badgeModal.visible && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
@@ -455,7 +399,7 @@ export default function ProfilePage() {
               </button>
             )}
             <button 
-              onClick={() => router.push('/settings')}
+              onClick={() => window.location.href = '/settings'}
               className="px-4 py-2 rounded-lg font-medium bg-white/10 hover:bg-white/20 transition-colors"
             >
               <i className="fas fa-edit mr-2"></i>Edit Profile
@@ -561,7 +505,7 @@ export default function ProfilePage() {
                     <div 
                       key={index} 
                       className="rounded-lg overflow-hidden bg-gradient-to-br from-[#151937] to-[#0a0e27] border border-[#00d4ff]/20 hover:border-[#00d4ff]/50 transition-all cursor-pointer hover:-translate-y-1"
-                      onClick={() => router.push(`/story/${story.slug}`)}
+                      onClick={() => window.location.href = `/story/${story.slug}`}
                     >
                       {story.cover_image ? (
                         <Image 
@@ -639,7 +583,7 @@ export default function ProfilePage() {
                     <div 
                       key={index} 
                       className="rounded-lg overflow-hidden bg-gradient-to-br from-[#151937] to-[#0a0e27] border border-[#00d4ff]/20 hover:border-[#00d4ff]/50 transition-all cursor-pointer hover:-translate-y-1"
-                      onClick={() => router.push(`/story/${story.slug}`)}
+                      onClick={() => window.location.href = `/story/${story.slug}`}
                     >
                       {story.cover_image ? (
                         <Image 
