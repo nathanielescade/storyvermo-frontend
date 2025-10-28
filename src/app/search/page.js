@@ -1,5 +1,14 @@
 // src/app/search/page.js
-import { SearchClient } from './SearchClient';
+import dynamic from 'next/dynamic';
+
+const SearchClient = dynamic(() => import('./SearchClient'), {
+  ssr: false,
+  loading: () => (
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 flex items-center justify-center">
+      <div className="text-white">Loading search...</div>
+    </div>
+  ),
+});
 
 export const metadata = {
   title: 'Search - StoryVermo',
@@ -7,7 +16,6 @@ export const metadata = {
   robots: 'noindex, follow',
 };
 
-// Make the page server-side rendered but with no actual search results during build
 export default function SearchPage() {
   return <SearchClient />;
 }
