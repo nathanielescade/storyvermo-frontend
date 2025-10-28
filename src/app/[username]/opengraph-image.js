@@ -45,3 +45,8 @@ export async function GET(request) {
     );
   }
 }
+
+// Add default export to fix the error
+export default function Page() {
+  return null;
+}
