@@ -21,21 +21,24 @@ export function SearchClient() {
     loading: false
   });
   const [error, setError] = useState(null);
-  const [isClient, setIsClient] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
   
   // New state for story feed modal
   const [storyFeedModal, setStoryFeedModal] = useState({ visible: false, initialIndex: 0 });
 
-  // Set isClient to true when component mounts
+  // Set isMounted to true when component mounts
   useEffect(() => {
-    setIsClient(true);
-    // Set the initial query from URL params only on client side
-    const initialQuery = searchParams.get('q') || '';
-    setQuery(initialQuery);
-    if (initialQuery) {
-      debouncedSearch(initialQuery);
-    }
+    setIsMounted(true);
   }, []);
+
+  // Handle search input changes
+  const handleSearchInput = (e) => {
+    const newQuery = e.target.value;
+    setQuery(newQuery);
+    if (isMounted) {
+      debouncedSearch(newQuery);
+    }
+  };
 
   // Debounced search function
   const debouncedSearch = useCallback(
@@ -78,14 +81,16 @@ export function SearchClient() {
     [router]
   );
 
-  // Handle search input changes
-  const handleSearchInput = (e) => {
-    const newQuery = e.target.value;
-    setQuery(newQuery);
-    if (isClient) {
-      debouncedSearch(newQuery);
+  // Initialize search from URL params after component mounts
+  useEffect(() => {
+    if (isMounted) {
+      const initialQuery = searchParams.get('q') || '';
+      setQuery(initialQuery);
+      if (initialQuery) {
+        debouncedSearch(initialQuery);
+      }
     }
-  };
+  }, [isMounted, searchParams, debouncedSearch]);
 
   // Handle story card click
   const handleStoryClick = (e, index) => {
@@ -154,15 +159,6 @@ export function SearchClient() {
       stories: prev.stories.filter(story => story.slug !== slug)
     }));
   };
-
-  // Don't render anything during server-side rendering
-  if (!isClient) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 flex items-center justify-center">
-        <div className="text-white">Loading search...</div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950">

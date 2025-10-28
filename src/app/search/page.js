@@ -1,14 +1,7 @@
 // src/app/search/page.js
-import dynamic from 'next/dynamic';
+'use client';
 
-const SearchClient = dynamic(() => import('./SearchClient'), {
-  ssr: false,
-  loading: () => (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 flex items-center justify-center">
-      <div className="text-white">Loading search...</div>
-    </div>
-  ),
-});
+import { SearchClient } from './SearchClient';
 
 export const metadata = {
   title: 'Search - StoryVermo',
