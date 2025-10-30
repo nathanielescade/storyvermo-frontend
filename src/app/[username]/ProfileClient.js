@@ -60,8 +60,9 @@ function SmartImg({ src, alt = '', width, height, fill, className, style, onClic
   );
 }
 
-export default function ProfileClient({ username }) {
-  const [user, setUser] = useState(null);
+export default function ProfileClient({ username, initialProfile = null }) {
+  // Use server-provided initialProfile when available to render instantly
+  const [user, setUser] = useState(initialProfile || null);
   const [stories, setStories] = useState([]);
   const [verses, setVerses] = useState([]);
   const [savedStories, setSavedStories] = useState([]);
@@ -69,7 +70,8 @@ export default function ProfileClient({ username }) {
   const [following, setFollowing] = useState([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
-  const [loading, setLoading] = useState(true);
+  // If we have an initial profile, don't show the loading screen
+  const [loading, setLoading] = useState(initialProfile ? false : true);
   const [badgeModal, setBadgeModal] = useState({ visible: false, badge: null });
   const [leaderboardModal, setLeaderboardModal] = useState(false);
   const [followersModal, setFollowersModal] = useState({ visible: false, type: 'followers' });
@@ -102,7 +104,6 @@ export default function ProfileClient({ username }) {
   // In the fetchProfile function in ProfileClient.js
   const fetchProfile = useCallback(async () => {
     try {
-      setLoading(true);
       const response = await userApi.getProfile(username);
       
       console.log('Profile API URL:', `/api/profiles/${username}/`);
@@ -132,9 +133,10 @@ export default function ProfileClient({ username }) {
         response: error.response
       });
     } finally {
-      setLoading(false);
+      // Only clear loading if we didn't already have an initial profile
+      if (!initialProfile) setLoading(false);
     }
-  }, [username, currentUser?.username]);
+  }, [username, currentUser?.username, initialProfile]);
 
   // Fetch followers and following data when modal is opened
   const fetchFollowersData = useCallback(async (type) => {
@@ -153,6 +155,9 @@ export default function ProfileClient({ username }) {
   }, [username]);
 
   useEffect(() => {
+    // If we have an initialProfile passed from the server, we still run
+    // a background fetch to refresh data, but avoid toggling the loading
+    // UI so the page appears instant to the user.
     if (username) fetchProfile();
     if (isAuthenticated) fetchCurrentUserFollowing();
   }, [username, fetchProfile, isAuthenticated, fetchCurrentUserFollowing]);

@@ -40,13 +40,44 @@ export default function useMain() {
                 setPage(1);
 
                 // Build params based on initialTag
-                const params = { page: 1 };
-                if (initialTag !== 'for-you') params.tag = initialTag;
+                // If the initial tag is 'for-you', prefer the personalized feed
+                if (initialTag === 'for-you') {
+                    try {
+                        const personalized = await storiesApi.getPersonalizedFeed();
+                        // API may return an array or a paginated object
+                        if (Array.isArray(personalized)) {
+                            setStories(personalized);
+                            setHasNext(false);
+                        } else if (personalized && Array.isArray(personalized.results)) {
+                            setStories(personalized.results);
+                            setHasNext(personalized.next !== null);
+                        } else if (personalized) {
+                            // Unexpected shape - attempt to use it directly
+                            setStories(personalized);
+                            setHasNext(false);
+                        } else {
+                            // Fallback to paginated stories
+                            const params = { page: 1 };
+                            const initialStories = await storiesApi.getPaginatedStories(params);
+                            setStories(initialStories.results || []);
+                            setHasNext(initialStories.next !== null);
+                        }
+                    } catch (err) {
+                        console.warn('personalized feed failed, falling back to paginated stories', err);
+                        const params = { page: 1 };
+                        const initialStories = await storiesApi.getPaginatedStories(params);
+                        setStories(initialStories.results || []);
+                        setHasNext(initialStories.next !== null);
+                    }
+                } else {
+                    const params = { page: 1 };
+                    if (initialTag !== 'for-you') params.tag = initialTag;
 
-                // Get initial stories
-                const initialStories = await storiesApi.getPaginatedStories(params);
-                setStories(initialStories.results || []);
-                setHasNext(initialStories.next !== null);
+                    // Get initial stories
+                    const initialStories = await storiesApi.getPaginatedStories(params);
+                    setStories(initialStories.results || []);
+                    setHasNext(initialStories.next !== null);
+                }
             } catch (error) {
                 console.error('Error initializing app:', error);
             } finally {
@@ -58,19 +89,50 @@ export default function useMain() {
     }, []);
     
     // Handle tag switching
-    const handleTagSwitch = useCallback(async (tag) => {
-        if (tag === currentTag) return;
-        
+    // Handle tag switching. If `force` is true, re-fetch even if tag === currentTag.
+    const handleTagSwitch = useCallback(async (tag, { force = false } = {}) => {
+        if (tag === currentTag && !force) return;
+
         setLoading(true);
         setPage(1);
         try {
             setCurrentTag(tag);
-            const params = { page: 1 };
-            if (tag !== 'for-you') params.tag = tag;
-            
-            const result = await storiesApi.getPaginatedStories(params);
-            setStories(result.results || []);
-            setHasNext(result.next !== null);
+
+            // When switching to 'for-you' prefer the personalized endpoint.
+            if (tag === 'for-you') {
+                try {
+                    const personalized = await storiesApi.getPersonalizedFeed();
+                    if (Array.isArray(personalized)) {
+                        setStories(personalized);
+                        setHasNext(false);
+                    } else if (personalized && Array.isArray(personalized.results)) {
+                        setStories(personalized.results);
+                        setHasNext(personalized.next !== null);
+                    } else if (personalized) {
+                        setStories(personalized);
+                        setHasNext(false);
+                    } else {
+                        // fallback
+                        const params = { page: 1 };
+                        const result = await storiesApi.getPaginatedStories(params);
+                        setStories(result.results || []);
+                        setHasNext(result.next !== null);
+                    }
+                } catch (err) {
+                    console.warn('personalized fetch failed on tag switch; falling back', err);
+                    const params = { page: 1 };
+                    const result = await storiesApi.getPaginatedStories(params);
+                    setStories(result.results || []);
+                    setHasNext(result.next !== null);
+                }
+            } else {
+                const params = { page: 1 };
+                if (tag !== 'for-you') params.tag = tag;
+
+                const result = await storiesApi.getPaginatedStories(params);
+                setStories(result.results || []);
+                setHasNext(result.next !== null);
+            }
         } catch (error) {
             console.error('Error switching tag:', error);
         } finally {
@@ -80,6 +142,8 @@ export default function useMain() {
     
     // Handle infinite scroll
     const handleFetchMore = useCallback(async () => {
+        // Do not paginate the personalized 'for-you' feed (no infinite scroll)
+        if (currentTag === 'for-you') return;
         if (isFetching || !hasNext) return;
         
         setIsFetching(true);

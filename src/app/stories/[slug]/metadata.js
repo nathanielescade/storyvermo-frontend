@@ -1,8 +1,8 @@
+// app/stories/[slug]/metadata.js
 import { storiesApi, absoluteUrl } from '../../../../lib/api';
 
 export async function generateMetadata({ params }) {
   try {
-    // Await the params before using its properties
     const { slug } = await params;
     const story = await storiesApi.getStoryBySlug(slug);
 
@@ -13,35 +13,28 @@ export async function generateMetadata({ params }) {
       };
     }
 
-    // Derive creator display name and first/last name for the appended description
     const creatorObj = story.creator;
     const creatorDisplay = typeof creatorObj === 'string'
       ? creatorObj
       : creatorObj?.name || [creatorObj?.first_name, creatorObj?.last_name].filter(Boolean).join(' ') || creatorObj?.username || 'Unknown Creator';
 
-    // Firstname Lastname for description append (fallback to display name)
     const creatorFirstnameLastname = (() => {
       if (typeof creatorObj === 'object' && (creatorObj.first_name || creatorObj.last_name)) {
         return [creatorObj.first_name, creatorObj.last_name].filter(Boolean).join(' ');
       }
-      // if name looks like 'First Last' use it, otherwise leave as display
       if (typeof creatorDisplay === 'string' && creatorDisplay.includes(' ')) return creatorDisplay;
       return creatorDisplay;
     })();
 
-    // Normalize tags array into strings
     const tagList = Array.isArray(story.tags)
       ? story.tags.map(tag => (typeof tag === 'string' ? tag : tag.name || tag.slug || String(tag))).filter(Boolean)
       : [];
 
     const tagsCsv = tagList.join(', ');
-
-    // Build description: story description + " - First Last | Tags: t1, t2"
     const baseDescription = story.description ? String(story.description).trim() : '';
     const appendedMeta = `${creatorFirstnameLastname}${tagsCsv ? ` | Tags: ${tagsCsv}` : ''}`;
     const fullDescription = baseDescription ? `${baseDescription} - ${appendedMeta}` : appendedMeta;
 
-    // Cover image absolute URL
     let imageUrl = null;
     if (story.cover_image) {
       if (typeof story.cover_image === 'string') imageUrl = absoluteUrl(story.cover_image);
@@ -50,7 +43,7 @@ export async function generateMetadata({ params }) {
 
     const title = `${story.title} - StoryVermo`;
 
-    const metadata = {
+    return {
       title,
       description: fullDescription || `A story by ${creatorDisplay}`,
       openGraph: {
@@ -83,8 +76,6 @@ export async function generateMetadata({ params }) {
         },
       },
     };
-
-    return metadata;
   } catch (error) {
     console.error('Error generating metadata:', error);
     return {

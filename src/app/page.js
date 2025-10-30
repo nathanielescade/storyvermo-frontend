@@ -107,11 +107,12 @@ export default function Home() {
     }
     
     // If "for-you" is already active, scroll to top and refresh
-    if (tagName === 'for-you' && currentTag === 'for-you') {
-      console.log('Refreshing For You content');
+    // If the clicked tag is already active, scroll to top and force a refresh
+    if (currentTag === tagName) {
+      console.log('Refreshing active tag content:', tagName);
       window.scrollTo({ top: 0, behavior: 'smooth' });
-      // Refresh the content by re-fetching the first page
-      handleTagSwitch(tagName);
+      // Force re-fetch of the first page even if tag is already selected
+      handleTagSwitch(tagName, { force: true });
       return;
     }
     
