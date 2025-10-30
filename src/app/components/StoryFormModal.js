@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
-import { storiesApi, NEXT_PUBLIC_API_URL } from '../../../lib/api';
+import { storiesApi, NEXT_PUBLIC_API_URL, versesApi, momentsApi } from '../../../lib/api';
 
 // Helper function to get CSRF token
 const getCsrfToken = () => {
@@ -310,7 +310,8 @@ const StoryFormModal = ({
   // Handle publish/update post and verses
 // StoryFormModal.js
 
-// Handle publish/update post and verses
+// Replace the handlePublish function in StoryFormModal.js with this fixed version
+
 const handlePublish = async () => {
   if (!validateForm()) {
     setError('Please fix the validation errors below');
@@ -363,18 +364,20 @@ const handlePublish = async () => {
       })
     );
 
-    // Prepare story payload with nested verses
+    // Prepare story payload with tags
     const storyPayload = {
       title: title.trim(),
       description: description.trim(),
-      tags: selectedTags,
+      tags_input: selectedTags,  // Use tags_input instead of tags
       allow_contributions: allowContributions,
-      verses: versesWithUploadedImages
+      creator: currentUser.id || currentUser.pk || currentUser.username
     };
 
-    // Upload cover image if present
-    let coverImageId = null;
+    // Handle cover image
+    let finalCoverImageId = coverImageId; // Start with existing cover image ID
+    
     if (imageFile) {
+      // If there's a new image file, upload it
       const fd = new FormData();
       fd.append('file', imageFile);
       const res = await fetch(`${NEXT_PUBLIC_API_URL}/api/images/`, {
@@ -385,16 +388,73 @@ const handlePublish = async () => {
       });
       if (res.ok) {
         const result = await res.json();
-        coverImageId = result.public_id;
-        storyPayload.cover_image_id = coverImageId;
+        finalCoverImageId = result.public_id;
       }
+    }
+    
+    // Add cover image to payload if we have one
+    if (finalCoverImageId) {
+      storyPayload.cover_image_public_id = finalCoverImageId;
     }
 
     let savedStory;
     if (editingStory) {
+      // Update story metadata (title/description/tags/cover/allow_contributions)
+      console.log('Updating story with payload:', storyPayload);
       savedStory = await storiesApi.updateStory(editingStory.slug, storyPayload);
     } else {
+      // Create story
+      console.log('Creating story with payload:', storyPayload);
       savedStory = await storiesApi.createStory(storyPayload);
+    }
+
+    // After creating/updating the story, create verses and moments via their endpoints
+    const createdVerses = [];
+    const storyIdentifier = savedStory?.public_id || savedStory?.id || savedStory?.slug;
+
+    if (Array.isArray(versesWithUploadedImages) && storyIdentifier) {
+      for (let i = 0; i < versesWithUploadedImages.length; i++) {
+        const v = versesWithUploadedImages[i];
+        try {
+          const verseData = {
+            story: storyIdentifier,
+            content: v.content || '',
+            order: v.order || i + 1,
+            image_ids: v.image_ids || []
+          };
+
+          const verseResponse = await versesApi.createVerse(verseData);
+
+          // Create moments for each image id (if any)
+          const imageIds = v.image_ids || [];
+          if (Array.isArray(imageIds) && imageIds.length > 0 && verseResponse) {
+            for (let m = 0; m < imageIds.length; m++) {
+              try {
+                await momentsApi.createMoment({
+                  verse: verseResponse.public_id || verseResponse.id,
+                  image_id: imageIds[m],
+                  order: m + 1
+                });
+              } catch (momentErr) {
+                console.warn('Failed to create moment for verse', verseResponse, momentErr);
+              }
+            }
+          }
+
+          createdVerses.push(verseResponse);
+        } catch (verseErr) {
+          console.warn('Failed to create verse', v, verseErr);
+        }
+      }
+    }
+
+    // Attach created verses to savedStory for immediate UI update
+    if (createdVerses.length > 0) {
+      try {
+        savedStory.verses = createdVerses;
+      } catch (e) {
+        // ignore
+      }
     }
 
     setSuccess(editingStory ? 'Story updated successfully!' : 'Story created successfully!');
@@ -409,11 +469,14 @@ const handlePublish = async () => {
       }
     }, 2000);
   } catch (err) {
+    console.error('Error saving story:', err);
     setError(err.message || 'An error occurred while saving the story. Please try again.');
   } finally {
     setLoading(false);
   }
 };
+
+
   
   // Clear form
   const clearForm = () => {

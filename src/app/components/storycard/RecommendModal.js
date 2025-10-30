@@ -15,6 +15,11 @@ const RecommendModal = ({
     const [loading, setLoading] = useState(true);
     
     const fetchFollowers = useCallback(async () => {
+        if (!currentUser || !currentUser.username) {
+            setLoading(false);
+            return;
+        }
+        
         try {
             setLoading(true);
             const response = await userApi.getFollowers(currentUser.username);
@@ -25,7 +30,7 @@ const RecommendModal = ({
         } finally {
             setLoading(false);
         }
-    }, [currentUser.username]);
+    }, [currentUser]); // Changed from currentUser.username to currentUser
     
     useEffect(() => {
         if (showRecommendModal && isAuthenticated && currentUser) {
