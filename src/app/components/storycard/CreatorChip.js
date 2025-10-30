@@ -1,5 +1,7 @@
 // CreatorChip.js - Fixed version with proper follow state handling
 import React from 'react';
+import { formatTimeAgo } from '../../../../lib/utils';
+import { useAuth } from '../../../../contexts/AuthContext';
 
 const CreatorChip = ({ 
     story, 
@@ -12,7 +14,9 @@ const CreatorChip = ({
     getCreatorProfileImageUrl, 
     getCreatorInitial 
 }) => {
+    const { currentUser } = useAuth();
     const creatorUsername = getCreatorUsername();
+    const isSelf = !!(currentUser && currentUser.username && currentUser.username === creatorUsername);
     
     const handleFollowClick = async (e) => {
         e.preventDefault();
@@ -36,7 +40,7 @@ const CreatorChip = ({
                 </a>
                 
                 {/* TikTok-style follow button - show only if NOT following */}
-                {!isOwner && !isFollowing && creatorUsername !== 'anonymous' && (
+                {!isOwner && !isFollowing && !isSelf && creatorUsername !== 'anonymous' && (
                     <button 
                         className="follow-button absolute bottom-0 right-0 bg-blue-500 rounded-full w-6 h-6 flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors"
                         onClick={handleFollowClick}
@@ -54,7 +58,7 @@ const CreatorChip = ({
                 </a>
                 {story.created_at && (
                     <span className="text-[9px] sm:text-xs text-gray-400 mt-0.5 truncate block max-w-[6.5rem]" title={new Date(story.created_at).toLocaleString()}>
-                        {new Date(story.created_at).toLocaleString()}
+                        {formatTimeAgo(story.created_at)}
                     </span>
                 )}
             </div>

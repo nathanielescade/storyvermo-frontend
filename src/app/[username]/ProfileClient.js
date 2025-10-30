@@ -7,6 +7,59 @@ import { userApi, storiesApi, absoluteUrl } from '../../../lib/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import StoryCard from '../components/StoryCard';
 
+// SmartImg: choose native <img> for blob/data URLs (object URLs / previews)
+// and use next/image for regular remote URLs. This avoids next/image errors
+// when previewing local uploads (object URLs) while still using next/image
+// for remote/static images.
+function SmartImg({ src, alt = '', width, height, fill, className, style, onClick }) {
+  if (!src) return null;
+  const isObjectUrl = typeof src === 'string' && (src.startsWith('blob:') || src.startsWith('data:'));
+
+  if (isObjectUrl) {
+    const imgStyle = { ...(style || {}) };
+    if (fill) {
+      imgStyle.width = '100%';
+      imgStyle.height = '100%';
+      if (!imgStyle.objectFit) imgStyle.objectFit = 'cover';
+      return (
+        <img
+          src={src}
+          alt={alt}
+          className={className}
+          style={imgStyle}
+          onClick={onClick}
+        />
+      );
+    }
+
+    return (
+      <img
+        src={src}
+        alt={alt}
+        width={width}
+        height={height}
+        className={className}
+        style={style}
+        onClick={onClick}
+      />
+    );
+  }
+
+  // For remote images use next/image so we keep optimizations
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      width={width}
+      height={height}
+      fill={fill}
+      className={className}
+      style={style}
+      onClick={onClick}
+    />
+  );
+}
+
 export default function ProfileClient({ username }) {
   const [user, setUser] = useState(null);
   const [stories, setStories] = useState([]);
@@ -282,9 +335,9 @@ export default function ProfileClient({ username }) {
       {/* Cover Image Section */}
       <div className="relative h-[200px] md:h-[315px] bg-gradient-to-br from-slate-900/60 to-indigo-900/60 overflow-hidden">
         {user.cover_image_url ? (
-          <Image 
-            src={absoluteUrl(user.cover_image_url) || ''} 
-            alt="Cover" 
+          <SmartImg
+            src={absoluteUrl(user.cover_image_url) || ''}
+            alt="Cover"
             fill
             className="object-cover object-center opacity-70 cursor-pointer"
             onClick={() => setImageModal({ visible: true, url: user.cover_image_url, type: 'cover' })}
@@ -323,11 +376,11 @@ export default function ProfileClient({ username }) {
           {/* Profile Image - Positioned to overlap cover photo */}
           <div className="relative -mt-16 z-20 shrink-0">
             {user.profile_image_url ? (
-              <Image 
-                src={absoluteUrl(user.profile_image_url) || ''} 
-                alt={user.username} 
-                width={130} 
-                height={130} 
+              <SmartImg
+                src={absoluteUrl(user.profile_image_url) || ''}
+                alt={user.username}
+                width={130}
+                height={130}
                 className="rounded-full object-cover border-4 border-cyan-500/30 shadow-lg cursor-pointer w-32 h-32"
                 style={{ objectFit: 'cover' }}
                 onClick={() => setImageModal({ visible: true, url: user.profile_image_url, type: 'profile' })}
@@ -409,12 +462,12 @@ export default function ProfileClient({ username }) {
                     onClick={() => setBadgeModal({ visible: true, badge })}
                   >
                     {badgeIconUrl ? (
-                      <Image 
-                        src={absoluteUrl(badgeIconUrl)} 
-                        alt={badge.name} 
-                        width={40} 
-                        height={40} 
-                        className="rounded-full mb-1" 
+                      <SmartImg
+                        src={absoluteUrl(badgeIconUrl)}
+                        alt={badge.name}
+                        width={40}
+                        height={40}
+                        className="rounded-full mb-1"
                       />
                     ) : (
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-white mb-1">
@@ -489,12 +542,12 @@ export default function ProfileClient({ username }) {
                   >
                     <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900/60 to-indigo-900/60 border border-cyan-500/20 hover:border-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02]">
                       {coverImageUrl ? (
-                        <Image 
-                          src={absoluteUrl(coverImageUrl)} 
-                          alt={story.title} 
-                          width={300} 
-                          height={200} 
-                          className="w-full h-40 object-cover" 
+                        <SmartImg
+                          src={absoluteUrl(coverImageUrl)}
+                          alt={story.title}
+                          width={300}
+                          height={200}
+                          className="w-full h-40 object-cover"
                         />
                       ) : (
                         <div className="w-full h-40 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center">
@@ -530,12 +583,12 @@ export default function ProfileClient({ username }) {
                     >
                       <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900/60 to-indigo-900/60 border border-cyan-500/20 hover:border-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02]">
                         {coverImageUrl ? (
-                          <Image 
-                            src={absoluteUrl(coverImageUrl)} 
-                            alt={verse.title || verse.story_title || "Verse"} 
-                            width={300} 
-                            height={200} 
-                            className="w-full h-40 object-cover" 
+                          <SmartImg
+                            src={absoluteUrl(coverImageUrl)}
+                            alt={verse.title || verse.story_title || "Verse"}
+                            width={300}
+                            height={200}
+                            className="w-full h-40 object-cover"
                           />
                         ) : (
                           <div className="w-full h-40 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center">
@@ -587,14 +640,14 @@ export default function ProfileClient({ username }) {
                     >
                       <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900/60 to-indigo-900/60 border border-cyan-500/20 hover:border-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02]">
                         {coverImageUrl ? (
-                          <Image 
-                            src={absoluteUrl(coverImageUrl)} 
-                            alt={story.title} 
-                            width={300} 
-                            height={200} 
-                            className="w-full h-40 object-cover" 
-                          />
-                        ) : (
+                        <SmartImg
+                          src={absoluteUrl(coverImageUrl)}
+                          alt={story.title}
+                          width={300}
+                          height={200}
+                          className="w-full h-40 object-cover"
+                        />
+                      ) : (
                           <div className="w-full h-40 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center">
                             <i className="fas fa-image text-4xl text-white/20"></i>
                           </div>
@@ -700,13 +753,13 @@ export default function ProfileClient({ username }) {
                   return (
                     <div key={i} className="flex items-center justify-between bg-slate-900/60 rounded-2xl p-3 border border-cyan-500/20">
                       <Link href={`/${user.username}`} className="flex items-center gap-3 min-w-0 flex-1">
-                        {profileImageUrl ? (
-                          <Image 
-                            src={absoluteUrl(profileImageUrl)} 
-                            alt={user.username} 
-                            width={40} 
-                            height={40} 
-                            className="rounded-full object-cover shrink-0" 
+                          {profileImageUrl ? (
+                          <SmartImg
+                            src={absoluteUrl(profileImageUrl)}
+                            alt={user.username}
+                            width={40}
+                            height={40}
+                            className="rounded-full object-cover shrink-0"
                           />
                         ) : (
                           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center shrink-0">
@@ -746,12 +799,12 @@ export default function ProfileClient({ username }) {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
             <div className="bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 rounded-3xl border border-cyan-500/40 shadow-2xl p-6 flex flex-col items-center max-w-3xl w-full">
               {imageModal.url ? (
-                <Image 
-                  src={absoluteUrl(imageModal.url)} 
-                  alt="Full size" 
-                  width={800} 
-                  height={600} 
-                  className="rounded-2xl mb-4" 
+                <SmartImg
+                  src={absoluteUrl(imageModal.url)}
+                  alt="Full size"
+                  width={800}
+                  height={600}
+                  className="rounded-2xl mb-4"
                 />
               ) : (
                 <div className="w-full h-96 bg-slate-900/60 rounded-2xl mb-4 flex items-center justify-center">
@@ -775,12 +828,12 @@ export default function ProfileClient({ username }) {
             <div className="bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 rounded-3xl border border-cyan-500/40 shadow-2xl p-6 flex flex-col items-center animate-bounce-in max-w-sm w-full mx-4">
               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-white text-3xl mb-4">
                 {badgeModal.badge?.icon_url ? (
-                  <Image 
-                    src={absoluteUrl(badgeModal.badge.icon_url) || ''} 
-                    alt={badgeModal.badge.name} 
-                    width={64} 
-                    height={64} 
-                    className="rounded-full" 
+                  <SmartImg
+                    src={absoluteUrl(badgeModal.badge.icon_url) || ''}
+                    alt={badgeModal.badge.name}
+                    width={64}
+                    height={64}
+                    className="rounded-full"
                   />
                 ) : (
                   <span>🏅</span>
@@ -817,12 +870,12 @@ export default function ProfileClient({ username }) {
                     >
                       <span className="font-bold text-white">#{entry.rank}</span>
                       {profileImageUrl ? (
-                        <Image 
-                          src={absoluteUrl(profileImageUrl)} 
-                          alt={entry.username} 
-                          width={32} 
-                          height={32} 
-                          className="rounded-full object-cover" 
+                        <SmartImg
+                          src={absoluteUrl(profileImageUrl)}
+                          alt={entry.username}
+                          width={32}
+                          height={32}
+                          className="rounded-full object-cover"
                         />
                       ) : (
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-white">
