@@ -141,6 +141,24 @@ export default function Home() {
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, [handleTagSwitch]);
+
+  // Listen for global tag switch events dispatched by other UI (DimensionNav, links)
+  useEffect(() => {
+    const onTagSwitchEvent = (e) => {
+      const tag = e?.detail?.tag || 'for-you';
+      const force = !!e?.detail?.force;
+      if (tag === 'following' && !isAuthenticated) {
+        window.dispatchEvent(new CustomEvent('auth:open', { detail: { type: 'following', data: null } }));
+        return;
+      }
+      // Scroll to top and switch tag (force if requested)
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      handleTagSwitch(tag, { force });
+    };
+
+    window.addEventListener('tag:switch', onTagSwitchEvent);
+    return () => window.removeEventListener('tag:switch', onTagSwitchEvent);
+  }, [handleTagSwitch, isAuthenticated]);
   
   return (
     <div className="min-h-screen">

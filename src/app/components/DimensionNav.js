@@ -79,7 +79,19 @@ const DimensionNav = ({ openAuthModal, openStoryFormModal, inStoryCard = false }
         <div 
           className={`nav-item flex flex-col items-center text-base transition-all cursor-pointer ${activeDimension === 'explore' ? 'active text-neon-blue' : 'text-white/80'}`} 
           data-dimension="explore"
-          onClick={() => setActiveDimension('explore')}
+          onClick={() => {
+            setActiveDimension('explore');
+            try {
+              // Push home URL and dispatch a global tag switch event so the
+              // main feed can react the same way as clicking the "For You" tag
+              if (typeof window !== 'undefined') {
+                window.history.pushState({}, '', '/');
+                window.dispatchEvent(new CustomEvent('tag:switch', { detail: { tag: 'for-you', force: true } }));
+              }
+            } catch (e) {
+              console.warn('Failed to dispatch tag switch from DimensionNav', e);
+            }
+          }}
         >
           <i className="fas fa-home text-2xl mb-2"></i>
           <span className="font-semibold">Home</span>

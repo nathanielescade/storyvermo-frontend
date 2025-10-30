@@ -2,6 +2,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import VerseViewer from '../../components/VerseViewer';
 import StoryCard from '../../components/StoryCard';
 import { storiesApi } from '../../../../lib/api';
 import { useAuth } from '../../../../contexts/AuthContext';
@@ -10,6 +12,9 @@ import { notFound } from 'next/navigation';
 
 export default function StoryDisplay({ initialStory, slug }) {
   const [story, setStory] = useState(initialStory);
+  const [showVerseViewer, setShowVerseViewer] = useState(false);
+  const [initialVerseIndex, setInitialVerseIndex] = useState(0);
+  const searchParams = useSearchParams();
   const { currentUser, isAuthenticated, openAuthModal } = useAuth();
   const { handleLikeToggle, handleSaveToggle, handleUserFollow, handleOpenVerses, handleTagSelect } = useMain();
 
@@ -25,7 +30,16 @@ export default function StoryDisplay({ initialStory, slug }) {
         notFound();
       });
     }
-  }, [initialStory, slug]);
+    // If we have a verse query param, open the verse viewer and scroll to that verse
+    const verseParam = searchParams?.get ? searchParams.get('verse') : null;
+    if (verseParam && story) {
+      // Find index of verse by id/public_id/slug
+      const idx = (story.verses || []).findIndex(v => String(v.id) === String(verseParam) || String(v.public_id) === String(verseParam) || String(v.slug) === String(verseParam));
+      const indexToOpen = idx >= 0 ? idx : 0;
+      setInitialVerseIndex(indexToOpen);
+      setShowVerseViewer(true);
+    }
+  }, [initialStory, slug, searchParams, story]);
 
   if (!story) {
     return (
@@ -52,6 +66,10 @@ export default function StoryDisplay({ initialStory, slug }) {
           isAuthenticated={isAuthenticated}
           openAuthModal={openAuthModal}
         />
+        {/* If a verse param requested opening, render the VerseViewer modal here */}
+        {showVerseViewer && story && (
+          <VerseViewer isOpen={showVerseViewer} onClose={() => setShowVerseViewer(false)} story={story} initialVerseIndex={initialVerseIndex} />
+        )}
       </div>
     </div>
   );

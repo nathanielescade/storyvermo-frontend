@@ -1,3 +1,4 @@
+"use client";
 // StoryCard.js
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -81,19 +82,20 @@ export default function StoryCard({
         setCurrentStory(story);
 
         // Create bubbles around the hologram
-        if (hologramRef.current) {
-            const existingBubbles = hologramRef.current.querySelectorAll('.bubble');
+        const node = hologramRef.current;
+        if (node) {
+            const existingBubbles = node.querySelectorAll('.bubble');
             existingBubbles.forEach(bubble => bubble.remove());
             
             const hologramId = `hologram-${story.id || Math.random().toString(36).substr(2, 9)}`;
-            hologramRef.current.id = hologramId;
+            node.id = hologramId;
             createBubbles(hologramId);
         }
 
         // Cleanup function to remove bubbles when component unmounts
         return () => {
-            if (hologramRef.current) {
-                const existingBubbles = hologramRef.current.querySelectorAll('.bubble');
+            if (node) {
+                const existingBubbles = node.querySelectorAll('.bubble');
                 existingBubbles.forEach(bubble => bubble.remove());
             }
         };
@@ -168,7 +170,9 @@ const handleFollow = async (event, username) => {
             // Always fetch the latest story data
             const fullStory = await storiesApi.getStoryBySlug(story.slug);
             setCurrentStory(fullStory);
-            window.__fullStoryForViewer = fullStory;
+            if (typeof window !== 'undefined') {
+                window.__fullStoryForViewer = fullStory;
+            }
             setShowVerseViewer(true);
         } catch (e) {
             console.warn('[StoryCard] failed logging story on open', e);
@@ -293,11 +297,13 @@ const handleFollow = async (event, username) => {
         return tag.id || tag.slug || tag.name;
     };
 
-    // Share data
+    // Share data (guard window for SSR). If origin is not available on server,
+    // fall back to a relative URL so server render doesn't crash.
+    const _origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
     const shareData = {
         title: story.title || 'StoryVerm',
         description: story.description || 'Check out this story on StoryVerm',
-        url: `${window.location.origin}/stories/${story.slug}/`
+        url: _origin ? `${_origin}/stories/${story.slug}/` : `/stories/${story.slug}/`
     };
 
     if (viewType === 'feed') {
@@ -409,24 +415,24 @@ const handleFollow = async (event, username) => {
                     }}
                 />
                 
-               <VerseViewer
-    isOpen={showVerseViewer}
-    onClose={() => {
-        setShowVerseViewer(false);
-        // Clean up
-        delete window.__fullStoryForViewer;
-    }}
-    story={window.__fullStoryForViewer || currentStory}
-    initialVerseIndex={0}
-    onStoryUpdated={refetchStory}
-    onVerseDeleted={(verseId) => {
-        // Update the verse count when a verse is deleted
-        setCurrentStory(prev => ({
-            ...prev,
-            verses: prev.verses.filter(v => v.id !== verseId)
-        }));
-    }}
-/>
+                <VerseViewer
+                    isOpen={showVerseViewer}
+                    onClose={() => {
+                        setShowVerseViewer(false);
+                        // Clean up
+                        if (typeof window !== 'undefined') delete window.__fullStoryForViewer;
+                    }}
+                    story={(typeof window !== 'undefined' && window.__fullStoryForViewer) ? window.__fullStoryForViewer : currentStory}
+                    initialVerseIndex={0}
+                    onStoryUpdated={refetchStory}
+                    onVerseDeleted={(verseId) => {
+                        // Update the verse count when a verse is deleted
+                        setCurrentStory(prev => ({
+                            ...prev,
+                            verses: prev.verses.filter(v => v.id !== verseId)
+                        }));
+                    }}
+                />
                 
                 <ShareModal
                     isOpen={showShareModal}
