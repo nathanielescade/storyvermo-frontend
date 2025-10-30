@@ -312,6 +312,8 @@ const StoryFormModal = ({
 
 // Replace the handlePublish function in StoryFormModal.js with this fixed version
 
+// UPDATED handlePublish function with improved image upload handling
+
 const handlePublish = async () => {
   if (!validateForm()) {
     setError('Please fix the validation errors below');
@@ -327,6 +329,58 @@ const handlePublish = async () => {
       throw new Error('You must be logged in to perform this action');
     }
 
+    // Helper function to upload a single image with better error handling
+    const uploadImage = async (file) => {
+      const fd = new FormData();
+      fd.append('file', file);
+      
+      // Get fresh CSRF token
+      const csrfToken = getCsrfToken();
+      
+      console.log('Uploading image with CSRF token:', csrfToken ? 'present' : 'missing');
+      
+      const headers = {
+        'X-CSRFToken': csrfToken
+      };
+      
+      // Try to get token from meta tag if cookie method fails
+      if (!csrfToken) {
+        const metaToken = document.querySelector('[name=csrf-token]')?.getAttribute('content');
+        if (metaToken) {
+          headers['X-CSRFToken'] = metaToken;
+          console.log('Using CSRF token from meta tag');
+        }
+      }
+      
+      const res = await fetch(`${NEXT_PUBLIC_API_URL}/api/images/`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: headers,
+        body: fd
+      });
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('Image upload failed:', {
+          status: res.status,
+          statusText: res.statusText,
+          error: errorText,
+          hasCSRF: !!csrfToken
+        });
+        
+        // Provide more specific error messages
+        if (res.status === 403) {
+          throw new Error('Upload permission denied. Please try logging in again.');
+        } else if (res.status === 401) {
+          throw new Error('Session expired. Please refresh the page and try again.');
+        } else {
+          throw new Error(`Image upload failed: ${res.statusText}`);
+        }
+      }
+      
+      return await res.json();
+    };
+
     // Upload all verse images first and collect their public_ids
     const versesWithUploadedImages = await Promise.all(
       verses.map(async (verse) => {
@@ -335,19 +389,13 @@ const handlePublish = async () => {
         for (const img of verse.imageIds || []) {
           if (img && (img.file instanceof File || img instanceof File)) {
             const file = img.file instanceof File ? img.file : img;
-            const fd = new FormData();
-            fd.append('file', file);
-            
-            const res = await fetch(`${NEXT_PUBLIC_API_URL}/api/images/`, {
-              method: 'POST',
-              credentials: 'include',
-              headers: { 'X-CSRFToken': getCsrfToken() },
-              body: fd
-            });
-            
-            if (!res.ok) throw new Error('Image upload failed');
-            const result = await res.json();
-            uploadedImageIds.push(result.public_id);
+            try {
+              const result = await uploadImage(file);
+              uploadedImageIds.push(result.public_id);
+            } catch (uploadErr) {
+              console.error('Failed to upload verse image:', uploadErr);
+              throw uploadErr; // Propagate the error
+            }
           } else if (typeof img === 'string') {
             uploadedImageIds.push(img);
           } else if (img && img.public_id) {
@@ -368,27 +416,23 @@ const handlePublish = async () => {
     const storyPayload = {
       title: title.trim(),
       description: description.trim(),
-      tags_input: selectedTags,  // Use tags_input instead of tags
+      tags_input: selectedTags,
       allow_contributions: allowContributions,
       creator: currentUser.id || currentUser.pk || currentUser.username
     };
 
     // Handle cover image
-    let finalCoverImageId = coverImageId; // Start with existing cover image ID
+    let finalCoverImageId = coverImageId;
     
     if (imageFile) {
-      // If there's a new image file, upload it
-      const fd = new FormData();
-      fd.append('file', imageFile);
-      const res = await fetch(`${NEXT_PUBLIC_API_URL}/api/images/`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'X-CSRFToken': getCsrfToken() },
-        body: fd
-      });
-      if (res.ok) {
-        const result = await res.json();
+      try {
+        console.log('Uploading cover image...');
+        const result = await uploadImage(imageFile);
         finalCoverImageId = result.public_id;
+        console.log('Cover image uploaded:', finalCoverImageId);
+      } catch (uploadErr) {
+        console.error('Failed to upload cover image:', uploadErr);
+        throw uploadErr;
       }
     }
     
@@ -399,16 +443,14 @@ const handlePublish = async () => {
 
     let savedStory;
     if (editingStory) {
-      // Update story metadata (title/description/tags/cover/allow_contributions)
       console.log('Updating story with payload:', storyPayload);
       savedStory = await storiesApi.updateStory(editingStory.slug, storyPayload);
     } else {
-      // Create story
       console.log('Creating story with payload:', storyPayload);
       savedStory = await storiesApi.createStory(storyPayload);
     }
 
-    // After creating/updating the story, create verses and moments via their endpoints
+    // After creating/updating the story, create verses and moments
     const createdVerses = [];
     const storyIdentifier = savedStory?.public_id || savedStory?.id || savedStory?.slug;
 
@@ -425,7 +467,7 @@ const handlePublish = async () => {
 
           const verseResponse = await versesApi.createVerse(verseData);
 
-          // Create moments for each image id (if any)
+          // Create moments for each image id
           const imageIds = v.image_ids || [];
           if (Array.isArray(imageIds) && imageIds.length > 0 && verseResponse) {
             for (let m = 0; m < imageIds.length; m++) {
@@ -470,7 +512,19 @@ const handlePublish = async () => {
     }, 2000);
   } catch (err) {
     console.error('Error saving story:', err);
-    setError(err.message || 'An error occurred while saving the story. Please try again.');
+    
+    // Provide user-friendly error messages
+    let errorMessage = 'An error occurred while saving the story. Please try again.';
+    
+    if (err.message.includes('permission denied') || err.message.includes('403')) {
+      errorMessage = 'Upload permission denied. Please try refreshing the page and logging in again.';
+    } else if (err.message.includes('Session expired') || err.message.includes('401')) {
+      errorMessage = 'Your session has expired. Please refresh the page and try again.';
+    } else if (err.message) {
+      errorMessage = err.message;
+    }
+    
+    setError(errorMessage);
   } finally {
     setLoading(false);
   }
