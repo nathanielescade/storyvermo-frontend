@@ -131,23 +131,27 @@ export default function StoryCard({
 // StoryCard.js - Updated handleFollow function
 const handleFollow = async (event, username) => {
     event.stopPropagation();
-    
+
     if (!isAuthenticated) {
         openAuthModal('follow', username);
         return;
     }
-    
+
     try {
-        // DON'T do optimistic update - wait for server response
-        const response = await userApi.followUser(username);
-        
-        // Update state based on server response ONLY
-        setIsFollowing(response.is_following);
-        
-        // Call callback if provided
-        if (onFollowUser) {
+        // If a parent handler is provided, delegate to it so we don't call the
+        // API twice (some parents already call userApi.followUser).
+        if (typeof onFollowUser === 'function') {
+            // Let parent perform the follow/unfollow action and update global state.
             await onFollowUser(username);
+            // Optimistically toggle local state to reflect expected change. Parent
+            // will update authoritative state eventually.
+            setIsFollowing(prev => !prev);
+            return;
         }
+
+        // Fallback: perform the API call locally when no parent handler exists
+        const response = await userApi.followUser(username);
+        setIsFollowing(response.is_following);
     } catch (error) {
         console.error('Error following user:', error);
     }
