@@ -40,7 +40,7 @@ export default function RootLayout({ children }) {
         <meta name="keywords" content="story, verse, moments, StoryVermo, social storytelling, layered stories, story platform, creative writing, story sharing, story community, story perspectives, storytelling" />
         
         {/* Open Graph Tags */}
-        <meta property="og:title" content="StoryVermo - Every moment is a story" />
+        <meta property="og:title" content="StoryVermo - Every moment has a story" />
         <meta property="og:description" content="Everyday moments become stories. Write, snap, and create them with others." />
         <meta property="og:type" content="website" />
         <meta property="og:url" content="https://storyvermo.com" />
@@ -52,7 +52,7 @@ export default function RootLayout({ children }) {
         {/* Twitter Card Tags */}
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:site" content="@storyvermo" />
-        <meta name="twitter:title" content="StoryVermo - Every moment is a story" />
+        <meta name="twitter:title" content="StoryVermo - Every moment has a story" />
         <meta name="twitter:description" content="Everyday moments become stories. Write, snap, and create them with others." />
         <meta name="twitter:image" content="https://storyvermo.com/android-chrome-512x512.png" />
         
@@ -73,7 +73,7 @@ export default function RootLayout({ children }) {
               "url": "https://storyvermo.com",
               "name": "StoryVermo",
               "description": "StoryVermo is a social storytelling platform where people create and share their stories in a unique way. A story is the core piece of content, and it can stand alone or be expanded with verses and moments that add depth, layers, and different perspectives.",
-              "slogan": "Every moment is a story",
+              "slogan": "Every moment has a story",
               "potentialAction": {
                 "@type": "SearchAction",
                 "target": "https://storyvermo.com/search?q={search_term_string}",
@@ -92,7 +92,7 @@ export default function RootLayout({ children }) {
               "name": "StoryVermo",
               "url": "https://storyvermo.com",
               "logo": "https://storyvermo.com/storyvermo_logo.png",
-              "slogan": "Every moment is a story",
+              "slogan": "Every moment has a story",
               "description": "StoryVermo is a social storytelling platform where people create and share their stories in a unique way. A story is the core piece of content, and it can stand alone or be expanded with verses and moments that add depth, layers, and different perspectives.",
               "sameAs": [
                 "https://twitter.com/storyvermo",
