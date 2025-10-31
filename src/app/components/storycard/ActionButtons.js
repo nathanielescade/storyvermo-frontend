@@ -12,7 +12,9 @@ const ActionButtons = ({
     setIsSaved, 
     setStory, 
     setShowCommentModal, 
-    setShowShareModal 
+    setShowShareModal,
+    isAuthenticated,
+    openAuthModal
 }) => {
     const [optimisticLike, setOptimisticLike] = useState(isLiked);
     const [optimisticLikeCount, setOptimisticLikeCount] = useState(story.likes_count || 0);
@@ -31,6 +33,12 @@ const ActionButtons = ({
     const handleLike = async (e) => {
         e.preventDefault();
         e.stopPropagation();
+
+        if (!isAuthenticated) {
+            // Ask user to authenticate before liking
+            if (typeof openAuthModal === 'function') openAuthModal('like', { storySlug: story.slug, storyId: story.id });
+            return;
+        }
 
         // Optimistic update - update UI immediately
         const newLikeState = !optimisticLike;
@@ -82,6 +90,11 @@ const ActionButtons = ({
     const handleSave = async (e) => {
         e.preventDefault();
         e.stopPropagation();
+
+        if (!isAuthenticated) {
+            if (typeof openAuthModal === 'function') openAuthModal('save', { storySlug: story.slug, storyId: story.id });
+            return;
+        }
 
         // Optimistic update - update UI immediately
         const newSaveState = !optimisticSave;

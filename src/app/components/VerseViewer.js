@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { absoluteUrl, versesApi } from '../../../lib/api';
 import ContributeModal from './storycard/ContributeModal';
+import { useRouter } from 'next/navigation';
+import ShareModal from './ShareModal';
 
 // Helper to get an image URL from a moment
 const getMomentImageUrl = (moment) => {
@@ -90,9 +92,13 @@ const VerseViewer = ({
   isOpen, 
   onClose, 
   story, 
-  initialVerseIndex = 0 
+  initialVerseIndex = 0,
+  onReady,
+  isAuthenticated,
+  openAuthModal
 }) => {
   const { currentUser } = useAuth();
+  const router = useRouter();
   const [currentVerseIndex, setCurrentVerseIndex] = useState(initialVerseIndex);
   const [isLiked, setIsLiked] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
@@ -142,6 +148,38 @@ const VerseViewer = ({
     
     return null;
   };
+
+  // Helper functions to derive author display fields (robust to different API shapes)
+  const getAuthor = () => currentVerse?.author || null;
+
+  const getAuthorDisplayName = () => {
+    const a = getAuthor();
+    if (!a) return 'Poster Name';
+
+    const full = a.get_full_name || a.full_name || a.display_name || a.name;
+    if (full) return full;
+
+    const first = a.first_name || a.firstname || '';
+    const last = a.last_name || a.lastname || '';
+    if (first || last) return `${first} ${last}`.trim();
+
+    return a.username || a.public_id || 'Poster Name';
+  };
+  const getAuthorProfileImageUrl = () => {
+    const a = getAuthor();
+    if (!a) return null;
+    const maybe = a.profile_image || a.image || a.avatar || a.photo || a.picture || (a.profile && (a.profile.image || a.profile.avatar));
+    if (!maybe) return null;
+    if (typeof maybe === 'string') return absoluteUrl(maybe);
+    if (maybe.url) return absoluteUrl(maybe.url);
+    if (maybe.file_url) return absoluteUrl(maybe.file_url);
+    return null;
+  };
+
+  const getAuthorInitial = () => {
+    const name = getAuthorDisplayName() || getAuthorUsername() || 'P';
+    return (name && name.charAt && name.charAt(0).toUpperCase()) || 'P';
+  };
   
   // Check if current verse is a contribution (not by the story creator)
   const isContribution = (() => {
@@ -160,6 +198,18 @@ const VerseViewer = ({
     // Compare the IDs as strings to handle different formats
     return String(authorId) !== String(creatorId);
   })();
+
+  // Helper to get the author's username (handles multiple shapes)
+  const getAuthorUsername = () => {
+    if (!currentVerse) return null;
+    const a = currentVerse.author;
+    if (!a) return currentVerse.author_name || currentVerse.author_username || null;
+    if (typeof a === 'string') return a;
+    if (a.username) return a.username;
+    if (a.user && a.user.username) return a.user.username;
+    if (a.profile && a.profile.username) return a.profile.username;
+    return currentVerse.author_name || currentVerse.author_username || null;
+  };
   
   // Initialize verse data
   useEffect(() => {
@@ -217,6 +267,16 @@ const VerseViewer = ({
       }
     };
   }, [isOpen, initialVerseIndex, story]);
+
+  // Notify parent that the viewer has rendered and is ready (used to stop button loading states)
+  useEffect(() => {
+    if (isOpen && typeof onReady === 'function') {
+      // Wait for next paint to ensure viewer is mounted and visible
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        try { onReady(); } catch (e) { /* ignore */ }
+      }));
+    }
+  }, [isOpen, onReady]);
 
   // Handle scroll events to detect current verse (throttled)
   useEffect(() => {
@@ -286,6 +346,10 @@ const VerseViewer = ({
   // Handle like action with optimistic UI
   const handleLike = async () => {
     if (!currentVerse || !currentVerse.slug) return;
+    if (!isAuthenticated) {
+      if (typeof openAuthModal === 'function') openAuthModal('like', { slug: story.slug, verseId: currentVerse.id });
+      return;
+    }
     
     // Optimistic UI update
     const newLikedState = !isLiked;
@@ -327,6 +391,10 @@ const VerseViewer = ({
   // Handle save action with optimistic UI
   const handleSave = async () => {
     if (!currentVerse || !currentVerse.slug) return;
+    if (!isAuthenticated) {
+      if (typeof openAuthModal === 'function') openAuthModal('save', { slug: story.slug, verseId: currentVerse.id });
+      return;
+    }
     
     // Optimistic UI update
     const newSavedState = !isSaved;
@@ -367,20 +435,41 @@ const VerseViewer = ({
 
   // Handle share action
   const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: story?.title || 'Verse',
-        text: currentVerse?.content || 'Check out this verse',
-        url: window.location.href
-      });
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      alert('Link copied to clipboard!');
-    }
+    // Open the app's ShareModal with verse-specific data
+    if (!currentVerse || !story) return;
+
+    const origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
+    const verseId = currentVerse?.id || currentVerse?.public_id || currentVerse?.slug || '';
+    const encodedSlug = story && story.slug ? encodeURIComponent(story.slug) : '';
+    const encodedVerseId = typeof verseId === 'string' || typeof verseId === 'number' ? encodeURIComponent(verseId) : '';
+    const verseUrl = origin
+      ? `${origin}/stories/${encodedSlug}/?verse=${encodedVerseId}`
+      : `/stories/${encodedSlug}/?verse=${encodedVerseId}`;
+
+    const payload = {
+      title: `${story.title || 'StoryVerm'} - Verse ${currentVerseIndex + 1}`,
+      description: (currentVerse.content || '').slice(0, 240),
+      url: verseUrl
+    };
+
+    const imageForShare = (currentVerse && currentVerse.moments && currentVerse.moments[currentMomentIndex]) ? getMomentImageUrl(currentVerse.moments[currentMomentIndex]) : getMomentImageUrl(story?.verses && story.verses[0]?.moments && story.verses[0].moments[0]);
+
+    setShareData(payload);
+    setShareImage(imageForShare || null);
+    setShowShareModal(true);
   };
+
+  // Share modal state
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareData, setShareData] = useState(null);
+  const [shareImage, setShareImage] = useState(null);
 
   // Handle opening contribute modal
   const handleOpenContribute = () => {
+    if (!isAuthenticated) {
+      if (typeof openAuthModal === 'function') openAuthModal('contribute', { slug: story.slug, id: story.id });
+      return;
+    }
     setShowContributeModal(true);
   };
 
@@ -700,12 +789,38 @@ const VerseViewer = ({
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-black/60 backdrop-blur-lg to-transparent p-4">
           <div className="flex justify-between items-center max-w-3xl mx-auto">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-cyan-500/30 to-blue-500/30 flex items-center justify-center font-bold text-lg text-white shadow-lg">
-                {currentVerse?.author?.username?.charAt(0).toUpperCase() || 'P'}
+              <div className="relative flex-shrink-0" style={{ width: '3rem', height: '3rem' }}>
+                <a
+                  href={`/${encodeURIComponent(getAuthorUsername() || '')}`}
+                  className="block w-full h-full"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const u = getAuthorUsername();
+                    if (u) router.push(`/${encodeURIComponent(u)}`);
+                  }}
+                >
+                  <div className="w-full h-full rounded-full bg-gradient-to-r from-accent-orange to-neon-pink flex items-center justify-center font-bold text-base flex-shrink-0 cursor-pointer overflow-hidden">
+                    {getAuthorProfileImageUrl() ? (
+                      <img src={getAuthorProfileImageUrl()} alt={`${getAuthorDisplayName()}'s profile`} className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-white">{getAuthorInitial()}</span>
+                    )}
+                  </div>
+                </a>
               </div>
-              <div className="text-white">
-                <div className="font-semibold">{currentVerse?.author?.username || 'Poster Name'}</div>
-                {/* Updated to show "Contributed" tag only for actual contributed verses */}
+
+              <div className="text-white min-w-0">
+                <a
+                  href={`/${encodeURIComponent(getAuthorUsername() || '')}`}
+                  className="block min-w-0"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const u = getAuthorUsername();
+                    if (u) router.push(`/${encodeURIComponent(u)}`);
+                  }}
+                >
+                  <span className="font-semibold text-sm truncate block max-w-[18rem]" title={getAuthorDisplayName()}>{getAuthorDisplayName()}</span>
+                </a>
                 <div className={`text-xs ${isContribution ? 'text-orange-400' : 'text-cyan-300'}`}>
                   {isContribution ? 'Contributed' : 'Creator'}
                 </div>
@@ -793,6 +908,15 @@ const VerseViewer = ({
             }
           }
         }}
+      />
+      
+      {/* Share Modal for verses */}
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        shareData={shareData || {}}
+        imageUrl={shareImage}
+        isVerse={true}
       />
       
       {/* Custom styles for smooth animations */}

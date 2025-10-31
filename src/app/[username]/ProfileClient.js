@@ -89,6 +89,17 @@ export default function ProfileClient({ username, initialProfile = null }) {
   
   const { currentUser, isAuthenticated, openAuthModal } = useAuth();
 
+  // Helper to safely get the first character of a username (defensive)
+  const getInitial = (name, fallback = '') => {
+    if (!name) return fallback;
+    try {
+      const s = String(name);
+      return s.length > 0 ? s.charAt(0).toUpperCase() : fallback;
+    } catch (e) {
+      return fallback;
+    }
+  };
+
   // Fetch current user's following list
   const fetchCurrentUserFollowing = useCallback(async () => {
     if (!isAuthenticated || !currentUser?.username) return;
@@ -109,9 +120,16 @@ export default function ProfileClient({ username, initialProfile = null }) {
       console.log('Profile API URL:', `/api/profiles/${username}/`);
       console.log('Profile API Full Response:', response);
       
+      // Build a robust full-name value from multiple possible API fields
+      const first = response.first_name || response.creator_first_name || response.given_name || '';
+      const last = response.last_name || response.creator_last_name || response.family_name || '';
+      const explicitFull = response.get_full_name || response.full_name || response.name || response.display_name || '';
+      const combined = `${first} ${last}`.trim();
+      const fullName = (explicitFull && explicitFull.trim()) || (combined && combined) || response.username || '';
+
       const userData = {
         ...response,
-        get_full_name: `${response.first_name || ''} ${response.last_name || ''}`.trim() || response.username,
+        get_full_name: fullName,
       };
       setUser(userData);
 
@@ -234,10 +252,17 @@ export default function ProfileClient({ username, initialProfile = null }) {
 
       // After successful upload, fetch the updated profile to get the real URL
       const updatedProfile = await userApi.getProfile(username);
+      // Recompute full name for the updated profile too
+      const uFirst = updatedProfile.first_name || updatedProfile.creator_first_name || updatedProfile.given_name || '';
+      const uLast = updatedProfile.last_name || updatedProfile.creator_last_name || updatedProfile.family_name || '';
+      const uExplicit = updatedProfile.get_full_name || updatedProfile.full_name || updatedProfile.name || updatedProfile.display_name || '';
+      const uCombined = `${uFirst} ${uLast}`.trim();
+      const uFullName = (uExplicit && uExplicit.trim()) || (uCombined && uCombined) || updatedProfile.username || '';
+
       setUser(prev => ({
         ...prev,
         ...updatedProfile,
-        get_full_name: `${updatedProfile.first_name || ''} ${updatedProfile.last_name || ''}`.trim() || updatedProfile.username
+        get_full_name: uFullName
       }));
 
       // Clean up the object URL
@@ -391,9 +416,9 @@ export default function ProfileClient({ username, initialProfile = null }) {
                 onClick={() => setImageModal({ visible: true, url: user.profile_image_url, type: 'profile' })}
               />
             ) : (
-              <div className="w-32 h-32 rounded-full border-4 border-cyan-500/30 shadow-lg flex items-center justify-center bg-gradient-to-br from-cyan-500/30 to-blue-500/30">
+                <div className="w-32 h-32 rounded-full border-4 border-cyan-500/30 shadow-lg flex items-center justify-center bg-gradient-to-br from-cyan-500/30 to-blue-500/30">
                 <span className="text-4xl font-bold text-cyan-500">
-                  {user.username.charAt(0).toUpperCase()}
+                  {getInitial(user?.username, '')}
                 </span>
               </div>
             )}
@@ -813,7 +838,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
                         ) : (
                           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center shrink-0">
                             <span className="text-cyan-500 font-bold">
-                              {user.username.charAt(0).toUpperCase()}
+                              {getInitial(user?.username, 'U')}
                             </span>
                           </div>
                         )}
@@ -928,7 +953,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
                         />
                       ) : (
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-white">
-                          {entry.username.charAt(0).toUpperCase()}
+                          {getInitial(entry?.username, '')}
                         </div>
                       )}
                       <span className="font-bold text-white">{entry.username}</span>

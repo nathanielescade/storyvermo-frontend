@@ -24,7 +24,12 @@ export default async function Page({ params }) {
   try {
     initialProfile = await userApi.getProfile(username);
     if (initialProfile) {
-      initialProfile.get_full_name = `${initialProfile.first_name || ''} ${initialProfile.last_name || ''}`.trim() || initialProfile.username;
+      // Derive a sensible full name from multiple possible API fields
+      const first = initialProfile.first_name || initialProfile.creator_first_name || '';
+      const last = initialProfile.last_name || initialProfile.creator_last_name || '';
+      const explicitFull = initialProfile.get_full_name || initialProfile.full_name || initialProfile.name || initialProfile.display_name || '';
+      const combined = `${first} ${last}`.trim();
+      initialProfile.get_full_name = (explicitFull && explicitFull.trim()) || (combined && combined) || initialProfile.username || '';
     }
   } catch (err) {
     // ignore - client will handle missing profile

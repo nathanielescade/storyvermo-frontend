@@ -45,6 +45,7 @@ export default function StoryCard({
     const [isDescTruncated, setIsDescTruncated] = useState(false);
     const [showCommentModal, setShowCommentModal] = useState(false);
     const [showVerseViewer, setShowVerseViewer] = useState(false);
+    const [isViewerOpening, setIsViewerOpening] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
     const [localCommentsCount, setLocalCommentsCount] = useState(story.comments_count || 0);
     
@@ -190,21 +191,28 @@ const handleFollow = async (event, username) => {
 
     const handleOpenVerses = async () => {
         try {
-            console.debug('[StoryCard] open verses clicked', {
+            console.debug('[StoryCard] open verses clicked (optimistic open)', {
                 slug: story?.slug,
                 versesCount: Array.isArray(story?.verses) ? story.verses.length : 0,
                 sampleVerses: Array.isArray(story?.verses) ? story.verses.slice(0,3) : story?.verses
             });
-            
-            // Always fetch the latest story data
+
+            // Start opening indicator, then open viewer immediately so UI appears.
+            setIsViewerOpening(true);
+            // Open the viewer immediately so the UI appears instantly.
+            // Fetch the full story in the background and patch the viewer when it arrives.
+            setShowVerseViewer(true);
+
+            // Fetch latest story data asynchronously (do not block UI)
             const fullStory = await storiesApi.getStoryBySlug(story.slug);
             setCurrentStory(fullStory);
             if (typeof window !== 'undefined') {
                 window.__fullStoryForViewer = fullStory;
             }
-            setShowVerseViewer(true);
         } catch (e) {
-            console.warn('[StoryCard] failed logging story on open', e);
+            console.warn('[StoryCard] failed fetching story after opening viewer', e);
+            setIsViewerOpening(false);
+            // Keep the viewer open even if fetch fails; it will use whatever `currentStory` was available.
         }
     };
 
@@ -417,6 +425,8 @@ const handleFollow = async (event, username) => {
                             setStory={setCurrentStory}
                             setShowCommentModal={setShowCommentModal}
                             setShowShareModal={setShowShareModal}
+                            isAuthenticated={isAuthenticated}
+                            openAuthModal={openAuthModal}
                         />
                         
                         <CreatorChip 
@@ -425,6 +435,7 @@ const handleFollow = async (event, username) => {
                             isFollowing={isFollowing}
                             handleFollow={handleFollow}
                             handleOpenVerses={handleOpenVerses}
+                            isViewerOpening={isViewerOpening}
                             getCreatorDisplayName={getCreatorDisplayName}
                             getCreatorUsername={getCreatorUsername}
                             getCreatorProfileImageUrl={getCreatorProfileImageUrl}
@@ -466,11 +477,15 @@ const handleFollow = async (event, username) => {
                     isOpen={showVerseViewer}
                     onClose={() => {
                         setShowVerseViewer(false);
+                        setIsViewerOpening(false);
                         // Clean up
                         if (typeof window !== 'undefined') delete window.__fullStoryForViewer;
                     }}
                     story={(typeof window !== 'undefined' && window.__fullStoryForViewer) ? window.__fullStoryForViewer : currentStory}
                     initialVerseIndex={0}
+                    onReady={() => setIsViewerOpening(false)}
+                    isAuthenticated={isAuthenticated}
+                    openAuthModal={openAuthModal}
                     onStoryUpdated={refetchStory}
                     onVerseDeleted={(verseId) => {
                         // Update the verse count when a verse is deleted
