@@ -54,6 +54,7 @@ export default function StoryCard({
     const [showEnlargeModal, setShowEnlargeModal] = useState(false);
     const [showMoreOptionsModal, setShowMoreOptionsModal] = useState(false);
     const [showDropdown, setShowDropdown] = useState(false);
+    const [dropdownCoords, setDropdownCoords] = useState(null);
     
     // Story form modal
     const [showStoryFormModal, setShowStoryFormModal] = useState(false);
@@ -68,10 +69,37 @@ export default function StoryCard({
     const hologramRef = useRef(null);
     const dropdownRef = useRef(null);
 
-    // Check if current user is the owner of the story
-    const isOwner = currentUser && story.creator && 
-        ((typeof story.creator === 'string' && story.creator === currentUser.username) ||
-         (typeof story.creator === 'object' && story.creator.username === currentUser.username));
+    // Check if current user is the owner of the story (robust across different API shapes)
+    const isOwner = (() => {
+        if (!currentUser || !story) return false;
+
+        const cuUsername = currentUser.username || '';
+        const cuId = currentUser.id || currentUser.pk || currentUser.user_id || '';
+
+        // If serializer provided a direct username field
+        if (story.creator_username && cuUsername && story.creator_username === cuUsername) return true;
+
+        // If serializer provided a numeric id field
+        if (story.creator_id && cuId && String(story.creator_id) === String(cuId)) return true;
+
+        // If story.creator is a plain string (username) or numeric id
+        if (typeof story.creator === 'string') {
+            if (cuUsername && story.creator === cuUsername) return true;
+            if (cuId && String(story.creator) === String(cuId)) return true;
+        }
+
+        // If story.creator is an object, check common fields
+        if (typeof story.creator === 'object' && story.creator) {
+            const c = story.creator;
+            if (c.username && cuUsername && c.username === cuUsername) return true;
+            if ((c.id || c.pk || c.user_id) && cuId && String(c.id || c.pk || c.user_id) === String(cuId)) return true;
+        }
+
+        // Fallback: check top-level creator_user / creator_username style fields
+        if (story.creator_user && cuUsername && story.creator_user === cuUsername) return true;
+
+        return false;
+    })();
 
     useEffect(() => {
         // Initialize state based on props
@@ -106,6 +134,7 @@ export default function StoryCard({
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
                 setShowDropdown(false);
+                setDropdownCoords(null);
             }
         };
 
@@ -185,6 +214,7 @@ const handleFollow = async (event, username) => {
         if (!slug) {
             alert('Cannot delete story: missing slug/identifier.');
             setShowDropdown(false);
+            setDropdownCoords(null);
             return;
         }
 
@@ -192,6 +222,7 @@ const handleFollow = async (event, username) => {
             setIsDeleting(true);
             await storiesApi.deleteStory(slug);
             setShowDropdown(false);
+            setDropdownCoords(null);
             setStoryDeleted(true);
             
             if (cardRef.current) {
@@ -336,7 +367,23 @@ const handleFollow = async (event, username) => {
                             setShowContributeModal={setShowContributeModal}
                             setShowRecommendModal={setShowRecommendModal}
                             setShowEnlargeModal={setShowEnlargeModal}
-                            setShowDropdown={setShowDropdown}
+                            // new handler: compute coords and open dropdown
+                            onOpenDropdown={(btnEl) => {
+                                try {
+                                    if (!btnEl || typeof btnEl.getBoundingClientRect !== 'function') {
+                                        setShowDropdown(true);
+                                        return;
+                                    }
+                                    const rect = btnEl.getBoundingClientRect();
+                                    const left = rect.left + (window.scrollX || 0);
+                                    const top = rect.bottom + (window.scrollY || 0);
+                                    setDropdownCoords({ left, top });
+                                    setShowDropdown(true);
+                                } catch (e) {
+                                    console.warn('Failed to compute dropdown coords', e);
+                                    setShowDropdown(true);
+                                }
+                            }}
                         />
                         
                         <TitleSection 
@@ -474,7 +521,10 @@ const handleFollow = async (event, username) => {
                 
                 <DropdownMenu 
                     showDropdown={showDropdown}
-                    setShowDropdown={setShowDropdown}
+                    setShowDropdown={(v) => {
+                        setShowDropdown(v);
+                        if (!v) setDropdownCoords(null);
+                    }}
                     isOwner={isOwner}
                     isFollowing={isFollowing}
                     handleFollow={handleFollow}
@@ -488,6 +538,7 @@ const handleFollow = async (event, username) => {
                     handleReportStory={() => alert('Report functionality would open here')}
                     handleShareStory={() => setShowShareModal(true)}
                     dropdownRef={dropdownRef}
+                    coords={dropdownCoords}
                 />
             </div>
         );

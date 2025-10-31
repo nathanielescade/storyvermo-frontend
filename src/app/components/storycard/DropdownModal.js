@@ -1,5 +1,7 @@
 import React from 'react';
 
+// Dropdown menu now supports an explicit coords prop so it can be positioned
+// next to the clicked ellipsis. coords should be an object: { left, top }
 const DropdownMenu = ({ 
     showDropdown, 
     setShowDropdown, 
@@ -11,12 +13,35 @@ const DropdownMenu = ({
     handleCopyLink, 
     handleReportStory, 
     handleShareStory,
-    dropdownRef 
+    dropdownRef,
+    coords // { left, top }
 }) => {
     if (!showDropdown) return null;
 
+    // Default coords guard
+    const left = coords && coords.left ? coords.left : undefined;
+    const top = coords && coords.top ? coords.top : undefined;
+
+    // Inline style to position the menu. Use fixed positioning to avoid
+    // stacking context/clipping issues; clamp to viewport if needed.
+    const style = {};
+    if (typeof window !== 'undefined' && left !== undefined) {
+        // clamp left so menu doesn't overflow right edge (menu width ~ 208px)
+        const menuWidth = 208;
+        const maxLeft = Math.max(8, window.innerWidth - menuWidth - 8);
+        style.left = Math.min(left, maxLeft) + 'px';
+        style.position = 'fixed';
+    }
+    if (typeof window !== 'undefined' && top !== undefined) {
+        style.top = (top + 6) + 'px'; // small gap below button
+        style.position = 'fixed';
+    }
+
+    // fallback absolute classes if coords missing
+    const baseClass = 'dropdown-menu z-50 w-52 bg-gray-900 border border-gray-700 rounded-lg shadow-lg overflow-hidden';
+
     return (
-        <div className="dropdown-menu absolute right-0 top-8 z-20 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-lg overflow-hidden" ref={dropdownRef}>
+        <div className={baseClass} style={style} ref={dropdownRef}>
             {isOwner ? (
                 <>
                     <button 

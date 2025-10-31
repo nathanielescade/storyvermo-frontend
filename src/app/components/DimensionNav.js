@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
 
-const DimensionNav = ({ openAuthModal, openStoryFormModal, inStoryCard = false }) => {
+const DimensionNav = ({ openAuthModal, openStoryFormModal, openDiscoverModal, inStoryCard = false }) => {
   const { currentUser, isAuthenticated } = useAuth();
   const [activeDimension, setActiveDimension] = useState('explore');
   const router = useRouter();
@@ -49,8 +49,13 @@ const DimensionNav = ({ openAuthModal, openStoryFormModal, inStoryCard = false }
       return;
     }
     
-    // Navigate to discover page if authenticated
-    router.push('/discover');
+    // Open discover modal if authenticated
+    if (typeof openDiscoverModal === 'function') {
+      openDiscoverModal();
+    } else {
+      // fallback to discover page navigation
+      router.push('/discover');
+    }
   };
 
   const handleProfile = () => {

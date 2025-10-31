@@ -579,44 +579,88 @@ export default function ProfileClient({ username, initialProfile = null }) {
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {verses.length > 0 ? (
                 verses.map((verse, i) => {
-                  const coverImageUrl = getImageUrl(verse.cover_image);
+                  // Mirror logic from src/app/verses/page.js to display the same card
+                  const id = verse.id || verse.public_id || verse.slug || '';
+                  const storyObj = verse.story || {};
+                  const storySlug = (typeof storyObj === 'string' ? storyObj : (storyObj.slug || storyObj.story_slug)) || verse.story_slug || '';
+                  const storyTitle = (typeof storyObj === 'object' && storyObj) ? (storyObj.title || storyObj.story_title) : (verse.story_title || 'Story');
+                  const excerpt = verse.content ? String(verse.content).slice(0, 120) : '';
+
+                  const getFirstMomentImage = (v) => {
+                    if (!v) return null;
+                    const moments = v.moments || v.images || [];
+                    const first = Array.isArray(moments) && moments.length > 0 ? moments[0] : null;
+                    if (!first) return null;
+                    if (typeof first === 'string') return absoluteUrl(first);
+                    if (first.file_url) return absoluteUrl(first.file_url);
+                    if (first.url) return absoluteUrl(first.url);
+                    if (first.image) {
+                      if (typeof first.image === 'string') return absoluteUrl(first.image);
+                      if (first.image.file_url) return absoluteUrl(first.image.file_url);
+                      if (first.image.url) return absoluteUrl(first.image.url);
+                    }
+                    return null;
+                  };
+
+                  const thumb = getFirstMomentImage(verse);
+                  const momentsCount = Array.isArray(verse.moments) ? verse.moments.length : (Array.isArray(verse.images) ? verse.images.length : 0);
+                  const likes = verse.likes_count || verse.like_count || verse.likes || 0;
+                  const saves = verse.saves_count || verse.save_count || verse.saves || 0;
+                  const rawTitle = (verse.title && String(verse.title).trim()) || (excerpt ? `${excerpt}...` : 'Untitled Verse');
+                  const displayTitle = rawTitle.length > 80 ? `${rawTitle.slice(0,80).trim()}...` : rawTitle;
+                  const displayStoryTitle = (storyTitle && String(storyTitle).trim()) || 'Story';
+                  const href = storySlug ? `/stories/${encodeURIComponent(storySlug)}/?verse=${encodeURIComponent(id)}` : '#';
+
                   return (
-                    <div 
+                    <Link
                       key={verse.public_id || verse.slug || i}
-                      onClick={(e) => handleStoryClick(e, i)}
-                      className="cursor-pointer group"
+                      href={href}
+                      className="block bg-slate-900/50 rounded-2xl overflow-hidden transform transition-all duration-200 hover:scale-105 hover:shadow-xl"
                     >
-                      <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900/60 to-indigo-900/60 border border-cyan-500/20 hover:border-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02]">
-                        {coverImageUrl ? (
-                          <SmartImg
-                            src={absoluteUrl(coverImageUrl)}
-                            alt={verse.title || verse.story_title || "Verse"}
-                            width={300}
-                            height={200}
-                            className="w-full h-40 object-cover"
-                          />
+                      <div className="relative w-full h-48 bg-gray-800">
+                        {thumb ? (
+                          <img src={thumb} alt={verse.title || 'Verse image'} className="w-full h-full object-cover" />
                         ) : (
-                          <div className="w-full h-40 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center">
-                            <i className="fas fa-book-open text-4xl text-white/20"></i>
+                          <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center text-white/20">
+                            <i className="fas fa-book-open text-4xl"></i>
                           </div>
                         )}
-                        <div className="p-3">
-                          <h3 className="font-bold mb-1 truncate text-white group-hover:text-cyan-300 transition-colors">
-                            {verse.title || verse.content || "Untitled Verse"}
-                          </h3>
-                          <div className="flex gap-3 text-sm text-gray-400">
-                            <span><i className="fas fa-heart mr-1 text-cyan-500"></i>{verse.likes_count || 0}</span>
-                            <span><i className="fas fa-comment mr-1 text-purple-500"></i>{verse.comments_count || 0}</span>
-                            <span><i className="fas fa-share mr-1 text-blue-500"></i>{verse.shares_count || 0}</span>
+
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+
+                        <div className="absolute left-3 top-3 bg-black/50 backdrop-blur-sm text-xs text-white px-2 py-1 rounded-xl">
+                          {momentsCount} {momentsCount === 1 ? 'moment' : 'moments'}
+                        </div>
+
+                        <div className="absolute left-3 bottom-3 flex items-center gap-2 bg-black/40 backdrop-blur-sm px-2 py-1 rounded-full">
+                          <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-semibold text-white">
+                            {(() => {
+                              const name = verse.author?.username || verse.author_name || '';
+                              if (!name) return 'U';
+                              return name.split(' ').map(s => s[0]?.toUpperCase()).slice(0,2).join('');
+                            })()}
                           </div>
-                          {verse.story_title && (
-                            <p className="text-xs text-gray-500 mt-1 truncate">
-                              From: {verse.story_title}
-                            </p>
-                          )}
+                          <div className="text-xs text-white/90">{verse.author?.username || verse.author_name || 'Unknown'}</div>
+                        </div>
+
+                        <div className="absolute right-3 bottom-3 flex items-center gap-3">
+                          <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded-lg text-xs text-rose-300">
+                            <i className="fas fa-heart"></i>
+                            <span className="ml-1 text-white text-sm">{likes}</span>
+                          </div>
+                          <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded-lg text-xs text-yellow-300">
+                            <i className="fas fa-bookmark"></i>
+                            <span className="ml-1 text-white text-sm">{saves}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
+
+                      <div className="p-4">
+                        <div className="text-sm text-gray-400 mb-1">{displayStoryTitle}</div>
+                        <div className="text-white font-semibold mb-1 text-lg leading-tight">{displayTitle}</div>
+                        <div className="text-xs text-gray-400 mb-2">in <span className="text-indigo-300">{displayStoryTitle}</span></div>
+                      </div>
+                    </Link>
                   );
                 })
               ) : (

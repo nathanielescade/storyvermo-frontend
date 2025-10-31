@@ -4,7 +4,6 @@ import { AuthProvider } from '../../contexts/AuthContext';
 import Sidebar from './components/Sidebar';
 import ShareModal from './components/ShareModal';
 import CommentModal from './components/CommentModal';
-import DiscoverModal from './components/DiscoverModal';
 import GlobalShell from './components/GlobalShell';
 
 export default function RootLayout({ children }) {
@@ -126,8 +125,7 @@ export default function RootLayout({ children }) {
           <CommentModal />
           
           {/* Verse Viewer Component */}
-          {/* Discover Modal */}
-          <DiscoverModal />
+          {/* Discover Modal is now controlled by GlobalShell */}
           
           {/* Service Worker Registration */}
           <script

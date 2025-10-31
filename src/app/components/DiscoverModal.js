@@ -1,8 +1,9 @@
-'use client'
+"use client"
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { createPortal } from 'react-dom';
 
 const DiscoverModal = ({ isOpen, onClose }) => {
   const [users, setUsers] = useState([]);
@@ -12,6 +13,7 @@ const DiscoverModal = ({ isOpen, onClose }) => {
   // Fetch recommended users when modal opens
   useEffect(() => {
     if (isOpen) {
+      console.debug('[DiscoverModal] opened');
       fetchRecommendedUsers();
     }
   }, [isOpen]);
@@ -91,7 +93,7 @@ const DiscoverModal = ({ isOpen, onClose }) => {
 
       const data = await response.json();
       // Update with server response if needed
-      if (data.is_following !== undefined) {
+      if (data && typeof data.is_following !== 'undefined') {
         const finalUsers = [...users];
         finalUsers[userIndex] = {
           ...finalUsers[userIndex],
@@ -104,39 +106,45 @@ const DiscoverModal = ({ isOpen, onClose }) => {
     }
   };
 
-  // Navigate to user profile
-  const navigateToProfile = (username) => {
-    router.push(`/user/${username}/`);
-  };
+    // Navigate to user profile
+    const navigateToProfile = (username) => {
+      try {
+        router.push(`/user/${username}/`);
+      } catch (e) {
+        console.warn('navigateToProfile failed', e);
+      }
+    };
 
-  // Helper function to get CSRF token
-  const getCookie = (name) => {
-    if (typeof document === 'undefined') return '';
-    
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(';').shift();
-    return '';
-  };
+    // Helper function to get CSRF token
+    const getCookie = (name) => {
+      if (typeof document === 'undefined') return '';
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(';').shift();
+      return '';
+    };
+
+  // Render modal into a portal attached to document.body to avoid stacking context issues
+  if (typeof document === 'undefined') return null;
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <>
       {/* Overlay */}
       <div 
-        className="discover-modal-overlay fixed inset-0 z-[9998] bg-black/60 backdrop-blur-sm opacity-100 visible transition-all duration-300 pointer-events-auto"
+        className="discover-modal-overlay fixed inset-0 z-9998 bg-black/60 backdrop-blur-sm opacity-100 visible transition-all duration-300 pointer-events-auto"
         onClick={onClose}
       ></div>
 
       {/* Modal */}
-      <div className="discover-modal fixed inset-0 z-[9999] flex items-center justify-center p-4 opacity-100 visible transition-all duration-300 pointer-events-auto">
-        <div className="discover-container relative bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] overflow-hidden border border-slate-700/50 transform scale-100 transition-all duration-300">
+      <div className="discover-modal fixed inset-0 z-9999 flex items-center justify-center p-4 opacity-100 visible transition-all duration-300 pointer-events-auto">
+        <div className="discover-container relative bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] overflow-hidden border border-slate-700/50 transform scale-100 transition-all duration-300">
           
           {/* Premium Header */}
-          <div className="discover-header sticky top-0 z-10 flex items-center justify-between p-8 border-b border-slate-700/50 bg-gradient-to-r from-slate-900/80 to-slate-800/80 backdrop-blur-xl">
+          <div className="discover-header sticky top-0 z-10 flex items-center justify-between p-8 border-b border-slate-700/50 bg-linear-to-r from-slate-900/80 to-slate-800/80 backdrop-blur-xl">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-red-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
+              <div className="w-12 h-12 rounded-xl bg-linear-to-br from-amber-500 via-orange-500 to-red-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
                 <i className="fas fa-compass text-white text-xl"></i>
               </div>
               <div>
@@ -167,11 +175,11 @@ const DiscoverModal = ({ isOpen, onClose }) => {
                 {users.map((user, index) => (
                   <div 
                     key={user.username}
-                    className="user-card group relative bg-gradient-to-br from-slate-800/40 to-slate-900/40 hover:from-slate-800/60 hover:to-slate-800/40 rounded-xl p-6 border border-slate-700/50 hover:border-slate-600/80 transition-all duration-300 hover:shadow-xl hover:shadow-orange-500/10 hover:-translate-y-1 flex flex-col items-center text-center cursor-pointer"
+                    className="user-card group relative bg-linear-to-br from-slate-800/40 to-slate-900/40 hover:from-slate-800/60 hover:to-slate-800/40 rounded-xl p-6 border border-slate-700/50 hover:border-slate-600/80 transition-all duration-300 hover:shadow-xl hover:shadow-orange-500/10 hover:-translate-y-1 flex flex-col items-center text-center cursor-pointer"
                     onClick={() => navigateToProfile(user.username)}
                   >
                     {/* Top accent line on hover */}
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 rounded-t-xl transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-amber-500 via-orange-500 to-red-500 rounded-t-xl transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
                     
                     {/* Avatar with status */}
                     <div className="user-avatar relative mb-5">
@@ -184,7 +192,7 @@ const DiscoverModal = ({ isOpen, onClose }) => {
                           className="w-20 h-20 rounded-full object-cover ring-2 ring-slate-700/50 group-hover:ring-orange-500/50 transition-all duration-300 shadow-lg"
                         />
                       ) : (
-                        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center font-bold text-2xl text-white ring-2 ring-slate-700/50 group-hover:ring-orange-500/50 transition-all duration-300 shadow-lg">
+                        <div className="w-20 h-20 rounded-full bg-linear-to-br from-amber-500 to-orange-500 flex items-center justify-center font-bold text-2xl text-white ring-2 ring-slate-700/50 group-hover:ring-orange-500/50 transition-all duration-300 shadow-lg">
                           {user.username.charAt(0).toUpperCase()}
                         </div>
                       )}
@@ -218,7 +226,7 @@ const DiscoverModal = ({ isOpen, onClose }) => {
                       className={`follow-btn w-full py-3 px-4 rounded-lg font-semibold transition-all duration-300 ${
                         user.is_following 
                           ? 'bg-slate-700/50 text-slate-200 hover:bg-slate-700 border border-slate-600' 
-                          : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-lg hover:shadow-orange-500/30 hover:scale-105 border-0'
+                          : 'bg-linear-to-r from-amber-500 to-orange-500 text-white hover:shadow-lg hover:shadow-orange-500/30 hover:scale-105 border-0'
                       }`}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -287,8 +295,9 @@ const DiscoverModal = ({ isOpen, onClose }) => {
           100% { background-position: 1000px 0; }
         }
       `}</style>
-    </>
+    </>, document.body
   );
-};
+  
+  };
 
-export default DiscoverModal;
+  export default DiscoverModal;

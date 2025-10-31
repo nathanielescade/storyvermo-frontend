@@ -8,7 +8,8 @@ const HologramIcons = ({
     setShowContributeModal,
     setShowRecommendModal,
     setShowEnlargeModal,
-    setShowDropdown
+    // new callback: onOpenDropdown(element)
+    onOpenDropdown
 }) => {
     const handleContribute = () => {
         if (!isAuthenticated) {
@@ -32,7 +33,13 @@ const HologramIcons = ({
 
     const handleMoreOptions = (event) => {
         event.stopPropagation();
-        setShowDropdown(true);
+        // Pass the clicked button element to parent so it can position the menu
+        if (typeof onOpenDropdown === 'function') {
+            onOpenDropdown(event.currentTarget);
+            return;
+        }
+        // Fallback: if no callback, try the old API
+        if (typeof setShowDropdown === 'function') setShowDropdown(true);
     };
 
     return (

@@ -5,11 +5,13 @@ import Header from './Header';
 import DimensionNav from './DimensionNav';
 import AuthModal from './AuthModal';
 import StoryFormModal from './StoryFormModal';
+import DiscoverModal from './DiscoverModal';
 
 export default function GlobalShell() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
   const [isStoryFormModalOpen, setIsStoryFormModalOpen] = useState(false);
+  const [isDiscoverModalOpen, setIsDiscoverModalOpen] = useState(false);
 
   // Listen for programmatic requests to open auth modal (from any component)
   useEffect(() => {
@@ -45,6 +47,11 @@ export default function GlobalShell() {
       setIsStoryFormModalOpen(true);
     }
 
+    // If pendingAction indicates we should open discover, do that here
+    if (pendingAction && pendingAction.type === 'discover') {
+      setIsDiscoverModalOpen(true);
+    }
+
     // Close the auth modal and clear pending action
     setIsAuthModalOpen(false);
     setPendingAction(null);
@@ -53,14 +60,19 @@ export default function GlobalShell() {
   const openStoryFormModal = () => setIsStoryFormModalOpen(true);
   const closeStoryFormModal = () => setIsStoryFormModalOpen(false);
 
+  const openDiscoverModal = () => setIsDiscoverModalOpen(true);
+  const closeDiscoverModal = () => setIsDiscoverModalOpen(false);
+
   return (
     <>
-      <Header openAuthModal={openAuthModal} />
-      <DimensionNav openAuthModal={openAuthModal} openStoryFormModal={openStoryFormModal} />
+  <Header openAuthModal={openAuthModal} />
+  <DimensionNav openAuthModal={openAuthModal} openStoryFormModal={openStoryFormModal} openDiscoverModal={openDiscoverModal} />
 
-      <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} onAuthSuccess={handleAuthSuccess} />
+  <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} onAuthSuccess={handleAuthSuccess} />
 
-      <StoryFormModal isOpen={isStoryFormModalOpen} onClose={closeStoryFormModal} mode="create" />
+  <StoryFormModal isOpen={isStoryFormModalOpen} onClose={closeStoryFormModal} mode="create" />
+
+  <DiscoverModal isOpen={isDiscoverModalOpen} onClose={closeDiscoverModal} />
     </>
   );
 }
