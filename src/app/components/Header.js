@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
-import { notificationsApi } from '../../../lib/notifications';
+import { notificationsApi } from '../../../lib/api';
 
 const Header = ({ openAuthModal }) => {
   const { currentUser, isAuthenticated, logout } = useAuth();
@@ -53,9 +53,40 @@ const Header = ({ openAuthModal }) => {
     let mounted = true;
     async function fetchCount() {
       try {
-        const data = await notificationsApi.getNotifications();
-        const list = data?.notifications ?? data?.results ?? (Array.isArray(data) ? data : []);
-        const count = list.filter(n => !n.is_read).length;
+        // Prefer dedicated unread-count endpoint when available
+        let data = null;
+        try {
+          data = await notificationsApi.getUnreadCount();
+        } catch (e) {
+          // ignore and fallback to full list
+          data = null;
+        }
+
+        // Normalize different possible shapes for unread count
+        let count = 0;
+        if (typeof data === 'number') {
+          count = data;
+        } else if (data && typeof data === 'object') {
+          // Common shapes: { unread_count: X }, { count: X }, { results: [...] }
+          if (typeof data.unread_count === 'number') count = data.unread_count;
+          else if (typeof data.count === 'number') count = data.count;
+          else if (Array.isArray(data)) count = data.filter(n => !n.is_read).length;
+          else if (data.notifications) count = (data.notifications.filter ? data.notifications.filter(n => !n.is_read).length : 0);
+          else if (data.results) count = (data.results.filter ? data.results.filter(n => !n.is_read).length : 0);
+        }
+
+        // If unread count still zero (or we couldn't get a numeric value), try fetching full notifications list
+        if (!count) {
+          try {
+            const full = await notificationsApi.getNotifications();
+            const list = full?.notifications ?? full?.results ?? (Array.isArray(full) ? full : []);
+            count = list.filter(n => !n.is_read).length;
+          } catch (e) {
+            // ignore - we'll keep count as 0
+            console.debug('notifications: fallback to full list failed', e);
+          }
+        }
+
         if (mounted) setUnreadCount(count);
       } catch (err) {
         console.debug('Failed to fetch notification count', err);

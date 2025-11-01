@@ -1,6 +1,6 @@
 // src/app/search/SearchClient.js
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import StoryCard from '../components/StoryCard';
 import debounce from 'lodash/debounce';
 import { searchApi, storiesApi, userApi, absoluteUrl } from '../../../lib/api'; 
@@ -23,6 +23,9 @@ export function SearchClient() {
   });
   const [error, setError] = useState(null);
   const [isMounted, setIsMounted] = useState(false);
+  const inputWrapperRef = useRef(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   
   // New state for story feed modal
   const [storyFeedModal, setStoryFeedModal] = useState({ visible: false, initialIndex: 0 });
@@ -38,6 +41,11 @@ export function SearchClient() {
     setQuery(newQuery);
     // Trigger debounced search immediately on user input for real-time results
     debouncedSearch(newQuery);
+    if (newQuery && newQuery.trim()) {
+      setShowSuggestions(true);
+    } else {
+      setShowSuggestions(false);
+    }
   };
 
   // Debounced search function (useMemo to keep same instance while router is stable)
@@ -55,7 +63,7 @@ export function SearchClient() {
         const [storiesRes, versesRes, creatorsRes] = await Promise.allSettled([
           searchApi.searchStories(searchQuery),
           searchApi.searchVerses(searchQuery),
-          searchApi.getRecommendedCreators(searchQuery)
+          searchApi.searchCreators(searchQuery)
         ]);
 
         // Process the results
@@ -77,6 +85,81 @@ export function SearchClient() {
         setResults(prev => ({ ...prev, loading: false }));
       }
     }, 120), [router]);
+
+    // Helper: resolve a cover image from various possible API shapes
+    const resolveStoryCoverImage = (story) => {
+      if (!story) return null;
+      const cov = story.cover_image || story.cover || null;
+      if (!cov) return null;
+
+      // If it's a string, assume it's a URL or relative path
+      if (typeof cov === 'string') return absoluteUrl(cov);
+
+      // Common shapes: { file_url }, { url }, { image: { file_url } }, { file: { file_url } }
+      const candidates = [
+        cov.file_url,
+        cov.url,
+        cov.image?.file_url,
+        cov.image?.url,
+        cov.file?.file_url,
+        cov.file?.url,
+        cov.image,
+        cov.file,
+      ];
+
+      for (const c of candidates) {
+        if (!c) continue;
+        if (typeof c === 'string' && c.trim()) return absoluteUrl(c);
+        // If nested object with file_url
+        if (typeof c === 'object') {
+          const maybe = c.file_url || c.url || c.path || null;
+          if (maybe) return absoluteUrl(maybe);
+        }
+      }
+
+      return null;
+    };
+
+    // Close suggestions dropdown when clicking outside
+    useEffect(() => {
+      const handleOutside = (ev) => {
+        if (!inputWrapperRef.current) return;
+        if (!inputWrapperRef.current.contains(ev.target)) {
+          setShowSuggestions(false);
+          setActiveSuggestionIndex(-1);
+        }
+      };
+
+      document.addEventListener('mousedown', handleOutside);
+      return () => document.removeEventListener('mousedown', handleOutside);
+    }, []);
+
+    // Navigate when selecting a suggestion
+    const navigateToSuggestion = (sugg) => {
+      try {
+        if (!sugg) return;
+        if (sugg.type === 'story') {
+          const slug = sugg.slug || sugg.story_slug || (sugg.id ? sugg.id : null);
+          if (slug) router.push(`/stories/${encodeURIComponent(slug)}/`);
+        } else if (sugg.type === 'creator') {
+          const username = sugg.username || sugg.user || sugg.creator_username;
+          if (username) router.push(`/${encodeURIComponent(username)}`);
+        } else if (sugg.type === 'verse') {
+          const storySlug = sugg.story_slug || (sugg.story && (sugg.story.slug || sugg.story.story_slug)) || null;
+          const verseId = sugg.id || sugg.public_id || sugg.slug || null;
+          if (storySlug && verseId) {
+            router.push(`/stories/${encodeURIComponent(storySlug)}/?verse=${encodeURIComponent(verseId)}`);
+          } else if (storySlug) {
+            router.push(`/stories/${encodeURIComponent(storySlug)}/`);
+          }
+        }
+      } catch (e) {
+        console.warn('navigateToSuggestion failed', e);
+      } finally {
+        setShowSuggestions(false);
+        setActiveSuggestionIndex(-1);
+      }
+    };
 
   // Ensure debounced search is cancelled on unmount to avoid memory leaks
   useEffect(() => {
@@ -141,19 +224,36 @@ export function SearchClient() {
   };
 
   const handleFollowUser = async (userId) => {
+    // Prevent unauthenticated users from sending follow requests
+    if (!isAuthenticated) {
+      openAuthModal();
+      return;
+    }
+
     try {
-      await userApi.followUser(userId);
+      const data = await userApi.followUser(userId);
       // Update creators state if needed
       setResults(prev => ({
         ...prev,
         creators: prev.creators.map(creator => 
           creator.username === userId 
-            ? { ...creator, is_following: !creator.is_following }
+            ? { ...creator, is_following: typeof data?.is_following !== 'undefined' ? data.is_following : !creator.is_following }
             : creator
         )
       }));
     } catch (error) {
+      // Provide richer error info in console to help debugging backend responses
       console.error('Error following user:', error);
+      try {
+        console.debug('Follow error status:', error.status, 'body:', error.body, 'url:', error.url);
+      } catch (e) {
+        // ignore
+      }
+
+      // If the API indicated the user is unauthorized, open the auth modal
+      if (error && (error.status === 401 || /Unauthorized/i.test(String(error.message || '')))) {
+        openAuthModal();
+      }
     }
   };
 
@@ -184,15 +284,45 @@ export function SearchClient() {
           </div>
           
           <div className="relative">
-            <input
-              type="text"
-              value={query}
-              onChange={handleSearchInput}
-              placeholder="Search for stories, verses, or creators..."
-              autoFocus
-              className="w-full px-5 py-4 bg-slate-900/60 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition-all duration-300 text-lg"
-            />
-            <i className="fas fa-search absolute right-5 top-1/2 -translate-y-1/2 text-cyan-500/70" />
+            <div ref={inputWrapperRef} className="relative">
+              <input
+                type="text"
+                value={query}
+                onChange={handleSearchInput}
+                placeholder="Search for stories, verses, or creators..."
+                autoFocus
+                className="w-full px-5 py-4 bg-slate-900/60 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition-all duration-300 text-lg"
+              />
+              <i className="fas fa-search absolute right-5 top-1/2 -translate-y-1/2 text-cyan-500/70" />
+
+              {/* Suggestions dropdown */}
+              {showSuggestions && (results.stories.length > 0 || results.creators.length > 0 || results.verses.length > 0) && (
+                <div className="absolute left-0 right-0 mt-2 bg-slate-900 border border-gray-700 rounded-2xl shadow-xl z-50 max-h-72 overflow-auto">
+                  <div className="p-2">
+                    {results.stories.slice(0,5).map((s, i) => (
+                      <div key={`s-${s.id || s.slug || i}`} className={`p-2 rounded hover:bg-slate-800 cursor-pointer ${activeSuggestionIndex === i ? 'bg-slate-800' : ''}`} onMouseDown={(e) => { e.preventDefault(); navigateToSuggestion({ ...s, type: 'story' }); }}>
+                        <div className="text-sm font-semibold text-white truncate">{s.title || s.story_title || s.slug}</div>
+                        <div className="text-xs text-gray-400 truncate">Story</div>
+                      </div>
+                    ))}
+
+                    {results.creators.slice(0,5).map((c, j) => (
+                      <div key={`c-${c.id || c.username || j}`} className={`p-2 rounded hover:bg-slate-800 cursor-pointer ${activeSuggestionIndex === (results.stories.slice(0,5).length + j) ? 'bg-slate-800' : ''}`} onMouseDown={(e) => { e.preventDefault(); navigateToSuggestion({ ...c, type: 'creator' }); }}>
+                        <div className="text-sm font-semibold text-white">{c.display_name || c.username}</div>
+                        <div className="text-xs text-gray-400">Creator</div>
+                      </div>
+                    ))}
+
+                    {results.verses.slice(0,5).map((v, k) => (
+                      <div key={`v-${v.id || v.public_id || k}`} className={`p-2 rounded hover:bg-slate-800 cursor-pointer ${activeSuggestionIndex === (results.stories.slice(0,5).length + results.creators.slice(0,5).length + k) ? 'bg-slate-800' : ''}`} onMouseDown={(e) => { e.preventDefault(); navigateToSuggestion({ ...v, type: 'verse' }); }}>
+                        <div className="text-sm font-semibold text-white truncate">{(v.title && v.title.trim()) || (v.content && String(v.content).slice(0,60)) || `Verse ${v.id || v.public_id || ''}`}</div>
+                        <div className="text-xs text-gray-400">Verse</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Tabs */}
@@ -242,9 +372,9 @@ export function SearchClient() {
                       className="cursor-pointer group"
                     >
                       <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900/60 to-indigo-900/60 border border-cyan-500/20 hover:border-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02]">
-                        {story.cover_image ? (
+                        {resolveStoryCoverImage(story) ? (
                           <img
-                            src={absoluteUrl(story.cover_image.file_url || story.cover_image.url || story.cover_image)}
+                            src={resolveStoryCoverImage(story)}
                             alt={story.title}
                             className="w-full h-40 object-cover"
                           />

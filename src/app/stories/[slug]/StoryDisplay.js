@@ -1,7 +1,7 @@
 // app/stories/[slug]/StoryDisplay.js
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import VerseViewer from '../../components/VerseViewer';
 import StoryCard from '../../components/StoryCard';
@@ -17,6 +17,11 @@ export default function StoryDisplay({ initialStory, slug }) {
   const searchParams = useSearchParams();
   const { currentUser, isAuthenticated, openAuthModal } = useAuth();
   const { handleLikeToggle, handleSaveToggle, handleUserFollow, handleOpenVerses, handleTagSelect } = useMain();
+
+  const wrapperRef = useRef(null);
+  const overscrollRef = useRef(0);
+  const wheelTimeoutRef = useRef(null);
+  const touchStartRef = useRef(null);
 
   // Optional: Add real-time updates or refetch logic here if needed
   useEffect(() => {
@@ -41,6 +46,98 @@ export default function StoryDisplay({ initialStory, slug }) {
     }
   }, [initialStory, slug, searchParams, story]);
 
+  // Overscroll "stretch" effect handlers (wheel + touch)
+  useEffect(() => {
+    const MAX = 80; // px max stretch
+
+    const applyTransform = (amount) => {
+      if (!wrapperRef.current) return;
+      const capped = Math.min(amount, MAX);
+      const translate = capped; // move content up when pulling at bottom
+      const scale = 1 + Math.min(capped / 1000, 0.06); // small vertical scale
+      wrapperRef.current.style.transform = `translateY(${-translate}px) scaleY(${scale})`;
+    };
+
+    const resetTransform = () => {
+      if (!wrapperRef.current) return;
+      wrapperRef.current.style.transition = 'transform 450ms cubic-bezier(.2,.8,.2,1)';
+      wrapperRef.current.style.transform = '';
+      // clear transition after animation
+      window.setTimeout(() => {
+        if (wrapperRef.current) wrapperRef.current.style.transition = '';
+      }, 500);
+      overscrollRef.current = 0;
+    };
+
+    let wheelTimer = null;
+
+    const onWheel = (e) => {
+      try {
+        // Only act on downward scroll attempts
+        if (e.deltaY <= 0) return;
+
+        const atBottom = (document.documentElement.scrollTop + window.innerHeight) >= (document.documentElement.scrollHeight - 1);
+        if (!atBottom) return;
+
+        // Prevent native scrolling beyond bottom so we can show stretch
+        e.preventDefault();
+
+        overscrollRef.current = Math.min(overscrollRef.current + e.deltaY, 300);
+        applyTransform(overscrollRef.current);
+
+        // debounce release
+        clearTimeout(wheelTimer);
+        wheelTimer = setTimeout(() => {
+          resetTransform();
+        }, 80);
+      } catch (err) {
+        // swallow any errors to avoid breaking scroll
+        console.debug('overscroll wheel handler error', err);
+      }
+    };
+
+    const onTouchStart = (e) => {
+      if (!e.touches || e.touches.length === 0) return;
+      touchStartRef.current = e.touches[0].clientY;
+    };
+
+    const onTouchMove = (e) => {
+      if (!e.touches || e.touches.length === 0) return;
+      const y = e.touches[0].clientY;
+      const startY = touchStartRef.current || y;
+      const delta = startY - y; // positive when dragging up
+      if (delta <= 0) return;
+
+      const atBottom = (document.documentElement.scrollTop + window.innerHeight) >= (document.documentElement.scrollHeight - 1);
+      if (!atBottom) return;
+
+      // Prevent native overscroll
+      e.preventDefault();
+
+      overscrollRef.current = Math.min(delta, 300);
+      applyTransform(overscrollRef.current);
+    };
+
+    const onTouchEnd = () => {
+      resetTransform();
+    };
+
+    // Use passive:false for wheel/touchmove so preventDefault works
+    window.addEventListener('wheel', onWheel, { passive: false });
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
+
+    return () => {
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+      clearTimeout(wheelTimer);
+      if (wheelTimeoutRef.current) clearTimeout(wheelTimeoutRef.current);
+    };
+  }, []);
+
   if (!story) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-950 to-slate-900">
@@ -54,8 +151,8 @@ export default function StoryDisplay({ initialStory, slug }) {
   }
 
   return (
-    <div className="bg-gradient-to-br from-gray-950 to-slate-900 py-12 story-detail">
-      <div className="max-w-4xl mx-auto px-4">
+    <div className="bg-gradient-to-br from-gray-950 to-slate-900  story-detail">
+      <div ref={wrapperRef} className="max-w-4xl mx-auto " style={{ willChange: 'transform' }}>
         <StoryCard 
           story={story} 
           onLikeToggle={handleLikeToggle}
