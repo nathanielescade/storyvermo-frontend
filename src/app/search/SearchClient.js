@@ -213,7 +213,7 @@ export function SearchClient() {
               </p>
               {query && (
                 <p className="text-cyan-400 text-sm mt-1">
-                  Results for: "{query}"
+                  Results for: &quot;{query}&quot;
                 </p>
               )}
             </div>
