@@ -1,6 +1,6 @@
 // src/app/search/SearchClient.js
 'use client';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import StoryCard from '../components/StoryCard';
 import debounce from 'lodash/debounce';
 import { searchApi, storiesApi, userApi, absoluteUrl } from '../../../lib/api'; 
@@ -36,14 +36,12 @@ export function SearchClient() {
   const handleSearchInput = (e) => {
     const newQuery = e.target.value;
     setQuery(newQuery);
-    if (isMounted) {
-      debouncedSearch(newQuery);
-    }
+    // Trigger debounced search immediately on user input for real-time results
+    debouncedSearch(newQuery);
   };
 
-  // Debounced search function
-  const debouncedSearch = useCallback(
-    debounce(async (searchQuery) => {
+  // Debounced search function (useMemo to keep same instance while router is stable)
+  const debouncedSearch = useMemo(() => debounce(async (searchQuery) => {
       if (!searchQuery.trim()) {
         setResults(prev => ({ ...prev, stories: [], verses: [], creators: [], loading: false }));
         return;
@@ -78,9 +76,14 @@ export function SearchClient() {
         setError('Failed to perform search. Please try again.');
         setResults(prev => ({ ...prev, loading: false }));
       }
-    }, 300),
-    [router]
-  );
+    }, 120), [router]);
+
+  // Ensure debounced search is cancelled on unmount to avoid memory leaks
+  useEffect(() => {
+    return () => {
+      try { debouncedSearch.cancel(); } catch (e) { /* ignore */ }
+    };
+  }, [debouncedSearch]);
 
   // Initialize search from URL params after component mounts
   useEffect(() => {
@@ -186,6 +189,7 @@ export function SearchClient() {
               value={query}
               onChange={handleSearchInput}
               placeholder="Search for stories, verses, or creators..."
+              autoFocus
               className="w-full px-5 py-4 bg-slate-900/60 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition-all duration-300 text-lg"
             />
             <i className="fas fa-search absolute right-5 top-1/2 -translate-y-1/2 text-cyan-500/70" />

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 // import { absoluteUrl } from '../../../lib/api';
+import { useAuth } from '../../../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 
 const Sidebar = ({ user, followers, recentStories }) => {
@@ -11,6 +12,25 @@ const Sidebar = ({ user, followers, recentStories }) => {
 
   const handleTagClick = (tag) => {
     router.push(`/?tag=${tag}`);
+  };
+
+  const { currentUser, isAuthenticated } = useAuth();
+
+  const handleCreateClick = () => {
+    if (!isAuthenticated) {
+      window.dispatchEvent(new CustomEvent('auth:open', { detail: { type: 'create' } }));
+      return;
+    }
+    // Request GlobalShell to open story form
+    window.dispatchEvent(new CustomEvent('shell:open_story_form'));
+  };
+
+  const handleDiscoverClick = () => {
+    if (!isAuthenticated) {
+      window.dispatchEvent(new CustomEvent('auth:open', { detail: { type: 'discover' } }));
+      return;
+    }
+    window.dispatchEvent(new CustomEvent('shell:open_discover'));
   };
 
   return (
@@ -52,11 +72,12 @@ const Sidebar = ({ user, followers, recentStories }) => {
           className="sidebar-nav-item group" 
           data-action="open-post-modal"
           style={{ position: 'relative', zIndex: '100001', pointerEvents: 'auto' }}
+          onClick={handleCreateClick}
         >
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center group-hover:from-accent-orange/20 group-hover:to-accent-orange/10 transition-all duration-300">
             <i className="fas fa-plus text-accent-orange group-active:text-white"></i>
           </div>
-          <span className="font-rajdhani font-medium">Create Post</span>
+          <span className="font-rajdhani font-medium">Create Story</span>
         </div>
         
         <div 
@@ -98,6 +119,7 @@ const Sidebar = ({ user, followers, recentStories }) => {
         <div 
           className="sidebar-nav-item group" 
           data-action="open-discover-modal"
+          onClick={handleDiscoverClick}
         >
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center group-hover:from-neon-blue/20 group-hover:to-neon-blue/10 transition-all duration-300">
             <i className="fas fa-compass text-neon-blue group-active:text-white"></i>
@@ -176,10 +198,10 @@ const Sidebar = ({ user, followers, recentStories }) => {
       )}
       
       {/* New Posts section */}
-      <div className="sidebar-section new-posts-section">
+        <div className="sidebar-section new-posts-section">
         <div className="sidebar-section-title flex items-center gap-2">
           <div className="w-2 h-2 rounded-full bg-neon-blue shadow-[0_0_8px_rgba(0,212,255,0.8)]"></div>
-          <span className="font-orbitron text-xs uppercase tracking-wider text-neon-blue">New Posts</span>
+          <span className="font-orbitron text-xs uppercase tracking-wider text-neon-blue">New Stories</span>
         </div>
         
         <div className="new-posts-list">
@@ -200,7 +222,7 @@ const Sidebar = ({ user, followers, recentStories }) => {
               </div>
             ))
           ) : (
-            <div className="text-gray-400 text-sm px-5">No new posts yet</div>
+            <div className="text-gray-400 text-sm px-5">No new stories yet</div>
           )}
         </div>
       </div>

@@ -6,6 +6,7 @@ import DimensionNav from './DimensionNav';
 import AuthModal from './AuthModal';
 import StoryFormModal from './StoryFormModal';
 import DiscoverModal from './DiscoverModal';
+import { useAuth } from '../../../contexts/AuthContext';
 
 export default function GlobalShell() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -23,6 +24,35 @@ export default function GlobalShell() {
     window.addEventListener('auth:open', handler);
     return () => window.removeEventListener('auth:open', handler);
   }, []);
+
+  // Listen for shell-level requests (from Sidebar) to open story form or discover
+  const { currentUser, isAuthenticated } = useAuth();
+  useEffect(() => {
+    const openStoryHandler = () => {
+      if (isAuthenticated) {
+        setIsStoryFormModalOpen(true);
+      } else {
+        // Trigger auth flow with pending create action
+        window.dispatchEvent(new CustomEvent('auth:open', { detail: { type: 'create' } }));
+      }
+    };
+
+    const openDiscoverHandler = () => {
+      if (isAuthenticated) {
+        setIsDiscoverModalOpen(true);
+      } else {
+        window.dispatchEvent(new CustomEvent('auth:open', { detail: { type: 'discover' } }));
+      }
+    };
+
+    window.addEventListener('shell:open_story_form', openStoryHandler);
+    window.addEventListener('shell:open_discover', openDiscoverHandler);
+
+    return () => {
+      window.removeEventListener('shell:open_story_form', openStoryHandler);
+      window.removeEventListener('shell:open_discover', openDiscoverHandler);
+    };
+  }, [isAuthenticated]);
 
   const openAuthModal = (type = null, data = null) => {
     // Convenience function for client components that import GlobalShell directly

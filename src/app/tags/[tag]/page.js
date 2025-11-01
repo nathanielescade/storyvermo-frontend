@@ -17,7 +17,8 @@ export async function generateMetadata({ params }) {
   // Default metadata derived from the slug. We avoid relying on backend API
   // to ensure metadata is always present for crawlers and social previews.
   const title = `${prettyTag ? prettyTag.charAt(0).toUpperCase() + prettyTag.slice(1) : 'Tags'} — StoryVermo`;
-  const description = `Read stories tagged ${prettyTag || 'tags'} on StoryVermo.`;
+const description = `Discover creative stories and verses inspired by ${prettyTag} on StoryVermo.`;
+
   const url = absoluteUrl(`/tags/${encodeURIComponent(tagSlug)}/`);
 
   // Try to enrich metadata from the API but fall back to defaults on any error.

@@ -1,18 +1,18 @@
-import Head from 'next/head';
+// Root layout: keep global favicons, PWA and schema, but avoid hardcoding
+// title/description/OG/Twitter so route metadata (generateMetadata) can take effect.
 import './globals.css';
 import { AuthProvider } from '../../contexts/AuthContext';
 import Sidebar from './components/Sidebar';
-import ShareModal from './components/ShareModal';
 import CommentModal from './components/CommentModal';
 import GlobalShell from './components/GlobalShell';
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <Head>
+      <head>
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
-        
+
         {/* Favicon and App Icons */}
         <link rel="icon" href="/favicon.ico" type="image/x-icon" />
         <link rel="shortcut icon" href="/favicon.ico" type="image/x-icon" />
@@ -20,50 +20,35 @@ export default function RootLayout({ children }) {
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/site.webmanifest" />
-        
+
         {/* Core Meta Tags */}
         <meta name="author" content="StoryVermo" />
         <meta name="generator" content="StoryVermo Platform" />
         <meta name="format-detection" content="telephone=no" />
         <meta name="referrer" content="strict-origin-when-cross-origin" />
         <meta name="theme-color" content="#0a0e27" />
-        
+
         {/* PWA Meta Tags */}
         <meta name="application-name" content="StoryVermo" />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="StoryVermo" />
-        
-        {/* SEO Meta Tags */}
-        <meta name="description" content="Everyday moments become stories. Write, snap, and create them with others." />
-        <meta name="keywords" content="story, verse, moments, StoryVermo, social storytelling, layered stories, story platform, creative writing, story sharing, story community, story perspectives, storytelling" />
-        
-        {/* Open Graph Tags */}
-        <meta property="og:title" content="StoryVermo - Every moment has a story" />
-        <meta property="og:description" content="Everyday moments become stories. Write, snap, and create them with others." />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://storyvermo.com" />
-        <meta property="og:site_name" content="StoryVermo" />
-        <meta property="og:image" content="https://storyvermo.com/android-chrome-512x512.png" />
-        <meta property="og:image:width" content="512" />
-        <meta property="og:image:height" content="512" />
-        
-        {/* Twitter Card Tags */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:site" content="@storyvermo" />
-        <meta name="twitter:title" content="StoryVermo - Every moment has a story" />
-        <meta name="twitter:description" content="Everyday moments become stories. Write, snap, and create them with others." />
-        <meta name="twitter:image" content="https://storyvermo.com/android-chrome-512x512.png" />
-        
+
+    {/* Note: do not hardcode title/description/OG/Twitter tags here.
+      The app router's metadata API (route `metadata` exports / generateMetadata)
+      should supply per-route tags. Keeping static SEO tags here prevents
+      route-level metadata from taking effect (e.g. story pages).
+      We keep favicons, core meta, PWA, schemas, preconnect and styles here. */}
+
         {/* Preconnect to Critical Origins */}
         <link rel="preconnect" href="https://cdn.tailwindcss.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossOrigin="anonymous" />
-        
+
         {/* Stylesheets */}
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css" />
-        
+
         {/* Global Site Schema */}
         <script type="application/ld+json">
           {`
@@ -82,7 +67,7 @@ export default function RootLayout({ children }) {
             }
           `}
         </script>
-        
+
         {/* Organization Schema */}
         <script type="application/ld+json">
           {`
@@ -102,7 +87,7 @@ export default function RootLayout({ children }) {
             }
           `}
         </script>
-      </Head>
+      </head>
       
       <body className="bg-black text-white font-rajdhani" data-authenticated="false">
         <AuthProvider>
@@ -116,8 +101,7 @@ export default function RootLayout({ children }) {
             {children}
           </main>
           
-          {/* Share Modal Component */}
-          <ShareModal />
+          {/* ShareModal is rendered by components (StoryCard, VerseViewer) with dynamic props. */}
           
           {/* Remove StoryFormModal from layout since it's already in page.js */}
           

@@ -54,8 +54,8 @@ export default function StoryDisplay({ initialStory, slug }) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 to-slate-900">
-      <div className="max-w-4xl mx-auto">
+    <div className="bg-gradient-to-br from-gray-950 to-slate-900 py-12 story-detail">
+      <div className="max-w-4xl mx-auto px-4">
         <StoryCard 
           story={story} 
           onLikeToggle={handleLikeToggle}

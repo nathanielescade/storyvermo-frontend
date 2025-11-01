@@ -4,7 +4,8 @@ import { absoluteUrl } from '../../../lib/api';
 
 export async function generateMetadata() {
   const title = 'Verses — StoryVermo';
-  const description = 'Browse recent verses from stories on StoryVermo.';
+const description = 'Explore the latest verses from storytellers on StoryVermo — short, powerful moments captured within stories.';
+
   const url = absoluteUrl('/verses/');
   return { title, description, alternates: { canonical: url } };
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 
 const ShareModal = ({ isOpen, onClose, shareData, imageUrl, isVerse }) => {
   const modalRef = useRef(null);
@@ -11,6 +12,11 @@ const ShareModal = ({ isOpen, onClose, shareData, imageUrl, isVerse }) => {
     // Check if Web Share API is supported
     setWebShareSupported(navigator.share !== undefined);
   }, []);
+
+  // Reset copied state when the shared URL or title changes
+  useEffect(() => {
+    setCopied(false);
+  }, [shareData?.url, shareData?.title]);
   
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -272,19 +278,13 @@ const ShareModal = ({ isOpen, onClose, shareData, imageUrl, isVerse }) => {
             {imageUrl && (
               <div className="flex-shrink-0">
                 <div className="relative w-24 h-24 rounded-xl overflow-hidden border-2 border-blue-500/30 shadow-lg shadow-blue-500/10">
-                  <img 
-                    src={imageUrl} 
-                    alt={isVerse ? "Verse preview" : "Story preview"} 
+                  <Image
+                    src={imageUrl}
+                    alt={isVerse ? 'Verse preview' : 'Story preview'}
+                    width={96}
+                    height={96}
                     className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                    }}
                   />
-                  {!imageUrl && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
-                      <div className="text-gray-500 text-xs text-center">No image available</div>
-                    </div>
-                  )}
                 </div>
               </div>
             )}

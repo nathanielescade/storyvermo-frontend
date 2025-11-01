@@ -3,16 +3,22 @@ import { useState, useEffect, useCallback } from 'react';
 import { storiesApi, userApi } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 
-export default function useMain() {
-    const [stories, setStories] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [hasNext, setHasNext] = useState(true);
+const CACHE_KEY = 'home:state:v1';
+const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
+// Use the full cache TTL as the default refresh threshold so the UI will
+// preserve the exact feed state while the cache is considered fresh.
+const REFRESH_THRESHOLD = CACHE_TTL;
+
+export default function useMain(initialState = null) {
+    const [stories, setStories] = useState(initialState?.stories || []);
+    const [loading, setLoading] = useState(initialState ? false : true);
+    const [hasNext, setHasNext] = useState(initialState?.hasNext ?? true);
     const [isFetching, setIsFetching] = useState(false);
-    const [currentTag, setCurrentTag] = useState('for-you');
+    const [currentTag, setCurrentTag] = useState(initialState?.currentTag || 'for-you');
     const [currentDimension, setCurrentDimension] = useState('feed');
     const [followingUsers, setFollowingUsers] = useState([]);
     const [userInteractions, setUserInteractions] = useState({});
-    const [page, setPage] = useState(1);
+    const [page, setPage] = useState(initialState?.page || 1);
     
     // Use the AuthContext instead of local auth state
     const { currentUser, isAuthenticated, refreshAuth } = useAuth();
@@ -20,8 +26,74 @@ export default function useMain() {
     // Initialize the app (check for /tags/:tag in URL and load accordingly)
     useEffect(() => {
         const initializeApp = async () => {
+            // If server supplied an initialState, skip client-side initialization
+            // to avoid immediately re-fetching and overwriting server-rendered data.
+            if (initialState) return;
+            let restoredFromCache = false;
+            let restoredAge = Infinity;
+            // Try to restore state from history.state (preferred) or sessionStorage
+            // so that browser back/forward restores exact UI without a reload.
             try {
-                setLoading(true);
+                if (typeof window !== 'undefined') {
+                    // 1) history.state (best for back/forward)
+                    const hist = window.history && window.history.state && window.history.state.homeState;
+                    if (hist) {
+                        const age = Date.now() - (hist.ts || 0);
+                        if (age < CACHE_TTL && Array.isArray(hist.stories) && hist.stories.length > 0) {
+                            setStories(hist.stories);
+                            setCurrentTag(hist.currentTag || 'for-you');
+                            setPage(hist.page || 1);
+                            setHasNext(hist.hasNext !== undefined ? hist.hasNext : true);
+                            setLoading(false);
+                            restoredFromCache = true;
+                            restoredAge = age;
+                        }
+                    }
+
+                    // 2) fallback: sessionStorage
+                    if (!restoredFromCache) {
+                        const raw = sessionStorage.getItem(CACHE_KEY);
+                        if (raw) {
+                            try {
+                                const parsed = JSON.parse(raw);
+                                const age = Date.now() - (parsed.ts || 0);
+                                if (parsed && age < CACHE_TTL) {
+                                    if (Array.isArray(parsed.stories) && parsed.stories.length > 0) {
+                                        setStories(parsed.stories);
+                                        setCurrentTag(parsed.currentTag || 'for-you');
+                                        setPage(parsed.page || 1);
+                                        setHasNext(parsed.hasNext !== undefined ? parsed.hasNext : true);
+                                        setLoading(false);
+                                        restoredFromCache = true;
+                                        restoredAge = age;
+                                    }
+                                } else {
+                                    sessionStorage.removeItem(CACHE_KEY);
+                                }
+                            } catch (e) {
+                                sessionStorage.removeItem(CACHE_KEY);
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to read home cache', e);
+            }
+
+            // If we restored from cache and the cache is fresh enough, skip
+            // the backend fetch entirely so the user sees exactly where they
+            // left off without any reload. Otherwise continue normal fetch.
+            if (restoredFromCache && restoredAge < REFRESH_THRESHOLD) {
+                // Already restored and fresh -> skip network fetch
+                return;
+            }
+
+            // Continue with normal initialization (may overwrite restored data
+            // if backend returns fresh data). This ensures consistency.
+            
+            try {
+                // Only show loading indicator if we didn't restore state from cache
+                if (!restoredFromCache) setLoading(true);
                 // Detect initial tag from the pathname (seo-friendly /tags/<slug>/)
                 let initialTag = 'for-you';
                 if (typeof window !== 'undefined') {
@@ -37,7 +109,6 @@ export default function useMain() {
 
                 // Set the current tag so UI reflects selection while fetching
                 setCurrentTag(initialTag);
-                setPage(1);
 
                 // Build params based on initialTag
                 // If the initial tag is 'for-you', prefer the personalized feed
@@ -85,8 +156,40 @@ export default function useMain() {
             }
         };
         
-        initializeApp();
-    }, []);
+            initializeApp();
+        }, [initialState]);
+
+    // Persist minimal home state so that navigating away and back can restore
+    // the feed quickly (stories list, current tag, page, hasNext). Persisting
+    // is lightweight and kept for a short TTL.
+    useEffect(() => {
+        try {
+            if (typeof window !== 'undefined') {
+                const payload = {
+                    ts: Date.now(),
+                    stories: stories || [],
+                    currentTag,
+                    page,
+                    hasNext
+                };
+                try {
+                    // write to both sessionStorage and history.state so browser
+                    // back/forward restores immediately
+                    sessionStorage.setItem(CACHE_KEY, JSON.stringify(payload));
+                    try {
+                        const nextHist = { ...(window.history && window.history.state), homeState: payload };
+                        window.history.replaceState(nextHist, '');
+                    } catch (e) {
+                        // ignore history errors
+                    }
+                } catch (e) {
+                    // ignore quota errors
+                }
+            }
+        } catch (e) {
+            // ignore
+        }
+    }, [stories, currentTag, page, hasNext]);
     
     // Handle tag switching
     // Handle tag switching. If `force` is true, re-fetch even if tag === currentTag.

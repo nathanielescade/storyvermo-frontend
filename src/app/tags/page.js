@@ -4,7 +4,8 @@ import { absoluteUrl } from '../../../lib/api';
 
 export async function generateMetadata() {
   const title = 'Tags — StoryVermo';
-  const description = 'Explore tags and discover stories on StoryVermo.';
+  const description = 'Browse tags to explore creative journeys, trending ideas, and unique stories from StoryVermo creators.';
+
   const url = absoluteUrl('/tags/');
   const defaultImage = absoluteUrl('/og-tags.png');
 

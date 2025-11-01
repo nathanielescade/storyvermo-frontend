@@ -278,6 +278,32 @@ const VerseViewer = ({
     }
   }, [isOpen, onReady]);
 
+  // Update the browser URL (replaceState) to include the current verse id when viewer is open.
+  // This makes the URL shareable and consistent with server-side metadata when someone visits.
+  useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return;
+      if (!isOpen) {
+        // remove verse param when viewer closes
+        const url = new URL(window.location.href);
+        if (url.searchParams.has('verse')) {
+          url.searchParams.delete('verse');
+          window.history.replaceState({}, '', url.toString());
+        }
+        return;
+      }
+
+      if (!currentVerse) return;
+      const verseId = currentVerse.id ?? currentVerse.public_id ?? currentVerse.slug ?? null;
+      if (!verseId) return;
+      const url = new URL(window.location.href);
+      url.searchParams.set('verse', String(verseId));
+      window.history.replaceState({}, '', url.toString());
+    } catch (e) {
+      // ignore history exceptions
+    }
+  }, [isOpen, currentVerseIndex, currentVerse]);
+
   // Handle scroll events to detect current verse (throttled)
   useEffect(() => {
     const handleScroll = throttle(() => {

@@ -2002,3 +2002,42 @@
         .follow-btn.following {
             background: rgba(255, 255, 255, 0.2);
         }
+        
+        /* Make story / scene cards compact on larger screens (desktop) but
+           only when rendered inside the story detail page (scoped to
+           the `.story-detail` wrapper). This prevents changing the
+           global fullscreen behavior on the homepage/feed. */
+        @media (min-width: 1024px) {
+            .story-detail .image-container,
+            .story-detail .scene-card {
+                height: 420px; /* compact card height for desktop */
+            }
+
+            /* Center the card and give it a subtle elevation so the detail
+               page feels like a compact card while the feed/homepage
+               remains full-bleed. */
+            .story-detail .scene-card {
+                max-width: 900px;
+                margin: 20px auto;
+                border-radius: 12px;
+                box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+                overflow: hidden;
+            }
+
+            /* Ensure background fills the compact card cleanly only inside
+               the story detail. Do not change global `.scene-bg` so the
+               homepage retains its full-bleed image behavior. */
+            .story-detail .scene-bg {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                transform: none;
+            }
+
+            /* Slightly reposition the follow button for the smaller card */
+            .story-detail .follow-button {
+                width: 28px;
+                height: 28px;
+                transform: translate(10%, 10%);
+            }
+        }

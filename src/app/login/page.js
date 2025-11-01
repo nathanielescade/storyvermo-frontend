@@ -3,7 +3,8 @@ import LoginPageClient from './LoginPageClient';
 
 export async function generateMetadata() {
   const title = 'Login — StoryVermo';
-  const description = 'Log in to StoryVermo to read and create stories.';
+const description = 'Log in to StoryVermo and dive into a world of creative stories, shared moments, and vibrant communities.';
+
   const url = absoluteUrl('/login/');
 
   return {

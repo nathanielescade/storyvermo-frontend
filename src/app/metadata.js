@@ -1,9 +1,9 @@
 export const metadata = {
-  title: 'StoryVermo - has a story',
-  description: 'Everyday moments become stories. Write, snap, and create them with others.',
+  title: 'StoryVermo - Every moment has a story',
+  description: 'Every moment has a story. Write, snap, and create with others on StoryVermo.',
   openGraph: {
-    title: 'StoryVermo - has a story',
-    description: 'Everyday moments become stories. Write, snap, and create them with others.',
+    title: 'StoryVermo - Every moment has a story',
+    description: 'Every moment has a story. Write, snap, and create with others on StoryVermo.',
     siteName: 'StoryVermo',
     url: 'https://storyvermo.com',
     images: [
@@ -18,8 +18,8 @@ export const metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'StoryVermo - has a story',
-    description: 'Everyday moments become stories. Write, snap, and create them with others.',
+    title: 'StoryVermo - Every moment has a story',
+    description: 'Every moment has a story. Write, snap, and create with others on StoryVermo.',
     images: ['https://storyvermo.com/android-chrome-512x512.png'],
   },
 };
