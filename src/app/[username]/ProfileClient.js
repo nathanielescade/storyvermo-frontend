@@ -1005,4 +1005,4 @@ export default function ProfileClient({ username, initialProfile = null }) {
     `}</style>
     </>
   );
-}
+} 
