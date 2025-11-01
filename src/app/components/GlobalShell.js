@@ -96,7 +96,7 @@ export default function GlobalShell() {
   return (
     <>
   <Header openAuthModal={openAuthModal} />
-  <DimensionNav openAuthModal={openAuthModal} openStoryFormModal={openStoryFormModal} openDiscoverModal={openDiscoverModal} />
+  {/* <DimensionNav openAuthModal={openAuthModal} openStoryFormModal={openStoryFormModal} openDiscoverModal={openDiscoverModal} /> */}
 
   <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} onAuthSuccess={handleAuthSuccess} />
 

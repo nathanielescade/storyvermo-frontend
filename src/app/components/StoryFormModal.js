@@ -1,8 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image'; // Added import for Next.js Image component
+import Image from 'next/image';
 import { useAuth } from '../../../contexts/AuthContext';
 import { storiesApi, NEXT_PUBLIC_API_URL, versesApi, momentsApi } from '../../../lib/api';
+
+// Default tags as fallback
+const DEFAULT_TAGS = ['Fantasy', 'Adventure', 'Mystery', 'Romance', 'Sci-Fi', 
+                      'Horror', 'Thriller', 'Poetry', 'Life', 'Travel',
+                      'Food', 'Technology', 'Art', 'Music', 'History'];
 
 // Helper function to get CSRF token
 const getCsrfToken = () => {
@@ -259,6 +264,8 @@ const TagInput = memo(({
   tagInput, 
   selectedTags, 
   availableTags,
+  tagsLoading,
+  tagsError,
   onTagInputChange,
   onAddTag,
   onAddTagByValue,
@@ -306,7 +313,17 @@ const TagInput = memo(({
         </button>
       </div>
       <div className="mt-4">
-        <p className="text-gray-400 text-sm mb-3">Popular tags:</p>
+        <p className="text-gray-400 text-sm mb-3 flex items-center gap-2">
+          <span>Popular tags:</span>
+          {tagsLoading && (
+            <span className="fas fa-spinner fa-spin text-xs"></span>
+          )}
+        </p>
+        
+        {tagsError ? (
+          <div className="text-red-400 text-sm mb-2">{tagsError}</div>
+        ) : null}
+        
         <div className="flex flex-wrap gap-2">
           {availableTags.slice(0, 8).map((tag, index) => (
             <button
@@ -317,9 +334,15 @@ const TagInput = memo(({
                 selectedTags.includes(tag)
                   ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white'
                   : 'bg-slate-800 hover:bg-slate-700 text-gray-300 hover:text-white'
-              } rounded-lg px-3 py-1 text-sm transition-colors`}
+              } rounded-lg px-3 py-1 text-sm transition-colors flex items-center gap-1`}
             >
               {tag}
+              {/* Show popularity indicator for the top 3 tags */}
+              {index < 3 && (
+                <span className="text-xs bg-yellow-500/20 text-yellow-300 rounded-full w-4 h-4 flex items-center justify-center">
+                  {index + 1}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -380,28 +403,47 @@ const StoryFormModal = ({
     (editingStory?.tags || []).map(tag => (typeof tag === 'string' ? tag : (tag && (tag.name || tag.slug) ? (tag.name || tag.slug) : String(tag))))
   );
   const [availableTags, setAvailableTags] = useState([]);
+  const [tagsLoading, setTagsLoading] = useState(false);
+  const [tagsError, setTagsError] = useState(null);
   const [coverImageId, setCoverImageId] = useState(editingStory?.cover_image?.public_id || null);
   const [allowContributions, setAllowContributions] = useState(editingStory?.allow_contributions || false);
   const [showEmptyVerseConfirmation, setShowEmptyVerseConfirmation] = useState(false);
   
   const verseRefs = useRef([]);
   
-  // Fetch available tags
-  useEffect(() => {
-    const loadTags = async () => {
-      try {
-        // In a real app, this would fetch from your API
-        const tagsData = ['Fantasy', 'Adventure', 'Mystery', 'Romance', 'Sci-Fi', 
-                          'Horror', 'Thriller', 'Poetry', 'Life', 'Travel',
-                          'Food', 'Technology', 'Art', 'Music', 'History'];
-        setAvailableTags(tagsData);
-      } catch (err) {
-        console.error('Error loading tags:', err);
-      }
-    };
+  // Fetch popular tags from API
+  const fetchPopularTags = useCallback(async () => {
+    setTagsLoading(true);
+    setTagsError(null);
     
-    loadTags();
+    try {
+      // Try to fetch popular tags from API
+      const response = await fetch(`${NEXT_PUBLIC_API_URL}/api/tags/popular/`);
+      if (response.ok) {
+        const data = await response.json();
+        // Sort by usage count (most popular first)
+        const sortedTags = data.sort((a, b) => b.usage_count - a.usage_count).map(tag => tag.name);
+        setAvailableTags(sortedTags);
+      } else {
+        throw new Error('Failed to fetch popular tags');
+      }
+    } catch (err) {
+      console.error('Error loading tags:', err);
+      setTagsError('Failed to load popular tags');
+      
+      // Fallback to default tags if API fails
+      setAvailableTags(DEFAULT_TAGS);
+    } finally {
+      setTagsLoading(false);
+    }
   }, []);
+  
+  // Fetch tags when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchPopularTags();
+    }
+  }, [isOpen, fetchPopularTags]);
   
   // Initialize form when editing a story
   useEffect(() => {
@@ -1319,6 +1361,8 @@ const StoryFormModal = ({
                   tagInput={tagInput}
                   selectedTags={selectedTags}
                   availableTags={availableTags}
+                  tagsLoading={tagsLoading}
+                  tagsError={tagsError}
                   onTagInputChange={handleTagInputChange}
                   onAddTag={addTag}
                   onAddTagByValue={addTagByValue}

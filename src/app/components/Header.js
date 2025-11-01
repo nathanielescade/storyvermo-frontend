@@ -1,3 +1,4 @@
+// Header component - FIXED VERSION
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -51,7 +52,9 @@ const Header = ({ openAuthModal }) => {
   // Fetch unread count on mount and subscribe to updates
   useEffect(() => {
     let mounted = true;
-    async function fetchCount() {
+    
+    // Function to fetch unread count
+    const fetchUnreadCount = async () => {
       try {
         // Prefer dedicated unread-count endpoint when available
         let data = null;
@@ -91,17 +94,26 @@ const Header = ({ openAuthModal }) => {
       } catch (err) {
         console.debug('Failed to fetch notification count', err);
       }
-    }
-    fetchCount();
-
-    const handler = (e) => {
-      const newCount = typeof e.detail === 'number' ? e.detail : 0;
+    };
+    
+    // Initial fetch
+    fetchUnreadCount();
+    
+    // Set up interval to refresh unread count every 30 seconds
+    const intervalId = setInterval(fetchUnreadCount, 30000);
+    
+    // Custom event listener for real-time updates
+    const handleCountUpdate = (event) => {
+      const newCount = typeof event.detail === 'number' ? event.detail : 0;
       setUnreadCount(newCount);
     };
-    window.addEventListener('notifications:count:update', handler);
+    
+    window.addEventListener('notifications:count:update', handleCountUpdate);
+    
     return () => {
       mounted = false;
-      window.removeEventListener('notifications:count:update', handler);
+      clearInterval(intervalId);
+      window.removeEventListener('notifications:count:update', handleCountUpdate);
     };
   }, []);
 
