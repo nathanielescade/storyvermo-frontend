@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image'; // Added import for Next.js Image component
 import { useAuth } from '../../../contexts/AuthContext';
 import { storiesApi, NEXT_PUBLIC_API_URL, versesApi, momentsApi } from '../../../lib/api';
 
@@ -45,6 +46,9 @@ const ConfirmationDialog = ({ isOpen, title, message, onConfirm, onCancel }) => 
   );
 };
 
+// Add displayName to ConfirmationDialog
+ConfirmationDialog.displayName = 'ConfirmationDialog';
+
 // Optimized Verse Content Component with internal state
 const VerseContent = memo(({ value, onChange, verseId, ...props }) => {
   const [internalValue, setInternalValue] = useState(value);
@@ -81,6 +85,9 @@ const VerseContent = memo(({ value, onChange, verseId, ...props }) => {
     />
   );
 });
+
+// Add displayName to VerseContent
+VerseContent.displayName = 'VerseContent';
 
 // Memoized Verse Item Component
 const VerseItem = memo(({ 
@@ -151,27 +158,33 @@ const VerseItem = memo(({
             {verse.imageIds.map((image, imgIndex) => (
               <div key={imgIndex} className="relative group">
                 {typeof image === 'string' ? (
-                  <img 
-                    src={image} 
-                    alt={`Moment ${imgIndex + 1}`} 
-                    className="w-full h-36 object-cover rounded-xl border border-gray-700"
-                    onError={(e) => {
-                      console.error("Verse image failed to load:", e);
-                      e.target.src = '';
-                      e.target.alt = "Image failed to load";
-                    }}
-                  />
+                  <div className="relative w-full h-36">
+                    <Image 
+                      src={image} 
+                      alt={`Moment ${imgIndex + 1}`} 
+                      fill
+                      className="object-cover rounded-xl border border-gray-700"
+                      onError={(e) => {
+                        console.error("Verse image failed to load:", e);
+                        e.target.src = '';
+                        e.target.alt = "Image failed to load";
+                      }}
+                    />
+                  </div>
                 ) : (
-                  <img 
-                    src={image.preview || image.url || image.file_url || (image.file ? URL.createObjectURL(image.file) : '')} 
-                    alt={`Moment ${imgIndex + 1}`} 
-                    className="w-full h-36 object-cover rounded-xl border border-gray-700"
-                    onError={(e) => {
-                      console.error("Verse image failed to load:", e);
-                      e.target.src = '';
-                      e.target.alt = "Image failed to load";
-                    }}
-                  />
+                  <div className="relative w-full h-36">
+                    <Image 
+                      src={image.preview || image.url || image.file_url || (image.file ? URL.createObjectURL(image.file) : '')} 
+                      alt={`Moment ${imgIndex + 1}`} 
+                      fill
+                      className="object-cover rounded-xl border border-gray-700"
+                      onError={(e) => {
+                        console.error("Verse image failed to load:", e);
+                        e.target.src = '';
+                        e.target.alt = "Image failed to load";
+                      }}
+                    />
+                  </div>
                 )}
                 <button 
                   onClick={() => onImageUpload(verse.id, imgIndex)}
@@ -237,6 +250,9 @@ const VerseItem = memo(({
     </div>
   );
 });
+
+// Add displayName to VerseItem
+VerseItem.displayName = 'VerseItem';
 
 // Memoized Tag Input Component
 const TagInput = memo(({ 
@@ -311,6 +327,9 @@ const TagInput = memo(({
     </div>
   );
 });
+
+// Add displayName to TagInput
+TagInput.displayName = 'TagInput';
 
 const StoryFormModal = ({ 
   isOpen = false, 
@@ -1084,16 +1103,19 @@ const StoryFormModal = ({
           />
           {imagePreview ? (
             <>
-              <img 
-                src={imagePreview} 
-                alt="Preview" 
-                className="absolute inset-0 w-full h-full object-cover"
-                onError={(e) => {
-                  console.error("Image failed to load:", e);
-                  e.target.src = '';
-                  e.target.alt = "Image preview failed to load";
-                }}
-              />
+              <div className="relative w-full h-full">
+                <Image 
+                  src={imagePreview} 
+                  alt="Preview" 
+                  fill
+                  className="object-cover"
+                  onError={(e) => {
+                    console.error("Image failed to load:", e);
+                    e.target.src = '';
+                    e.target.alt = "Image preview failed to load";
+                  }}
+                />
+              </div>
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-center pb-6 gap-4">
                 <button 
                   type="button"
@@ -1436,5 +1458,8 @@ const StoryFormModal = ({
     </>
   );
 };
+
+// Add displayName to StoryFormModal
+StoryFormModal.displayName = 'StoryFormModal';
 
 export default StoryFormModal;
