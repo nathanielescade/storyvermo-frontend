@@ -365,7 +365,7 @@ const handleFollow = async (event, username) => {
                     {/* Updated hologram with Tailwind classes */}
                     <div 
                         ref={hologramRef}
-                        className="absolute bottom-20 left-[5%] right-[5%] bg-black/60 backdrop-blur-[0.5px] border-2 border-[rgba(80,105,219,0.4)] rounded-2xl p-5 overflow-visible max-md:bottom-[150px]"
+                        className="absolute bottom-20 left-[5%] right-[5%] bg-black/60 backdrop-blur-[0.5px] border-2 border-[rgba(80,105,219,0.4)] rounded-2xl p-3 overflow-visible max-md:bottom-[150px]"
                     >
                         <HologramIcons 
                             story={currentStory}
