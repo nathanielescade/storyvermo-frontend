@@ -572,11 +572,9 @@ export default function ProfileClient({ username, initialProfile = null }) {
                   >
                     <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900/60 to-indigo-900/60 border border-cyan-500/20 hover:border-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02]">
                       {coverImageUrl ? (
-                        <SmartImg
+                        <img
                           src={absoluteUrl(coverImageUrl)}
                           alt={story.title}
-                          width={300}
-                          height={200}
                           className="w-full h-40 object-cover"
                         />
                       ) : (
@@ -714,14 +712,12 @@ export default function ProfileClient({ username, initialProfile = null }) {
                     >
                       <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900/60 to-indigo-900/60 border border-cyan-500/20 hover:border-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02]">
                         {coverImageUrl ? (
-                        <SmartImg
-                          src={absoluteUrl(coverImageUrl)}
-                          alt={story.title}
-                          width={300}
-                          height={200}
-                          className="w-full h-40 object-cover"
-                        />
-                      ) : (
+                          <img
+                            src={absoluteUrl(coverImageUrl)}
+                            alt={story.title}
+                            className="w-full h-40 object-cover"
+                          />
+                        ) : (
                           <div className="w-full h-40 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center">
                             <i className="fas fa-image text-4xl text-white/20"></i>
                           </div>
@@ -1005,4 +1001,4 @@ export default function ProfileClient({ username, initialProfile = null }) {
     `}</style>
     </>
   );
-} 
+}
