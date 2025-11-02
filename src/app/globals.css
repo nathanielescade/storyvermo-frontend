@@ -36,7 +36,8 @@
       'Segoe UI Emoji', 'Segoe UI Symbol';
     background-color: var(--color-dark-blue);
     overflow: auto;
-    /* width: 100%; */
+    position: fixed;
+    width: 100%;
     height: 100%;
   }
 }
@@ -522,7 +523,22 @@
             margin-right: 10px;
         }
         
-
+        /* Fixed Header */
+        .fixed-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(10, 14, 39, 0.9);
+            backdrop-filter: blur(15px);
+            z-index: 50;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px; 
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+        }
         
         /* Responsive adjustments */
         @media (max-width: 768px) {
@@ -1195,7 +1211,39 @@
             background: rgba(255, 255, 255, 0.1);
         }
         
-
+        /* Follow button styles */
+        .follow-button {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: linear-gradient(to right, var(--accent-orange), var(--neon-pink));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid white;
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.5);
+            z-index: 20;
+            transform: translate(20%, 20%);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .follow-button:hover {
+            opacity: 0.9;
+            transform: translate(20%, 20%) scale(1.1);
+        }
+        
+        .follow-button:active {
+            transform: translate(20%, 20%) scale(0.95);
+        }
+        
+        .follow-button i {
+            color: white;
+            font-size: 10px;
+        }
         
         /* Floating comment styles */
         .floating-comment {

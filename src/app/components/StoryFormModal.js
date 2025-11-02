@@ -903,6 +903,28 @@ setSuccess(editingStory ? 'Story updated successfully!' : 'Story created success
 if (onUpdateStory) {
   onUpdateStory(savedStory, !editingStory);
 }
+
+// Notify server-side proxy to trigger revalidation and indexing without exposing the secret to the client.
+try {
+  const csrf = getCsrfToken();
+  // Fire-and-forget but log results for debugging
+  fetch('/api/publish-proxy', {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrf
+    },
+    body: JSON.stringify({ slug: savedStory?.slug })
+  })
+    .then(async (r) => {
+      try { const j = await r.json().catch(() => null); console.log('publish-proxy response', r.status, j); } catch(e){}
+    })
+    .catch((e) => console.warn('publish-proxy failed', e));
+} catch (e) {
+  console.warn('publish-proxy invocation error', e);
+}
+
 setTimeout(() => {
   onClose();
   setSuccess(null);
