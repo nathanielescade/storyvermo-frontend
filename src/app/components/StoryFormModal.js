@@ -1,4 +1,7 @@
+"use client";
+
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -895,17 +898,22 @@ const StoryFormModal = ({
         }
       }
 
-      setSuccess(editingStory ? 'Story updated successfully!' : 'Story created successfully!');
-      if (onUpdateStory) {
-        onUpdateStory(savedStory, !editingStory);
-      }
-      setTimeout(() => {
-        onClose();
-        setSuccess(null);
-        if (savedStory.slug) {
-          router.push(`/stories/${savedStory.slug}`);
-        }
-      }, 2000);
+// In the handlePublish function, after successful update:
+setSuccess(editingStory ? 'Story updated successfully!' : 'Story created successfully!');
+if (onUpdateStory) {
+  onUpdateStory(savedStory, !editingStory);
+}
+setTimeout(() => {
+  onClose();
+  setSuccess(null);
+  // Redirect to story slug after update
+  if (savedStory.slug) {
+    router.push(`/stories/${savedStory.slug}`);
+  } else if (editingStory && editingStory.slug) {
+    // Fallback to editingStory.slug if savedStory doesn't have slug
+    router.push(`/stories/${editingStory.slug}`);
+  }
+}, 2000);
     } catch (err) {
       console.error('Error saving story:', err);
       
@@ -1275,7 +1283,7 @@ const StoryFormModal = ({
     );
   };
   
-  return (
+  const modal = (
     <>
       {/* Outer container - handles backdrop and positioning */}
       <div className={`fixed inset-0 bg-black/90 backdrop-blur-xl z-[500] ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'} transition-opacity duration-300`}>
@@ -1501,6 +1509,12 @@ const StoryFormModal = ({
       `}</style>
     </>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(modal, document.body);
+  }
+
+  return null;
 };
 
 // Add displayName to StoryFormModal

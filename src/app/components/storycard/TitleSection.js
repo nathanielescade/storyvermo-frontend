@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 
 const TitleSection = ({ 
     story, 
@@ -14,6 +14,8 @@ const TitleSection = ({
 }) => {
     const titleRef = useRef(null);
     const descRef = useRef(null);
+    const [wasTitleTruncated, setWasTitleTruncated] = useState(false);
+    const [wasDescTruncated, setWasDescTruncated] = useState(false);
 
     useEffect(() => {
         checkTruncation();
@@ -23,11 +25,17 @@ const TitleSection = ({
         if (titleRef.current) {
             const isTruncated = titleRef.current.scrollHeight > titleRef.current.clientHeight;
             setIsTitleTruncated(isTruncated);
+            if (isTruncated && !wasTitleTruncated) {
+                setWasTitleTruncated(true);
+            }
         }
         
         if (descRef.current) {
             const isTruncated = descRef.current.scrollHeight > descRef.current.clientHeight;
             setIsDescTruncated(isTruncated);
+            if (isTruncated && !wasDescTruncated) {
+                setWasDescTruncated(true);
+            }
         }
     };
 
@@ -82,17 +90,34 @@ const TitleSection = ({
                             titleExpanded ? '' : 'line-clamp-2'
                         }`}
                         id={`title-${index}`}
+                        onClick={(e) => {
+                            if (wasTitleTruncated && !titleExpanded) {
+                                e.preventDefault();
+                                toggleTitle();
+                            }
+                        }}
+                        style={{
+                            display: '-webkit-box',
+                            WebkitBoxOrient: 'vertical',
+                            WebkitLineClamp: titleExpanded ? 'unset' : 2,
+                            overflow: titleExpanded ? 'visible' : 'hidden'
+                        }}
                     >
                         {renderTitleWithEmojis(story.title)}
                     </h2>
                 </a>
-                {isTitleTruncated && (
+                
+                {/* Title toggle control */}
+                {wasTitleTruncated && (
                     <span 
-                        className="title-read-more" 
-                        id={`title-readmore-${index}`}
-                        onClick={toggleTitle}
+                        className="text-cyan-400 ml-1 cursor-pointer text-sm font-medium hover:text-cyan-300 transition-colors"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleTitle();
+                        }}
                     >
-                        {titleExpanded ? 'Read less' : 'Read more'}
+                        {titleExpanded ? 'Read less' : '...'}
                     </span>
                 )}
             </div>
@@ -104,12 +129,20 @@ const TitleSection = ({
                         descExpanded ? '' : 'line-clamp-3'
                     }`}
                     id={`desc-${index}`}
+                    style={{
+                        display: '-webkit-box',
+                        WebkitBoxOrient: 'vertical',
+                        WebkitLineClamp: descExpanded ? 'unset' : 3,
+                        overflow: descExpanded ? 'visible' : 'hidden'
+                    }}
                 >
                     {story.description || 'No description available.'}
                 </div>
-                {isDescTruncated && (
+                
+                {/* Description toggle control */}
+                {wasDescTruncated && (
                     <span 
-                        className="read-more-btn" 
+                        className="text-cyan-400 cursor-pointer text-sm font-medium hover:text-cyan-300 transition-colors mt-1 inline-block"
                         id={`readmore-${index}`}
                         onClick={toggleDescription}
                     >

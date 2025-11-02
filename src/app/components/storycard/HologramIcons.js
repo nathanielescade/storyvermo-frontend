@@ -9,7 +9,9 @@ const HologramIcons = ({
     setShowRecommendModal,
     setShowEnlargeModal,
     // new callback: onOpenDropdown(element)
-    onOpenDropdown
+    onOpenDropdown,
+    // Add a new prop to track dropdown state
+    isDropdownOpen
 }) => {
     const handleContribute = () => {
         if (!isAuthenticated) {
@@ -33,7 +35,17 @@ const HologramIcons = ({
 
     const handleMoreOptions = (event) => {
         event.stopPropagation();
-        // Pass the clicked button element to parent so it can position the menu
+        
+        // If dropdown is already open, close it
+        if (isDropdownOpen) {
+            // Pass null to indicate closing
+            if (typeof onOpenDropdown === 'function') {
+                onOpenDropdown(null);
+            }
+            return;
+        }
+        
+        // Otherwise, open it
         if (typeof onOpenDropdown === 'function') {
             onOpenDropdown(event.currentTarget);
             return;

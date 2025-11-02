@@ -215,17 +215,17 @@ const CreatorChip = ({
                     
                     {!isOwner && !isFollowing && !isSelf && creatorUsername !== 'anonymous' && (
                         <button 
-                            className="follow-button absolute bottom-0 right-0 bg-black rounded-full w-6 h-6 flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors"
+                            className="follow-button absolute bottom-0 right-0 bg-transparent border-2  rounded-full w-7 h-7 flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors"
                             onClick={handleFollowClick}
                         >
-                            <i className="fas fa-plus text-white text-lg"></i>
+                            <i className="fas fa-plus text-white font-extrabold text-xl"></i>
                         </button>
                     )}
                 </div>
                 
-                <div className="flex flex-col flex-grow min-w-0 ml-0">
+                <div className="flex flex-col 9flex-grow min-w-0 ml-0">
                     <a href={`/${encodeURIComponent(creatorUsername)}`} className="block min-w-0">
-                        <span className="creator-name text-xs sm:text-sm font-semibold text-white whitespace-nowrap overflow-hidden text-ellipsis hover:underline block max-w-[8rem]" title={getCreatorDisplayName()}>
+                        <span className="creator-name text-xs sm:text-sm font-semibold text-white whitespace-nowrap overflow-hidden text-ellipsis hover:underline block max-w-[12rem]" title={getCreatorDisplayName()}>
                             {getCreatorDisplayName()}
                         </span>
                     </a>

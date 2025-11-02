@@ -137,7 +137,7 @@ export default function FeedClient({ initialState }) {
 
       <div
         id="tagSwitcher"
-        className="absolute left-1/2 top-8 transform -translate-x-1/2 bg-black/70 backdrop-blur-md rounded-full z-10 flex px-1 py-1"
+        className="absolute left-1/2 top-8 transform -translate-x-1/2 bg-black/50  rounded-full z-10 flex px-1 py-1"
         style={{ 
           width: '90%', 
           maxWidth: '500px',

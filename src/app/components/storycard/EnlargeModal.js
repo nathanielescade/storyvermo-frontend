@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 const EnlargeModal = ({ 
     showEnlargeModal, 
@@ -6,16 +6,52 @@ const EnlargeModal = ({
     story, 
     getCoverImageUrl 
 }) => {
-    const handleDownloadImage = () => {
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    const handleDownloadImage = async () => {
         const coverImageUrl = getCoverImageUrl();
         if (!coverImageUrl) return;
         
-        const link = document.createElement('a');
-        link.href = coverImageUrl;
-        link.download = `${story.title || 'story'}-cover.jpg`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        setIsDownloading(true);
+        
+        try {
+            // Try to fetch the image as a blob first
+            const response = await fetch(coverImageUrl);
+            if (!response.ok) throw new Error('Network response was not ok');
+            
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            
+            // Create download link
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = `${story.title || 'story'}-cover.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            
+            // Clean up
+            setTimeout(() => {
+                document.body.removeChild(link);
+                URL.revokeObjectURL(blobUrl);
+                setIsDownloading(false);
+            }, 100);
+        } catch (error) {
+            console.error('Download failed:', error);
+            
+            // Fallback to direct download
+            const link = document.createElement('a');
+            link.href = coverImageUrl;
+            link.download = `${story.title || 'story'}-cover.jpg`;
+            link.target = '_blank'; // Helps with some cross-origin issues
+            document.body.appendChild(link);
+            link.click();
+            
+            // Clean up
+            setTimeout(() => {
+                document.body.removeChild(link);
+                setIsDownloading(false);
+            }, 100);
+        }
     };
 
     if (!showEnlargeModal) return null;
@@ -27,10 +63,15 @@ const EnlargeModal = ({
             <div className="fixed top-4 left-4 right-4 flex justify-between z-[700] pointer-events-none">
                 <button 
                     onClick={handleDownloadImage}
-                    className="w-12 h-12 rounded-full bg-black/60 flex items-center justify-center text-white z-10 hover:bg-black/80 pointer-events-auto"
-                    title="Download image"
+                    disabled={isDownloading}
+                    className="w-12 h-12 rounded-full bg-black/60 flex items-center justify-center text-white z-10 hover:bg-black/80 pointer-events-auto disabled:opacity-50"
+                    title={isDownloading ? "Downloading..." : "Download image"}
                 >
-                    <i className="fas fa-download"></i>
+                    {isDownloading ? (
+                        <i className="fas fa-spinner fa-spin"></i>
+                    ) : (
+                        <i className="fas fa-download"></i>
+                    )}
                 </button>
                 <button 
                     onClick={() => setShowEnlargeModal(false)}
@@ -47,6 +88,7 @@ const EnlargeModal = ({
                             src={coverImageUrl} 
                             alt={story.title || 'Story cover'} 
                             className="w-full h-full object-contain rounded-xl"
+                            crossOrigin="anonymous" // Helps with some CORS issues
                         />
                     ) : (
                         <div className="w-full h-96 bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl flex items-center justify-center">

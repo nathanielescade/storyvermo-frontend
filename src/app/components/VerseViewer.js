@@ -6,6 +6,7 @@ import { absoluteUrl, versesApi } from '../../../lib/api';
 import ContributeModal from './storycard/ContributeModal';
 import { useRouter } from 'next/navigation';
 import ShareModal from './ShareModal';
+import { createPortal } from 'react-dom';
 
 // Helper to get an image URL from a moment
 const getMomentImageUrl = (moment) => {
@@ -626,7 +627,7 @@ const VerseViewer = ({
 
   if (!isOpen || !story) return null;
 
-  return (
+  const viewer = (
     <div className={`fixed inset-0 z-[201] bg-gradient-to-br ${defaultTheme.gradient} transition-all duration-1000`}>
       {/* Colorful bubbles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -1008,6 +1009,12 @@ const VerseViewer = ({
       `}</style>
     </div>
   );
+
+  if (typeof document !== 'undefined') {
+    return createPortal(viewer, document.body);
+  }
+
+  return null;
 };
 
 export default VerseViewer;
