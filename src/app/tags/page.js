@@ -1,6 +1,6 @@
 // src/app/tags/page.js
 import Link from 'next/link';
-import { absoluteUrl } from '../../../lib/api';
+import { absoluteUrl, tagsApi } from '../../../lib/api';
 
 export async function generateMetadata() {
   const title = 'Tags — StoryVermo';
@@ -32,41 +32,34 @@ export async function generateMetadata() {
 export default async function TagsPage() {
   let tags = [];
   let error = null;
-  
+  // Small, safe fallback used in development when the configured API host
+  // (NEXT_PUBLIC_API_URL) is not reachable (DNS/network issues). In
+  // production we prefer to surface the error so it can be addressed.
+  const DEV_FALLBACK_TAGS = [
+    { name: 'fiction', slug: 'fiction', id: 'fallback-fiction', story_count: 120 },
+    { name: 'poetry', slug: 'poetry', id: 'fallback-poetry', story_count: 95 },
+    { name: 'life', slug: 'life', id: 'fallback-life', story_count: 80 },
+  ];
+
   try {
-    // Try to fetch tags but handle any errors gracefully
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tags/trending/`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-    });
-    
-    if (response.ok) {
-      tags = await response.json();
-      
-      // If no trending tags, try recent tags
-      if (!Array.isArray(tags) || tags.length === 0) {
-        const recentResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tags/recent/`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-        });
-        
-        if (recentResponse.ok) {
-          tags = await recentResponse.json();
-        }
-      }
-    } else {
-      error = `Failed to fetch tags: ${response.status}`;
+    // Prefer the tagsApi helper which centralizes request behavior and caching
+    tags = await tagsApi.getTrending();
+
+    // If backend returned nothing, fall back to recent tags
+    if (!Array.isArray(tags) || tags.length === 0) {
+      tags = await tagsApi.getRecent();
     }
   } catch (e) {
     console.warn('[tags page] failed to fetch tags', e);
-    error = e.message;
-    tags = [];
+    error = e?.message || String(e);
+
+    // If we're in development, provide a small fallback so the page remains useful
+    if (process.env.NODE_ENV !== 'production') {
+      tags = DEV_FALLBACK_TAGS;
+      error = `${error} — using local fallback tags (DEV only). Check NEXT_PUBLIC_API_URL in your environment.`;
+    } else {
+      tags = [];
+    }
   }
 
   return (
