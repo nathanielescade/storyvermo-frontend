@@ -16,11 +16,11 @@ const nextConfig = {
       }
       ,
       // Allow images served from the production API host
-      {
-        protocol: 'https',
-        hostname: 'api.storyvermo.com',
-        pathname: '/media/**',
-      }
+      // {
+      //   protocol: 'https',
+      //   hostname: 'api.storyvermo.com',
+      //   pathname: '/media/**',
+      // }
     ],
   },
 };

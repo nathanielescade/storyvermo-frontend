@@ -371,6 +371,11 @@ const StoryFormModal = ({
 }) => {
   const router = useRouter();
   const { currentUser, isAuthenticated } = useAuth();
+  const [isClient, setIsClient] = useState(false);
+  
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
   
   const [imagePreview, setImagePreview] = useState(editingStory?.cover_image?.file_url || null);
   const [imageFile, setImageFile] = useState(null);
@@ -899,44 +904,43 @@ const StoryFormModal = ({
         }
       }
 
-// In the handlePublish function, after successful update:
-setSuccess(editingStory ? 'Story updated successfully!' : 'Story created successfully!');
-if (onUpdateStory) {
-  onUpdateStory(savedStory, !editingStory);
-}
+      setSuccess(editingStory ? 'Story updated successfully!' : 'Story created successfully!');
+      if (onUpdateStory) {
+        onUpdateStory(savedStory, !editingStory);
+      }
 
-// Notify server-side proxy to trigger revalidation and indexing without exposing the secret to the client.
-try {
-  const csrf = getCsrfToken();
-  // Fire-and-forget but log results for debugging
-  fetch('/api/publish-proxy', {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-CSRFToken': csrf
-    },
-    body: JSON.stringify({ slug: savedStory?.slug })
-  })
-    .then(async (r) => {
-      try { const j = await r.json().catch(() => null); console.log('publish-proxy response', r.status, j); } catch(e){}
-    })
-    .catch((e) => console.warn('publish-proxy failed', e));
-} catch (e) {
-  console.warn('publish-proxy invocation error', e);
-}
+      // Notify server-side proxy to trigger revalidation and indexing without exposing the secret to the client.
+      try {
+        const csrf = getCsrfToken();
+        // Fire-and-forget but log results for debugging
+        fetch('/api/publish-proxy', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrf
+          },
+          body: JSON.stringify({ slug: savedStory?.slug })
+        })
+          .then(async (r) => {
+            try { const j = await r.json().catch(() => null); console.log('publish-proxy response', r.status, j); } catch(e){}
+          })
+          .catch((e) => console.warn('publish-proxy failed', e));
+      } catch (e) {
+        console.warn('publish-proxy invocation error', e);
+      }
 
-setTimeout(() => {
-  onClose();
-  setSuccess(null);
-  // Redirect to story slug after update
-  if (savedStory.slug) {
-    router.push(`/stories/${savedStory.slug}`);
-  } else if (editingStory && editingStory.slug) {
-    // Fallback to editingStory.slug if savedStory doesn't have slug
-    router.push(`/stories/${editingStory.slug}`);
-  }
-}, 2000);
+      setTimeout(() => {
+        onClose();
+        setSuccess(null);
+        // Redirect to story slug after update
+        if (savedStory.slug) {
+          router.push(`/stories/${savedStory.slug}`);
+        } else if (editingStory && editingStory.slug) {
+          // Fallback to editingStory.slug if savedStory doesn't have slug
+          router.push(`/stories/${editingStory.slug}`);
+        }
+      }, 2000);
     } catch (err) {
       console.error('Error saving story:', err);
       
@@ -1534,11 +1538,11 @@ setTimeout(() => {
     </>
   );
 
-  if (typeof document !== 'undefined') {
-    return createPortal(modal, document.body);
+  if (!isClient) {
+    return null;
   }
 
-  return null;
+  return createPortal(modal, document.body);
 };
 
 // Add displayName to StoryFormModal

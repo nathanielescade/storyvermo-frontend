@@ -12,6 +12,7 @@ export default function FeedClient({ initialState }) {
     hasNext,
     isFetching,
     currentTag,
+     isPersonalized,
     currentDimension,
     handleTagSwitch,
     handleFetchMore,

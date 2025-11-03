@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 // Server-side media proxy: fetches media from the backend and streams it to the client
 // Keeps the backend host hidden from frontend markup.
 
-const BACKEND = process.env.NEXT_PUBLIC_API_URL || 'https://api.storyvermo.com';
+const BACKEND = process.env.NEXT_PUBLIC_API_URL
 
 export async function GET(request) {
   try {

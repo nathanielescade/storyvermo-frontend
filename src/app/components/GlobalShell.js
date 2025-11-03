@@ -13,9 +13,12 @@ export default function GlobalShell() {
   const [pendingAction, setPendingAction] = useState(null);
   const [isStoryFormModalOpen, setIsStoryFormModalOpen] = useState(false);
   const [isDiscoverModalOpen, setIsDiscoverModalOpen] = useState(false);
+  const [hasMounted, setHasMounted] = useState(false);
 
   // Listen for programmatic requests to open auth modal (from any component)
   useEffect(() => {
+    setHasMounted(true);
+    
     const handler = (e) => {
       const detail = e?.detail || {};
       setPendingAction(detail || null);
@@ -95,14 +98,14 @@ export default function GlobalShell() {
 
   return (
     <>
-  <Header openAuthModal={openAuthModal} />
-  <DimensionNav openAuthModal={openAuthModal} openStoryFormModal={openStoryFormModal} openDiscoverModal={openDiscoverModal} />
+      <Header openAuthModal={openAuthModal} />
+      <DimensionNav openAuthModal={openAuthModal} openStoryFormModal={openStoryFormModal} openDiscoverModal={openDiscoverModal} />
 
-  <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} onAuthSuccess={handleAuthSuccess} />
+      <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} onAuthSuccess={handleAuthSuccess} />
 
-  <StoryFormModal isOpen={isStoryFormModalOpen} onClose={closeStoryFormModal} mode="create" />
+      {hasMounted && <StoryFormModal isOpen={isStoryFormModalOpen} onClose={closeStoryFormModal} mode="create" />}
 
-  <DiscoverModal isOpen={isDiscoverModalOpen} onClose={closeDiscoverModal} />
+      <DiscoverModal isOpen={isDiscoverModalOpen} onClose={closeDiscoverModal} />
     </>
   );
 }
