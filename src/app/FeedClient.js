@@ -28,9 +28,41 @@ export default function FeedClient({ initialState }) {
   const { currentUser } = useAuth();
   const feedRef = useRef(null);
   const sentinelRef = useRef(null);
+  const preloadTimeoutRef = useRef(null);
   const [preloadTriggered, setPreloadTriggered] = useState(false);
-  const [storiesBuffer, setStoriesBuffer] = useState([]);
-  const [isBuffering, setIsBuffering] = useState(false);
+
+
+  // safeFetchMore prevents duplicate fetches when aggressive preloading fires rapidly.
+  // It short-circuits if a fetch is already in progress or a recent preload was triggered.
+  const safeFetchMore = useCallback(async () => {
+    if (isFetching || preloadTriggered) return null;
+
+    try {
+      setPreloadTriggered(true);
+      // Clear any existing timeout before setting a new one
+      if (preloadTimeoutRef.current) {
+        clearTimeout(preloadTimeoutRef.current);
+      }
+
+      const result = await handleFetchMore();
+
+      // Keep the preload lock for a short period to avoid duplicate calls
+      preloadTimeoutRef.current = setTimeout(() => {
+        setPreloadTriggered(false);
+        preloadTimeoutRef.current = null;
+      }, 1000);
+
+      return result;
+    } catch (e) {
+      // Ensure we release the lock on error
+      if (preloadTimeoutRef.current) {
+        clearTimeout(preloadTimeoutRef.current);
+        preloadTimeoutRef.current = null;
+      }
+      setPreloadTriggered(false);
+      throw e;
+    }
+  }, [isFetching, preloadTriggered, handleFetchMore]);
 
   // Aggressive preloading strategy
   useEffect(() => {
@@ -40,11 +72,8 @@ export default function FeedClient({ initialState }) {
       (entries) => {
         if (entries[0].isIntersecting && !preloadTriggered) {
           // Trigger preload much earlier - when user is 70% through current content
-          handleFetchMore();
-          setPreloadTriggered(true);
-          
-          // Reset after a short delay to allow next preload
-          setTimeout(() => setPreloadTriggered(false), 1000);
+          // Use safeFetchMore to avoid race conditions when user scrolls very fast.
+          safeFetchMore();
         }
       },
       {
@@ -54,29 +83,31 @@ export default function FeedClient({ initialState }) {
       }
     );
 
-    if (sentinelRef.current) {
-      observer.observe(sentinelRef.current);
+    const node = sentinelRef.current;
+    if (node) {
+      observer.observe(node);
     }
 
     return () => {
-      if (sentinelRef.current) {
-        observer.unobserve(sentinelRef.current);
+      if (node) {
+        observer.unobserve(node);
       }
     };
-  }, [isFetching, hasNext, handleFetchMore, preloadTriggered, stories.length]);
+  }, [hasNext, isFetching, preloadTriggered, safeFetchMore, stories.length]);
 
-  // Buffer management for seamless loading
+  // cleanup timeout on unmount
   useEffect(() => {
-    if (stories.length > 0 && !isBuffering) {
-      // When we have stories but buffer is empty, start buffering next page
-      if (storiesBuffer.length === 0 && hasNext && !isFetching) {
-        setIsBuffering(true);
-        handleFetchMore().then(() => {
-          setIsBuffering(false);
-        });
+    return () => {
+      if (preloadTimeoutRef.current) {
+        clearTimeout(preloadTimeoutRef.current);
+        preloadTimeoutRef.current = null;
       }
-    }
-  }, [stories, storiesBuffer, hasNext, isFetching, handleFetchMore, isBuffering]);
+    };
+  }, []);
+
+  // NOTE: previous buffering logic (storiesBuffer) was removed because buffered
+  // stories were never rendered/merged into main `stories`. This avoids
+  // duplicate fetches and simplifies preload behavior.
 
   // Handle tag option click with authentication check
   const handleTagOptionClick = useCallback(async (tagName) => {
@@ -109,6 +140,18 @@ export default function FeedClient({ initialState }) {
     const onPop = () => {
       const m = window.location.pathname.match(/^\/tags\/([^\/]+)\/?$/);
       const tag = m && m[1] ? decodeURIComponent(m[1]) : 'for-you';
+      // Immediately scroll to top so the UI reflects navigation while
+      // handleTagSwitch may perform network work. handleTagSwitch itself
+      // also sets the current tag in the hook, but scrolling here makes
+      // the change feel instant to the user.
+      if (feedRef.current) {
+        try {
+          feedRef.current.scrollTo({ top: 0 });
+        } catch (e) {
+          // ignore scroll errors in non-DOM contexts
+        }
+      }
+
       handleTagSwitch(tag);
     };
     window.addEventListener('popstate', onPop);
@@ -139,7 +182,8 @@ export default function FeedClient({ initialState }) {
     if (story.id && story.slug) {
       return `${story.id}-${story.slug}`;
     }
-    return `${story.id || 'story'}-${index}-${Date.now()}`;
+    return `${story.id || 'story'}-${index}`;
+
   }, []);
 
   return (
@@ -213,8 +257,7 @@ export default function FeedClient({ initialState }) {
             <p className="text-red-500 mb-2">{error}</p>
             <button 
               onClick={() => {
-                handleFetchMore();
-                setPreloadTriggered(false);
+                safeFetchMore();
               }}
               className="px-3 py-1 bg-accent-orange text-white text-sm rounded hover:bg-accent-orange/90"
             >

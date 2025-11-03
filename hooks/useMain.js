@@ -1,5 +1,5 @@
 // useMain.js
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { storiesApi, userApi } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -19,6 +19,7 @@ export default function useMain(initialState = null) {
     const [page, setPage] = useState(initialState?.page || 1);
     const [error, setError] = useState(null);
     const [prefetchedStories, setPrefetchedStories] = useState(null);
+    const isPrefetchingRef = useRef(false);
     
     const { currentUser, isAuthenticated, refreshAuth } = useAuth();
     
@@ -110,13 +111,19 @@ export default function useMain(initialState = null) {
                     const nextParams = { page: 2 };
                     if (initialTag !== 'for-you') nextParams.tag = initialTag;
                     
-                    storiesApi.getPaginatedStories(nextParams)
-                        .then(nextStories => {
-                            setPrefetchedStories(nextStories.results || []);
-                        })
-                        .catch(err => {
-                            console.warn('Failed to prefetch next page', err);
-                        });
+                        if (!isPrefetchingRef.current) {
+                            isPrefetchingRef.current = true;
+                            storiesApi.getPaginatedStories(nextParams)
+                                .then(nextStories => {
+                                    setPrefetchedStories(nextStories.results || []);
+                                })
+                                .catch(err => {
+                                    console.warn('Failed to prefetch next page', err);
+                                })
+                                .finally(() => {
+                                    isPrefetchingRef.current = false;
+                                });
+                        }
                 }
             } catch (error) {
                 console.error('Error initializing app:', error);
@@ -159,6 +166,7 @@ export default function useMain(initialState = null) {
     
     // Handle tag switching
     const handleTagSwitch = useCallback(async (tag, { force = false } = {}) => {
+        // Always proceed if force is true, even if tag is the same
         if (tag === currentTag && !force) return;
 
         setLoading(true);
@@ -171,23 +179,60 @@ export default function useMain(initialState = null) {
             // Always use paginated_stories with the appropriate tag
             const params = { page: 1 };
             if (tag !== 'for-you') params.tag = tag;
+            
+            // Add cache-busting parameter when forcing refresh
+            if (force) {
+                params._t = Date.now(); // Unique timestamp to prevent caching
+            }
 
             const result = await storiesApi.getPaginatedStories(params);
-            setStories(result.results || []);
+            // If forcing a refresh on the 'for-you' feed, shuffle results
+            // client-side to provide a new, randomized ordering even when
+            // the backend returns the same set.
+            const fetched = result.results || [];
+            if (force && tag === 'for-you' && Array.isArray(fetched) && fetched.length > 1) {
+                // Fisher-Yates shuffle (in-place)
+                for (let i = fetched.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    const tmp = fetched[i];
+                    fetched[i] = fetched[j];
+                    fetched[j] = tmp;
+                }
+            }
+
+            setStories(fetched);
             setHasNext(result.next !== null);
             
             // Prefetch next page immediately
             if (result.next !== null) {
                 const nextParams = { page: 2 };
                 if (tag !== 'for-you') nextParams.tag = tag;
-                
-                storiesApi.getPaginatedStories(nextParams)
-                    .then(nextStories => {
-                        setPrefetchedStories(nextStories.results || []);
-                    })
-                    .catch(err => {
-                        console.warn('Failed to prefetch next page', err);
-                    });
+                if (force) nextParams._t = Date.now(); // Add cache-busting to prefetch too
+
+                if (!isPrefetchingRef.current) {
+                    isPrefetchingRef.current = true;
+                    storiesApi.getPaginatedStories(nextParams)
+                        .then(nextStories => {
+                            // If we forced a refresh on for-you we should also
+                            // shuffle the prefetched page to maintain variety.
+                            let pref = nextStories.results || [];
+                            if (force && tag === 'for-you' && Array.isArray(pref) && pref.length > 1) {
+                                for (let i = pref.length - 1; i > 0; i--) {
+                                    const j = Math.floor(Math.random() * (i + 1));
+                                    const tmp = pref[i];
+                                    pref[i] = pref[j];
+                                    pref[j] = tmp;
+                                }
+                            }
+                            setPrefetchedStories(pref);
+                        })
+                        .catch(err => {
+                            console.warn('Failed to prefetch next page', err);
+                        })
+                        .finally(() => {
+                            isPrefetchingRef.current = false;
+                        });
+                }
             }
         } catch (error) {
             console.error('Error switching tag:', error);
@@ -231,14 +276,20 @@ export default function useMain(initialState = null) {
             if (hasNext) {
                 const nextParams = { page: nextPage + 1 };
                 if (currentTag !== 'for-you') nextParams.tag = currentTag;
-                
-                storiesApi.getPaginatedStories(nextParams)
-                    .then(nextStories => {
-                        setPrefetchedStories(nextStories.results || []);
-                    })
-                    .catch(err => {
-                        console.warn('Failed to prefetch next page', err);
-                    });
+
+                if (!isPrefetchingRef.current) {
+                    isPrefetchingRef.current = true;
+                    storiesApi.getPaginatedStories(nextParams)
+                        .then(nextStories => {
+                            setPrefetchedStories(nextStories.results || []);
+                        })
+                        .catch(err => {
+                            console.warn('Failed to prefetch next page', err);
+                        })
+                        .finally(() => {
+                            isPrefetchingRef.current = false;
+                        });
+                }
             }
             
             setHasNext(newStories.length >= 5); // Assuming page size is 5
