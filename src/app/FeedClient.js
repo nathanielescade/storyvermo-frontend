@@ -203,7 +203,7 @@ export default function FeedClient({ initialState }) {
         {/* End of feed indicator */}
         {!hasNext && stories.length > 0 && (
           <div className="text-center py-4 text-gray-500 text-sm">
-            You've seen all stories
+            You&apos;ve seen all stories
           </div>
         )}
 
