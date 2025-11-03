@@ -4,8 +4,15 @@ export async function GET() {
   const lines = [
     'User-agent: *',
     'Allow: /',
-    'Disallow: /api/private',
+    // Disallow sensitive or internal endpoints and webhook/proxy routes
     'Disallow: /admin',
+    'Disallow: /api/',
+    'Disallow: /api/publish-webhook',
+    'Disallow: /api/publish-proxy',
+    'Disallow: /api/private',
+    // Disallow developer/test utilities and script endpoints (not public content)
+    'Disallow: /scripts',
+    'Disallow: /node',
     'Crawl-delay: 5',
     `Sitemap: ${SITE_URL}/sitemap.xml`,
     `Host: ${SITE_URL.replace(/^https?:\/\//, '')}`,

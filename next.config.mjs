@@ -14,6 +14,13 @@ const nextConfig = {
         port: '8000',
         pathname: '/media/**',
       }
+      ,
+      // Allow images served from the production API host
+      {
+        protocol: 'https',
+        hostname: 'api.storyvermo.com',
+        pathname: '/media/**',
+      }
     ],
   },
 };

@@ -105,7 +105,8 @@ const VerseItem = memo(({
   onImageUpload,
   onRemoveVerse,
   validationErrors,
-  isEditingVerse
+  isEditingVerse,
+  title
 }) => {
   const contentErrorKey = `verse_${index}_content`;
   const isExisting = verse.isExisting;
@@ -169,7 +170,7 @@ const VerseItem = memo(({
                   <div className="relative w-full h-36">
                     <Image 
                       src={image} 
-                      alt={`Moment ${imgIndex + 1}`} 
+                      alt={title ? `${title} - Moment ${imgIndex + 1}` : `Moment ${imgIndex + 1}`} 
                       fill
                       className="object-cover rounded-xl border border-gray-700"
                       onError={(e) => {
@@ -183,7 +184,7 @@ const VerseItem = memo(({
                   <div className="relative w-full h-36">
                     <Image 
                       src={image.preview || image.url || image.file_url || (image.file ? URL.createObjectURL(image.file) : '')} 
-                      alt={`Moment ${imgIndex + 1}`} 
+                      alt={title ? `${title} - Moment ${imgIndex + 1}` : `Moment ${imgIndex + 1}`} 
                       fill
                       className="object-cover rounded-xl border border-gray-700"
                       onError={(e) => {
@@ -1178,7 +1179,7 @@ setTimeout(() => {
               <div className="relative w-full h-full">
                 <Image 
                   src={imagePreview} 
-                  alt="Preview" 
+                  alt={title ? `${title} - Cover image` : 'Cover image'} 
                   fill
                   className="object-cover"
                   onError={(e) => {
@@ -1248,6 +1249,7 @@ setTimeout(() => {
               onRemoveVerse={removeVerse}
               validationErrors={validationErrors}
               isEditingVerse={!!editingVerse}
+              title={title}
             />
           ))}
         </div>

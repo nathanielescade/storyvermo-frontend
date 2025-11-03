@@ -4,6 +4,8 @@ import { storiesApi } from '../../../../lib/api';
 import StoryDisplay from './StoryDisplay';
 import { generateMetadata } from './metadata';
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://storyvermo.com';
+
 // Export metadata function
 export { generateMetadata };
 
@@ -75,14 +77,28 @@ export default async function StoryPage({ params }) {
       "@type": "Article",
       "mainEntityOfPage": {
         "@type": "WebPage",
-        "@id": `${'https://storyvermo.com'}/stories/${encodeURIComponent(story.slug || slug)}`
+        "@id": `${SITE_URL}/stories/${encodeURIComponent(story.slug || slug)}`
       },
       headline: story.title || undefined,
-      image: primaryImage ? { "@type": "ImageObject", url: primaryImage } : undefined,
+      image: primaryImage ? { 
+        "@type": "ImageObject",
+        url: primaryImage,
+        width: (story.cover_image && (story.cover_image.width || story.cover_image.w)) || 1200,
+        height: (story.cover_image && (story.cover_image.height || story.cover_image.h)) || 630,
+      } : undefined,
       datePublished: story.created_at || undefined,
       dateModified: story.updated_at || undefined,
       author: story.creator ? (typeof story.creator === 'string' ? { "@type": "Person", name: story.creator } : { "@type": "Person", name: story.creator.name || story.creator.username || story.creator.public_id || '' }) : undefined,
-      publisher: { "@type": "Organization", name: 'StoryVermo' },
+      publisher: { 
+        "@type": "Organization", 
+        name: 'StoryVermo',
+        logo: {
+          "@type": "ImageObject",
+          url: `${SITE_URL}/logo.png`,
+          width: 512,
+          height: 512
+        }
+      },
       description: story.description || undefined,
     };
 

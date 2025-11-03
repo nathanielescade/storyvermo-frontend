@@ -215,7 +215,7 @@ const CreatorChip = ({
                     
                     {!isOwner && !isFollowing && !isSelf && creatorUsername !== 'anonymous' && (
                         <button 
-                            className="follow-button absolute bottom-0 right-0 bg-transparent border-2  rounded-full w-7 h-7 flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors"
+                            className="follow-button absolute bottom-0 right-0 bg-transparent border-2 rounded-full w-7 h-7 flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors"
                             onClick={handleFollowClick}
                         >
                             <i className="fas fa-plus text-white font-extrabold text-xl"></i>
@@ -223,7 +223,7 @@ const CreatorChip = ({
                     )}
                 </div>
                 
-                <div className="flex flex-col 9flex-grow min-w-0 ml-0">
+                <div className="flex flex-col flex-grow min-w-0 ml-0">
                     <a href={`/${encodeURIComponent(creatorUsername)}`} className="block min-w-0">
                         <span className="creator-name text-xs sm:text-sm font-semibold text-white whitespace-nowrap overflow-hidden text-ellipsis hover:underline block max-w-[12rem]" title={getCreatorDisplayName()}>
                             {getCreatorDisplayName()}
@@ -236,7 +236,7 @@ const CreatorChip = ({
                     )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 pl-2 pr-1"> {/* Added left padding and adjusted right padding */}
                     <div className="relative" style={{ display: 'inline-block' }}>
                         <div className={`verses-btn-container ${isViewerOpening ? 'loading' : ''}`}>
                             <button 
