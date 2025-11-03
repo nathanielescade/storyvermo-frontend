@@ -23,7 +23,7 @@ if (!secret) {
   console.error('\nPlease create a .env.local file in the project root with:');
   console.error('SITEMAP_WEBHOOK_SECRET=acc66ef669a93d560bbbd987752c4656734b839f44264e430d84f35cf176462e');
   console.error('\nOr set it temporarily in PowerShell:');
-  console.error('$env:SITEMAP_WEBHOOK_SECRET="acc66ef669a93d560bbbd987752c4656734b839f44264e430d84f35cf176462e"; node scripts/test-publish-webhook.js --slug test-story');
+  console.error('$env:SITEMAP_WEBHOOK_SECRET="acc66ef669a93d560bbbd987752c4656734b839f44264e430d84f35cf176462e"; node scripts/test-publish-webhook.js --slug stories/lion-king-dvryYQEu/');
   process.exit(1);
 }
 

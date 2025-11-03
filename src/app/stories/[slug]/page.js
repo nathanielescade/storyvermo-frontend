@@ -23,7 +23,75 @@ export default async function StoryPage({ params }) {
       keys: story ? Object.keys(story) : null 
     });
 
-    return <StoryDisplay initialStory={story} slug={slug} />;
+    // Build JSON-LD Article structured data for crawlers (image-first hints)
+    const resolveMomentImageUrl = (moment) => {
+      if (!moment) return null;
+      if (typeof moment === 'string') return moment;
+      if (moment.image) {
+        if (typeof moment.image === 'string') return moment.image;
+        if (Array.isArray(moment.image) && moment.image.length > 0) {
+          const im = moment.image[0];
+          if (!im) return null;
+          if (typeof im === 'string') return im;
+          return im.file_url || im.url || null;
+        }
+        if (moment.image.file_url) return moment.image.file_url;
+        if (moment.image.url) return moment.image.url;
+        if (moment.image.file) {
+          if (typeof moment.image.file === 'string') return moment.image.file;
+          if (moment.image.file.url) return moment.image.file.url;
+        }
+      }
+      if (moment.file_url) return moment.file_url;
+      if (moment.url) return moment.url;
+      if (moment.images && Array.isArray(moment.images) && moment.images.length > 0) {
+        const im = moment.images[0];
+        if (!im) return null;
+        if (typeof im === 'string') return im;
+        return im.file_url || im.url || null;
+      }
+      return null;
+    };
+
+    const primaryImage = (() => {
+      if (!story) return null;
+      if (story.cover_image) {
+        if (typeof story.cover_image === 'string') return story.cover_image;
+        return story.cover_image.file_url || story.cover_image.url || null;
+      }
+      if (Array.isArray(story.verses) && story.verses.length > 0) {
+        const v = story.verses[0];
+        if (v) {
+          const m = Array.isArray(v.moments) && v.moments.length > 0 ? v.moments[0] : (Array.isArray(v.images) && v.images.length > 0 ? v.images[0] : null);
+          const resolved = resolveMomentImageUrl(m);
+          if (resolved) return resolved;
+        }
+      }
+      return null;
+    })();
+
+    const ld = {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      "mainEntityOfPage": {
+        "@type": "WebPage",
+        "@id": `${'https://storyvermo.com'}/stories/${encodeURIComponent(story.slug || slug)}`
+      },
+      headline: story.title || undefined,
+      image: primaryImage ? { "@type": "ImageObject", url: primaryImage } : undefined,
+      datePublished: story.created_at || undefined,
+      dateModified: story.updated_at || undefined,
+      author: story.creator ? (typeof story.creator === 'string' ? { "@type": "Person", name: story.creator } : { "@type": "Person", name: story.creator.name || story.creator.username || story.creator.public_id || '' }) : undefined,
+      publisher: { "@type": "Organization", name: 'StoryVermo' },
+      description: story.description || undefined,
+    };
+
+    return (
+      <>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
+        <StoryDisplay initialStory={story} slug={slug} />
+      </>
+    );
   } catch (error) {
     console.error('Error fetching story:', error);
     notFound();

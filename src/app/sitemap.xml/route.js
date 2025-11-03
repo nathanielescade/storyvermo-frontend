@@ -19,6 +19,7 @@ export async function GET() {
     const urls = [
       { loc: `${SITE_URL}/`, priority: '1.0', changefreq: 'hourly' },
       { loc: `${SITE_URL}/tags`, priority: '0.7', changefreq: 'daily' },
+      { loc: `${SITE_URL}/verses`, priority: '0.6', changefreq: 'weekly' },
       { loc: `${SITE_URL}/login`, priority: '0.2', changefreq: 'monthly' },
       { loc: `${SITE_URL}/signup`, priority: '0.2', changefreq: 'monthly' },
     ];
@@ -66,11 +67,82 @@ export async function GET() {
       return null;
     };
 
+    const makeAbsoluteImage = (img) => {
+      if (!img) return null;
+      if (typeof img !== 'string') return null;
+      const trimmed = img.trim();
+      if (!trimmed) return null;
+      // Ignore data URLs and blobs
+      if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) return null;
+      try {
+        // If absolute, return as-is
+        if (/^https?:\/\//i.test(trimmed)) return trimmed;
+        // Otherwise resolve relative to SITE_URL
+        return new URL(trimmed, SITE_URL).toString();
+      } catch (e) {
+        return trimmed;
+      }
+    };
+
+    const extractStoryImage = (s) => {
+      if (!s) return null;
+      // prefer story.cover_image
+      const ci = s.cover_image;
+      if (ci) {
+        if (typeof ci === 'string') return makeAbsoluteImage(ci);
+        if (ci.file_url) return makeAbsoluteImage(ci.file_url);
+        if (ci.url) return makeAbsoluteImage(ci.url);
+      }
+      // try first verse/moment image
+      const verses = Array.isArray(s.verses) ? s.verses : (Array.isArray(s.moments) ? s.moments : []);
+      for (const v of verses || []) {
+        const moments = v.moments || v.images || [];
+        if (Array.isArray(moments) && moments.length > 0) {
+          const first = moments[0];
+          if (!first) continue;
+          if (typeof first === 'string') return makeAbsoluteImage(first);
+          if (first.file_url) return makeAbsoluteImage(first.file_url);
+          if (first.url) return makeAbsoluteImage(first.url);
+          if (first.image) {
+            if (typeof first.image === 'string') return makeAbsoluteImage(first.image);
+            if (first.image.file_url) return makeAbsoluteImage(first.image.file_url);
+            if (first.image.url) return makeAbsoluteImage(first.image.url);
+          }
+        }
+      }
+      return null;
+    };
+
+    // XML escape helper for caption/title
+    const escapeXml = (str) => {
+      if (str == null) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    };
+
     while (page <= MAX_PAGES) {
       let data = null;
       try {
-        // Request the unfiltered/all stories listing by explicitly passing a non-'for-you' tag
-        data = await getPaginatedStories({ page, tag: 'all' });
+        // Try requesting the paginated stories without forcing a tag first.
+        // Some backends interpret a `tag=all` filter as an invalid/no-op and
+        // return an empty result. We prefer omitting the tag so the backend
+        // returns the unfiltered listing.
+        data = await getPaginatedStories({ page });
+        // Fallback: if we got nothing on the first page, try the older
+        // `tag: 'all'` behavior for compatibility with older API variants.
+        if ((!data || (Array.isArray(data?.results) && data.results.length === 0)) && page === 1) {
+          try {
+            const fallback = await getPaginatedStories({ page, tag: 'all' });
+            if (fallback) data = fallback;
+          } catch (fbErr) {
+            // keep original data (likely empty) and continue gracefully
+            console.warn('Fallback fetch with tag=all failed', fbErr);
+          }
+        }
       } catch (err) {
         console.warn('Failed to fetch paginated stories on page', page, err);
         break;
@@ -111,13 +183,29 @@ export async function GET() {
     }
 
     // Build XML
-    const xmlParts = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'];
+    const xmlParts = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">'];
     for (const u of urls) {
       xmlParts.push('<url>');
       xmlParts.push(`<loc>${u.loc}</loc>`);
       if (u.lastmod) xmlParts.push(`<lastmod>${u.lastmod}</lastmod>`);
       if (u.changefreq) xmlParts.push(`<changefreq>${u.changefreq}</changefreq>`);
       if (u.priority) xmlParts.push(`<priority>${u.priority}</priority>`);
+      // include image entries when available
+      if (Array.isArray(u.images) && u.images.length > 0) {
+        for (const img of u.images) {
+          try {
+            const loc = img.loc || img.url || img.src;
+            if (!loc) continue;
+            xmlParts.push('<image:image>');
+            xmlParts.push(`<image:loc>${loc}</image:loc>`);
+            if (img.caption) xmlParts.push(`<image:caption>${escapeXml(img.caption)}</image:caption>`);
+            if (img.title) xmlParts.push(`<image:title>${escapeXml(img.title)}</image:title>`);
+            xmlParts.push('</image:image>');
+          } catch (e) {
+            // ignore image serialization errors
+          }
+        }
+      }
       xmlParts.push('</url>');
     }
     xmlParts.push('</urlset>');
