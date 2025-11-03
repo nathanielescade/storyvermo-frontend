@@ -1,3 +1,4 @@
+// FeedClient.js
 'use client';
 
 import React, { useEffect, useRef } from 'react';
@@ -12,7 +13,6 @@ export default function FeedClient({ initialState }) {
     hasNext,
     isFetching,
     currentTag,
-     isPersonalized,
     currentDimension,
     handleTagSwitch,
     handleFetchMore,
@@ -70,7 +70,7 @@ export default function FeedClient({ initialState }) {
     handleTagSwitch(tagName);
   };
 
-  // Listen for back/forward navigation so /tags/<tag> works with browser navigation
+  // Listen for back/forward navigation
   useEffect(() => {
     const onPop = () => {
       const m = window.location.pathname.match(/^\/tags\/([^\/]+)\/?$/);
@@ -81,7 +81,7 @@ export default function FeedClient({ initialState }) {
     return () => window.removeEventListener('popstate', onPop);
   }, [handleTagSwitch]);
 
-  // Listen for global tag switch events dispatched by other UI (DimensionNav, links)
+  // Listen for global tag switch events
   useEffect(() => {
     const onTagSwitchEvent = (e) => {
       const tag = e?.detail?.tag || 'for-you';
@@ -98,6 +98,17 @@ export default function FeedClient({ initialState }) {
     return () => window.removeEventListener('tag:switch', onTagSwitchEvent);
   }, [handleTagSwitch, isAuthenticated]);
 
+  // Create a unique key for each story card
+  const getStoryKey = (story, index) => {
+    // Use a combination of story ID and index to ensure uniqueness
+    // If story has a unique slug, use that as well
+    if (story.id && story.slug) {
+      return `${story.id}-${story.slug}`;
+    }
+    // Fallback to using index with a timestamp to ensure uniqueness
+    return `${story.id || 'story'}-${index}-${Date.now()}`;
+  };
+
   return (
     <div className="min-h-screen">
       <div 
@@ -113,7 +124,7 @@ export default function FeedClient({ initialState }) {
         ) : (
           stories.map((story, index) => (
             <StoryCard 
-              key={story.id || index} 
+              key={getStoryKey(story, index)} 
               story={story} 
               index={index} 
               viewType="feed"

@@ -5,8 +5,6 @@ import { useAuth } from '../contexts/AuthContext';
 
 const CACHE_KEY = 'home:state:v1';
 const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
-// Use the full cache TTL as the default refresh threshold so the UI will
-// preserve the exact feed state while the cache is considered fresh.
 const REFRESH_THRESHOLD = CACHE_TTL;
 
 export default function useMain(initialState = null) {
@@ -20,22 +18,18 @@ export default function useMain(initialState = null) {
     const [userInteractions, setUserInteractions] = useState({});
     const [page, setPage] = useState(initialState?.page || 1);
     
-    // Use the AuthContext instead of local auth state
     const { currentUser, isAuthenticated, refreshAuth } = useAuth();
     
-    // Initialize the app (check for /tags/:tag in URL and load accordingly)
+    // Initialize the app
     useEffect(() => {
         const initializeApp = async () => {
-            // If server supplied an initialState, skip client-side initialization
-            // to avoid immediately re-fetching and overwriting server-rendered data.
             if (initialState) return;
             let restoredFromCache = false;
             let restoredAge = Infinity;
-            // Try to restore state from history.state (preferred) or sessionStorage
-            // so that browser back/forward restores exact UI without a reload.
+            
             try {
                 if (typeof window !== 'undefined') {
-                    // 1) history.state (best for back/forward)
+                    // Try to restore state from history.state
                     const hist = window.history && window.history.state && window.history.state.homeState;
                     if (hist) {
                         const age = Date.now() - (hist.ts || 0);
@@ -50,7 +44,7 @@ export default function useMain(initialState = null) {
                         }
                     }
 
-                    // 2) fallback: sessionStorage
+                    // Fallback: sessionStorage
                     if (!restoredFromCache) {
                         const raw = sessionStorage.getItem(CACHE_KEY);
                         if (raw) {
@@ -80,21 +74,12 @@ export default function useMain(initialState = null) {
                 console.warn('Failed to read home cache', e);
             }
 
-            // If we restored from cache and the cache is fresh enough, skip
-            // the backend fetch entirely so the user sees exactly where they
-            // left off without any reload. Otherwise continue normal fetch.
             if (restoredFromCache && restoredAge < REFRESH_THRESHOLD) {
-                // Already restored and fresh -> skip network fetch
                 return;
             }
 
-            // Continue with normal initialization (may overwrite restored data
-            // if backend returns fresh data). This ensures consistency.
-            
             try {
-                // Only show loading indicator if we didn't restore state from cache
                 if (!restoredFromCache) setLoading(true);
-                // Detect initial tag from the pathname (seo-friendly /tags/<slug>/)
                 let initialTag = 'for-you';
                 if (typeof window !== 'undefined') {
                     const m = window.location.pathname.match(/^\/tags\/([^\/]+)\/?$/);
@@ -107,48 +92,16 @@ export default function useMain(initialState = null) {
                     }
                 }
 
-                // Set the current tag so UI reflects selection while fetching
                 setCurrentTag(initialTag);
 
                 // Build params based on initialTag
-                // If the initial tag is 'for-you', prefer the personalized feed
-                if (initialTag === 'for-you') {
-                    try {
-                        const personalized = await storiesApi.getPersonalizedFeed();
-                        // API may return an array or a paginated object
-                        if (Array.isArray(personalized)) {
-                            setStories(personalized);
-                            setHasNext(false);
-                        } else if (personalized && Array.isArray(personalized.results)) {
-                            setStories(personalized.results);
-                            setHasNext(personalized.next !== null);
-                        } else if (personalized) {
-                            // Unexpected shape - attempt to use it directly
-                            setStories(personalized);
-                            setHasNext(false);
-                        } else {
-                            // Fallback to paginated stories
-                            const params = { page: 1 };
-                            const initialStories = await storiesApi.getPaginatedStories(params);
-                            setStories(initialStories.results || []);
-                            setHasNext(initialStories.next !== null);
-                        }
-                    } catch (err) {
-                        console.warn('personalized feed failed, falling back to paginated stories', err);
-                        const params = { page: 1 };
-                        const initialStories = await storiesApi.getPaginatedStories(params);
-                        setStories(initialStories.results || []);
-                        setHasNext(initialStories.next !== null);
-                    }
-                } else {
-                    const params = { page: 1 };
-                    if (initialTag !== 'for-you') params.tag = initialTag;
+                const params = { page: 1 };
+                if (initialTag !== 'for-you') params.tag = initialTag;
 
-                    // Get initial stories
-                    const initialStories = await storiesApi.getPaginatedStories(params);
-                    setStories(initialStories.results || []);
-                    setHasNext(initialStories.next !== null);
-                }
+                // Get initial stories
+                const initialStories = await storiesApi.getPaginatedStories(params);
+                setStories(initialStories.results || []);
+                setHasNext(initialStories.next !== null);
             } catch (error) {
                 console.error('Error initializing app:', error);
             } finally {
@@ -156,12 +109,10 @@ export default function useMain(initialState = null) {
             }
         };
         
-            initializeApp();
-        }, [initialState]);
+        initializeApp();
+    }, [initialState]);
 
-    // Persist minimal home state so that navigating away and back can restore
-    // the feed quickly (stories list, current tag, page, hasNext). Persisting
-    // is lightweight and kept for a short TTL.
+    // Persist home state
     useEffect(() => {
         try {
             if (typeof window !== 'undefined') {
@@ -173,8 +124,6 @@ export default function useMain(initialState = null) {
                     hasNext
                 };
                 try {
-                    // write to both sessionStorage and history.state so browser
-                    // back/forward restores immediately
                     sessionStorage.setItem(CACHE_KEY, JSON.stringify(payload));
                     try {
                         const nextHist = { ...(window.history && window.history.state), homeState: payload };
@@ -192,7 +141,6 @@ export default function useMain(initialState = null) {
     }, [stories, currentTag, page, hasNext]);
     
     // Handle tag switching
-    // Handle tag switching. If `force` is true, re-fetch even if tag === currentTag.
     const handleTagSwitch = useCallback(async (tag, { force = false } = {}) => {
         if (tag === currentTag && !force) return;
 
@@ -201,41 +149,13 @@ export default function useMain(initialState = null) {
         try {
             setCurrentTag(tag);
 
-            // When switching to 'for-you' prefer the personalized endpoint.
-            if (tag === 'for-you') {
-                try {
-                    const personalized = await storiesApi.getPersonalizedFeed();
-                    if (Array.isArray(personalized)) {
-                        setStories(personalized);
-                        setHasNext(false);
-                    } else if (personalized && Array.isArray(personalized.results)) {
-                        setStories(personalized.results);
-                        setHasNext(personalized.next !== null);
-                    } else if (personalized) {
-                        setStories(personalized);
-                        setHasNext(false);
-                    } else {
-                        // fallback
-                        const params = { page: 1 };
-                        const result = await storiesApi.getPaginatedStories(params);
-                        setStories(result.results || []);
-                        setHasNext(result.next !== null);
-                    }
-                } catch (err) {
-                    console.warn('personalized fetch failed on tag switch; falling back', err);
-                    const params = { page: 1 };
-                    const result = await storiesApi.getPaginatedStories(params);
-                    setStories(result.results || []);
-                    setHasNext(result.next !== null);
-                }
-            } else {
-                const params = { page: 1 };
-                if (tag !== 'for-you') params.tag = tag;
+            // Always use paginated_stories with the appropriate tag
+            const params = { page: 1 };
+            if (tag !== 'for-you') params.tag = tag;
 
-                const result = await storiesApi.getPaginatedStories(params);
-                setStories(result.results || []);
-                setHasNext(result.next !== null);
-            }
+            const result = await storiesApi.getPaginatedStories(params);
+            setStories(result.results || []);
+            setHasNext(result.next !== null);
         } catch (error) {
             console.error('Error switching tag:', error);
         } finally {
@@ -245,8 +165,6 @@ export default function useMain(initialState = null) {
     
     // Handle infinite scroll
     const handleFetchMore = useCallback(async () => {
-        // Do not paginate the personalized 'for-you' feed (no infinite scroll)
-        if (currentTag === 'for-you') return;
         if (isFetching || !hasNext) return;
         
         setIsFetching(true);
@@ -256,24 +174,29 @@ export default function useMain(initialState = null) {
             if (currentTag !== 'for-you') params.tag = currentTag;
             
             const result = await storiesApi.getPaginatedStories(params);
-            if (result.results && result.results.length > 0) {
-                setStories(prev => [...prev, ...result.results]);
+            
+            // Remove duplicates before adding new stories
+            const existingIds = new Set(stories.map(s => s.id));
+            const newStories = (result.results || []).filter(s => !existingIds.has(s.id));
+            
+            if (newStories.length > 0) {
+                setStories(prev => [...prev, ...newStories]);
                 setPage(nextPage);
             }
+            
             setHasNext(result.next !== null);
         } catch (error) {
             console.error('Error fetching more stories:', error);
         } finally {
             setIsFetching(false);
         }
-    }, [isFetching, hasNext, page, currentTag]);
+    }, [isFetching, hasNext, page, currentTag, stories]);
     
     // Handle follow user
     const handleFollowUser = useCallback(async (username) => {
         try {
             const response = await userApi.followUser(username);
             
-            // Update the following state
             if (response.success) {
                 setFollowingUsers(prev => 
                     response.following 
@@ -281,7 +204,6 @@ export default function useMain(initialState = null) {
                         : prev.filter(user => user !== username)
                 );
                 
-                // Update stories to reflect the follow state
                 setStories(prev => prev.map(story => {
                     if (story.creator === username) {
                         return {
@@ -302,7 +224,6 @@ export default function useMain(initialState = null) {
     
     // Handle open story verses
     const handleOpenStoryVerses = useCallback((storyId, fromGrid = false, bySwipe = false) => {
-        // Navigate to story verses page
         const story = stories.find(s => s.id === storyId);
         if (story) {
             window.location.href = `/stories/${story.slug}/verses/`;
@@ -314,7 +235,6 @@ export default function useMain(initialState = null) {
         try {
             const response = await storiesApi.toggleStoryLike(storyId);
             
-            // Update the story in the local state
             setStories(prev => prev.map(story => {
                 if (story.id === storyId) {
                     return {
@@ -338,7 +258,6 @@ export default function useMain(initialState = null) {
         try {
             const response = await storiesApi.toggleStorySave(storyId);
             
-            // Update the story in the local state
             setStories(prev => prev.map(story => {
                 if (story.id === storyId) {
                     return {
