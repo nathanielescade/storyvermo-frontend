@@ -1,11 +1,7 @@
 // useMain.js
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { storiesApi, userApi } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-
-const CACHE_KEY = 'home:state:v1';
-const CACHE_TTL = 1000 * 60 * 5; // 5 minutes
-const REFRESH_THRESHOLD = CACHE_TTL;
 
 export default function useMain(initialState = null) {
     const [stories, setStories] = useState(initialState?.stories || []);
@@ -18,8 +14,6 @@ export default function useMain(initialState = null) {
     const [userInteractions, setUserInteractions] = useState({});
     const [page, setPage] = useState(initialState?.page || 1);
     const [error, setError] = useState(null);
-    const [prefetchedStories, setPrefetchedStories] = useState(null);
-    const isPrefetchingRef = useRef(false);
     
     const { currentUser, isAuthenticated, refreshAuth } = useAuth();
     
@@ -27,62 +21,9 @@ export default function useMain(initialState = null) {
     useEffect(() => {
         const initializeApp = async () => {
             if (initialState) return;
-            let restoredFromCache = false;
-            let restoredAge = Infinity;
             
             try {
-                if (typeof window !== 'undefined') {
-                    // Try to restore state from history.state
-                    const hist = window.history && window.history.state && window.history.state.homeState;
-                    if (hist) {
-                        const age = Date.now() - (hist.ts || 0);
-                        if (age < CACHE_TTL && Array.isArray(hist.stories) && hist.stories.length > 0) {
-                            setStories(hist.stories);
-                            setCurrentTag(hist.currentTag || 'for-you');
-                            setPage(hist.page || 1);
-                            setHasNext(hist.hasNext !== undefined ? hist.hasNext : true);
-                            setLoading(false);
-                            restoredFromCache = true;
-                            restoredAge = age;
-                        }
-                    }
-
-                    // Fallback: sessionStorage
-                    if (!restoredFromCache) {
-                        const raw = sessionStorage.getItem(CACHE_KEY);
-                        if (raw) {
-                            try {
-                                const parsed = JSON.parse(raw);
-                                const age = Date.now() - (parsed.ts || 0);
-                                if (parsed && age < CACHE_TTL) {
-                                    if (Array.isArray(parsed.stories) && parsed.stories.length > 0) {
-                                        setStories(parsed.stories);
-                                        setCurrentTag(parsed.currentTag || 'for-you');
-                                        setPage(parsed.page || 1);
-                                        setHasNext(parsed.hasNext !== undefined ? parsed.hasNext : true);
-                                        setLoading(false);
-                                        restoredFromCache = true;
-                                        restoredAge = age;
-                                    }
-                                } else {
-                                    sessionStorage.removeItem(CACHE_KEY);
-                                }
-                            } catch (e) {
-                                sessionStorage.removeItem(CACHE_KEY);
-                            }
-                        }
-                    }
-                }
-            } catch (e) {
-                console.warn('Failed to read home cache', e);
-            }
-
-            if (restoredFromCache && restoredAge < REFRESH_THRESHOLD) {
-                return;
-            }
-
-            try {
-                if (!restoredFromCache) setLoading(true);
+                setLoading(true);
                 let initialTag = 'for-you';
                 if (typeof window !== 'undefined') {
                     const m = window.location.pathname.match(/^\/tags\/([^\/]+)\/?$/);
@@ -105,26 +46,6 @@ export default function useMain(initialState = null) {
                 const initialStories = await storiesApi.getPaginatedStories(params);
                 setStories(initialStories.results || []);
                 setHasNext(initialStories.next !== null);
-                
-                // Prefetch next page immediately for seamless experience
-                if (initialStories.next !== null) {
-                    const nextParams = { page: 2 };
-                    if (initialTag !== 'for-you') nextParams.tag = initialTag;
-                    
-                        if (!isPrefetchingRef.current) {
-                            isPrefetchingRef.current = true;
-                            storiesApi.getPaginatedStories(nextParams)
-                                .then(nextStories => {
-                                    setPrefetchedStories(nextStories.results || []);
-                                })
-                                .catch(err => {
-                                    console.warn('Failed to prefetch next page', err);
-                                })
-                                .finally(() => {
-                                    isPrefetchingRef.current = false;
-                                });
-                        }
-                }
             } catch (error) {
                 console.error('Error initializing app:', error);
                 setError(error.message || 'Failed to load stories');
@@ -135,34 +56,6 @@ export default function useMain(initialState = null) {
         
         initializeApp();
     }, [initialState]);
-
-    // Persist home state
-    useEffect(() => {
-        try {
-            if (typeof window !== 'undefined') {
-                const payload = {
-                    ts: Date.now(),
-                    stories: stories || [],
-                    currentTag,
-                    page,
-                    hasNext
-                };
-                try {
-                    sessionStorage.setItem(CACHE_KEY, JSON.stringify(payload));
-                    try {
-                        const nextHist = { ...(window.history && window.history.state), homeState: payload };
-                        window.history.replaceState(nextHist, '');
-                    } catch (e) {
-                        // ignore history errors
-                    }
-                } catch (e) {
-                    // ignore quota errors
-                }
-            }
-        } catch (e) {
-            // ignore
-        }
-    }, [stories, currentTag, page, hasNext]);
     
     // Handle tag switching
     const handleTagSwitch = useCallback(async (tag, { force = false } = {}) => {
@@ -172,18 +65,12 @@ export default function useMain(initialState = null) {
         setLoading(true);
         setPage(1);
         setError(null);
-        setPrefetchedStories(null);
         try {
             setCurrentTag(tag);
 
             // Always use paginated_stories with the appropriate tag
             const params = { page: 1 };
             if (tag !== 'for-you') params.tag = tag;
-            
-            // Add cache-busting parameter when forcing refresh
-            if (force) {
-                params._t = Date.now(); // Unique timestamp to prevent caching
-            }
 
             const result = await storiesApi.getPaginatedStories(params);
             // If forcing a refresh on the 'for-you' feed, shuffle results
@@ -202,38 +89,6 @@ export default function useMain(initialState = null) {
 
             setStories(fetched);
             setHasNext(result.next !== null);
-            
-            // Prefetch next page immediately
-            if (result.next !== null) {
-                const nextParams = { page: 2 };
-                if (tag !== 'for-you') nextParams.tag = tag;
-                if (force) nextParams._t = Date.now(); // Add cache-busting to prefetch too
-
-                if (!isPrefetchingRef.current) {
-                    isPrefetchingRef.current = true;
-                    storiesApi.getPaginatedStories(nextParams)
-                        .then(nextStories => {
-                            // If we forced a refresh on for-you we should also
-                            // shuffle the prefetched page to maintain variety.
-                            let pref = nextStories.results || [];
-                            if (force && tag === 'for-you' && Array.isArray(pref) && pref.length > 1) {
-                                for (let i = pref.length - 1; i > 0; i--) {
-                                    const j = Math.floor(Math.random() * (i + 1));
-                                    const tmp = pref[i];
-                                    pref[i] = pref[j];
-                                    pref[j] = tmp;
-                                }
-                            }
-                            setPrefetchedStories(pref);
-                        })
-                        .catch(err => {
-                            console.warn('Failed to prefetch next page', err);
-                        })
-                        .finally(() => {
-                            isPrefetchingRef.current = false;
-                        });
-                }
-            }
         } catch (error) {
             console.error('Error switching tag:', error);
             setError(error.message || 'Failed to load stories');
@@ -242,7 +97,7 @@ export default function useMain(initialState = null) {
         }
     }, [currentTag]);
     
-    // Handle infinite scroll with aggressive preloading
+    // Handle infinite scroll
     const handleFetchMore = useCallback(async () => {
         if (isFetching || !hasNext) return;
         
@@ -253,15 +108,8 @@ export default function useMain(initialState = null) {
             const params = { page: nextPage };
             if (currentTag !== 'for-you') params.tag = currentTag;
             
-            // Use prefetched stories if available
-            let newStories;
-            if (prefetchedStories && prefetchedStories.length > 0) {
-                newStories = prefetchedStories;
-                setPrefetchedStories(null);
-            } else {
-                const result = await storiesApi.getPaginatedStories(params);
-                newStories = result.results || [];
-            }
+            const result = await storiesApi.getPaginatedStories(params);
+            const newStories = result.results || [];
             
             // Remove duplicates before adding new stories
             const existingIds = new Set(stories.map(s => s.id));
@@ -272,26 +120,6 @@ export default function useMain(initialState = null) {
                 setPage(nextPage);
             }
             
-            // Prefetch next page for seamless experience
-            if (hasNext) {
-                const nextParams = { page: nextPage + 1 };
-                if (currentTag !== 'for-you') nextParams.tag = currentTag;
-
-                if (!isPrefetchingRef.current) {
-                    isPrefetchingRef.current = true;
-                    storiesApi.getPaginatedStories(nextParams)
-                        .then(nextStories => {
-                            setPrefetchedStories(nextStories.results || []);
-                        })
-                        .catch(err => {
-                            console.warn('Failed to prefetch next page', err);
-                        })
-                        .finally(() => {
-                            isPrefetchingRef.current = false;
-                        });
-                }
-            }
-            
             setHasNext(newStories.length >= 5); // Assuming page size is 5
         } catch (error) {
             console.error('Error fetching more stories:', error);
@@ -299,7 +127,7 @@ export default function useMain(initialState = null) {
         } finally {
             setIsFetching(false);
         }
-    }, [isFetching, hasNext, page, currentTag, stories, prefetchedStories]);
+    }, [isFetching, hasNext, page, currentTag, stories]);
     
     // Handle follow user
     const handleFollowUser = useCallback(async (username) => {
