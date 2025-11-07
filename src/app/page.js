@@ -25,13 +25,13 @@ export const metadata = {
 };
 
 import FeedClient from './FeedClient';
-import { getPaginatedStories } from '../../lib/api.server';
+import { storiesApi } from '../../lib/api';
 
 export default async function Home() {
   // Server-side fetch initial page (cached via next/cache)
   let initial = null;
   try {
-    initial = await getPaginatedStories({ page: 1 });
+    initial = await storiesApi.getPaginatedStories({ page: 1 });
   } catch (e) {
     console.error('Server fetch for initial stories failed:', e);
     initial = null;

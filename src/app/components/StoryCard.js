@@ -33,7 +33,9 @@ export default function StoryCard({
     currentTag,
     onTagSelect,
     isAuthenticated,
-    openAuthModal
+    openAuthModal,
+    onLikeToggle, // Added this prop
+    onSaveToggle  // Added this prop
 }) {
     const { currentUser } = useAuth();
     const [isLiked, setIsLiked] = useState(story.is_liked_by_user || false);
@@ -103,12 +105,21 @@ export default function StoryCard({
     })();
 
     useEffect(() => {
-        // Initialize state based on props
-        setIsLiked(story.is_liked_by_user || false);
-        setIsSaved(story.is_saved_by_user || false);
+        if (!story) return;
+        
+        // Always update state based on the latest props
+        setIsLiked(story.is_liked_by_user ?? false);
+        setIsSaved(story.is_saved_by_user ?? false);
         setIsFollowing(story.isFollowing || story.is_following || false);
         setLocalCommentsCount(story.comments_count || 0);
         setCurrentStory(story);
+
+        // If we're missing any interaction state, refetch to ensure accuracy
+        if (!story.hasOwnProperty('is_liked_by_user') || 
+            !story.hasOwnProperty('is_saved_by_user') || 
+            (!story.hasOwnProperty('isFollowing') && !story.hasOwnProperty('is_following'))) {
+            refetchStory().catch(err => console.error('Error refetching story:', err));
+        }
 
         // Create bubbles around the hologram
         const node = hologramRef.current;
@@ -158,36 +169,34 @@ export default function StoryCard({
         }
     };
 
-// StoryCard.js - handleFollow function
-// StoryCard.js - Updated handleFollow function
-// StoryCard.js - Updated handleFollow function
-const handleFollow = async (event, username) => {
-    event.stopPropagation();
+    // StoryCard.js - handleFollow function
+    const handleFollow = async (event, username) => {
+        event.stopPropagation();
 
-    if (!isAuthenticated) {
-        openAuthModal('follow', username);
-        return;
-    }
-
-    try {
-        // If a parent handler is provided, delegate to it so we don't call the
-        // API twice (some parents already call userApi.followUser).
-        if (typeof onFollowUser === 'function') {
-            // Let parent perform the follow/unfollow action and update global state.
-            await onFollowUser(username);
-            // Optimistically toggle local state to reflect expected change. Parent
-            // will update authoritative state eventually.
-            setIsFollowing(prev => !prev);
+        if (!isAuthenticated) {
+            openAuthModal('follow', username);
             return;
         }
 
-        // Fallback: perform the API call locally when no parent handler exists
-        const response = await userApi.followUser(username);
-        setIsFollowing(response.is_following);
-    } catch (error) {
-        console.error('Error following user:', error);
-    }
-};
+        try {
+            // If a parent handler is provided, delegate to it so we don't call the
+            // API twice (some parents already call userApi.followUser).
+            if (typeof onFollowUser === 'function') {
+                // Let parent perform the follow/unfollow action and update global state.
+                await onFollowUser(username);
+                // Optimistically toggle local state to reflect expected change. Parent
+                // will update authoritative state eventually.
+                setIsFollowing(prev => !prev);
+                return;
+            }
+
+            // Fallback: perform the API call locally when no parent handler exists
+            const response = await userApi.followUser(username);
+            setIsFollowing(response.is_following);
+        } catch (error) {
+            console.error('Error following user:', error);
+        }
+    };
 
     const handleOpenVerses = async () => {
         try {
@@ -427,6 +436,8 @@ const handleFollow = async (event, username) => {
                             setShowShareModal={setShowShareModal}
                             isAuthenticated={isAuthenticated}
                             openAuthModal={openAuthModal}
+                            onLikeToggle={onLikeToggle} // Pass the handler from props
+                            onSaveToggle={onSaveToggle} // Pass the handler from props
                         />
                         
                         <CreatorChip 

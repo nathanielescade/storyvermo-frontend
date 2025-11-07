@@ -1,5 +1,5 @@
 // useMain.js
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { storiesApi, userApi } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -14,6 +14,8 @@ export default function useMain(initialState = null) {
     const [userInteractions, setUserInteractions] = useState({});
     const [page, setPage] = useState(initialState?.page || 1);
     const [error, setError] = useState(null);
+    const [prefetchedStories, setPrefetchedStories] = useState(null);
+    const isPrefetchingRef = useRef(false);
     
     const { currentUser, isAuthenticated, refreshAuth } = useAuth();
     
@@ -46,6 +48,26 @@ export default function useMain(initialState = null) {
                 const initialStories = await storiesApi.getPaginatedStories(params);
                 setStories(initialStories.results || []);
                 setHasNext(initialStories.next !== null);
+                
+                // Prefetch next page immediately for seamless experience
+                if (initialStories.next !== null) {
+                    const nextParams = { page: 2 };
+                    if (initialTag !== 'for-you') nextParams.tag = initialTag;
+                    
+                    if (!isPrefetchingRef.current) {
+                        isPrefetchingRef.current = true;
+                        storiesApi.getPaginatedStories(nextParams)
+                            .then(nextStories => {
+                                setPrefetchedStories(nextStories.results || []);
+                            })
+                            .catch(err => {
+                                console.warn('Failed to prefetch next page', err);
+                            })
+                            .finally(() => {
+                                isPrefetchingRef.current = false;
+                            });
+                    }
+                }
             } catch (error) {
                 console.error('Error initializing app:', error);
                 setError(error.message || 'Failed to load stories');
@@ -65,12 +87,18 @@ export default function useMain(initialState = null) {
         setLoading(true);
         setPage(1);
         setError(null);
+        setPrefetchedStories(null);
         try {
             setCurrentTag(tag);
 
             // Always use paginated_stories with the appropriate tag
             const params = { page: 1 };
             if (tag !== 'for-you') params.tag = tag;
+            
+            // Add cache-busting parameter when forcing refresh
+            if (force) {
+                params._t = Date.now(); // Unique timestamp to prevent caching
+            }
 
             const result = await storiesApi.getPaginatedStories(params);
             // If forcing a refresh on the 'for-you' feed, shuffle results
@@ -89,6 +117,38 @@ export default function useMain(initialState = null) {
 
             setStories(fetched);
             setHasNext(result.next !== null);
+            
+            // Prefetch next page immediately
+            if (result.next !== null) {
+                const nextParams = { page: 2 };
+                if (tag !== 'for-you') nextParams.tag = tag;
+                if (force) nextParams._t = Date.now(); // Add cache-busting to prefetch too
+
+                if (!isPrefetchingRef.current) {
+                    isPrefetchingRef.current = true;
+                    storiesApi.getPaginatedStories(nextParams)
+                        .then(nextStories => {
+                            // If we forced a refresh on for-you we should also
+                            // shuffle the prefetched page to maintain variety.
+                            let pref = nextStories.results || [];
+                            if (force && tag === 'for-you' && Array.isArray(pref) && pref.length > 1) {
+                                for (let i = pref.length - 1; i > 0; i--) {
+                                    const j = Math.floor(Math.random() * (i + 1));
+                                    const tmp = pref[i];
+                                    pref[i] = pref[j];
+                                    pref[j] = tmp;
+                                }
+                            }
+                            setPrefetchedStories(pref);
+                        })
+                        .catch(err => {
+                            console.warn('Failed to prefetch next page', err);
+                        })
+                        .finally(() => {
+                            isPrefetchingRef.current = false;
+                        });
+                }
+            }
         } catch (error) {
             console.error('Error switching tag:', error);
             setError(error.message || 'Failed to load stories');
@@ -97,7 +157,7 @@ export default function useMain(initialState = null) {
         }
     }, [currentTag]);
     
-    // Handle infinite scroll
+    // Handle infinite scroll with aggressive preloading
     const handleFetchMore = useCallback(async () => {
         if (isFetching || !hasNext) return;
         
@@ -108,8 +168,15 @@ export default function useMain(initialState = null) {
             const params = { page: nextPage };
             if (currentTag !== 'for-you') params.tag = currentTag;
             
-            const result = await storiesApi.getPaginatedStories(params);
-            const newStories = result.results || [];
+            // Use prefetched stories if available
+            let newStories;
+            if (prefetchedStories && prefetchedStories.length > 0) {
+                newStories = prefetchedStories;
+                setPrefetchedStories(null);
+            } else {
+                const result = await storiesApi.getPaginatedStories(params);
+                newStories = result.results || [];
+            }
             
             // Remove duplicates before adding new stories
             const existingIds = new Set(stories.map(s => s.id));
@@ -120,6 +187,26 @@ export default function useMain(initialState = null) {
                 setPage(nextPage);
             }
             
+            // Prefetch next page for seamless experience
+            if (hasNext) {
+                const nextParams = { page: nextPage + 1 };
+                if (currentTag !== 'for-you') nextParams.tag = currentTag;
+
+                if (!isPrefetchingRef.current) {
+                    isPrefetchingRef.current = true;
+                    storiesApi.getPaginatedStories(nextParams)
+                        .then(nextStories => {
+                            setPrefetchedStories(nextStories.results || []);
+                        })
+                        .catch(err => {
+                            console.warn('Failed to prefetch next page', err);
+                        })
+                        .finally(() => {
+                            isPrefetchingRef.current = false;
+                        });
+                }
+            }
+            
             setHasNext(newStories.length >= 5); // Assuming page size is 5
         } catch (error) {
             console.error('Error fetching more stories:', error);
@@ -127,7 +214,7 @@ export default function useMain(initialState = null) {
         } finally {
             setIsFetching(false);
         }
-    }, [isFetching, hasNext, page, currentTag, stories]);
+    }, [isFetching, hasNext, page, currentTag, stories, prefetchedStories]);
     
     // Handle follow user
     const handleFollowUser = useCallback(async (username) => {
