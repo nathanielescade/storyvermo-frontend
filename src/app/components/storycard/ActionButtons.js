@@ -133,21 +133,6 @@ const ActionButtons = ({
 
     return (
         <div className="flex justify-between mb-3 w-full">
-            {/* LIKE button */}
-            <div 
-                className={`${baseButtonClasses} ${hoverClasses} ${optimisticLike ? activeClasses : inactiveClasses} ${isLikeLoading ? 'opacity-50 cursor-not-allowed' : ''}`} 
-                onClick={handleLike}
-                role="button"
-                tabIndex={0}
-                aria-label={optimisticLike ? "Unlike story" : "Like story"}
-                onKeyPress={(e) => e.key === 'Enter' && handleLike(e)}
-            >
-                <i className={getIconClass(optimisticLike, 'fa-heart')}></i>
-                <div className="absolute -bottom-1 -right-1 bg-[#ff6b35] text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[18px] text-center z-10">
-                    {formatNumber(optimisticLikeCount)}
-                </div>
-            </div>
-            
             {/* COMMENT button */}
             <div 
                 className={`${baseButtonClasses} ${hoverClasses} ${story.isCommented ? activeClasses : inactiveClasses}`} 
@@ -166,6 +151,33 @@ const ActionButtons = ({
                     {formatNumber(localCommentsCount || 0)}
                 </div>
             </div>
+
+            {/* SAVE button */}
+            <div 
+                className={`${baseButtonClasses} ${hoverClasses} ${optimisticSave ? activeClasses : inactiveClasses} ${isSaveLoading ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                onClick={handleSave}
+                role="button"
+                tabIndex={0}
+                aria-label={optimisticSave ? "Remove from saved" : "Save story"}
+                onKeyPress={(e) => e.key === 'Enter' && handleSave(e)}
+            >
+                <i className={getIconClass(optimisticSave, 'fa-bookmark')}></i>
+            </div>
+            
+            {/* LIKE button */}
+            <div 
+                className={`${baseButtonClasses} ${hoverClasses} ${optimisticLike ? activeClasses : inactiveClasses} ${isLikeLoading ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                onClick={handleLike}
+                role="button"
+                tabIndex={0}
+                aria-label={optimisticLike ? "Unlike story" : "Like story"}
+                onKeyPress={(e) => e.key === 'Enter' && handleLike(e)}
+            >
+                <i className={getIconClass(optimisticLike, 'fa-heart')}></i>
+                <div className="absolute -bottom-1 -right-1 bg-[#ff6b35] text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[18px] text-center z-10">
+                    {formatNumber(optimisticLikeCount)}
+                </div>
+            </div>
             
             {/* SHARE button */}
             <div 
@@ -180,18 +192,6 @@ const ActionButtons = ({
                 <div className="absolute -bottom-1 -right-1 bg-[#ff6b35] text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[18px] text-center z-10">
                     {formatNumber(story.shares_count || 0)}
                 </div>
-            </div>
-            
-            {/* SAVE button */}
-            <div 
-                className={`${baseButtonClasses} ${hoverClasses} ${optimisticSave ? activeClasses : inactiveClasses} ${isSaveLoading ? 'opacity-50 cursor-not-allowed' : ''}`} 
-                onClick={handleSave}
-                role="button"
-                tabIndex={0}
-                aria-label={optimisticSave ? "Remove from saved" : "Save story"}
-                onKeyPress={(e) => e.key === 'Enter' && handleSave(e)}
-            >
-                <i className={getIconClass(optimisticSave, 'fa-bookmark')}></i>
             </div>
         </div>
     );

@@ -7,6 +7,7 @@ import ContributeModal from './storycard/ContributeModal';
 import { useRouter } from 'next/navigation';
 import ShareModal from './ShareModal';
 import { createPortal } from 'react-dom';
+import Image from 'next/image';
 
 // Helper to get an image URL from a moment
 const getMomentImageUrl = (moment) => {
@@ -97,10 +98,35 @@ const VerseViewer = ({
   onReady,
   isAuthenticated,
   openAuthModal,
-  onStoryUpdate // New prop to handle story updates
+  onStoryUpdate, // New prop to handle story updates
+  onOpenStoryForm, // Prop to open StoryFormModal for story creators
 }) => {
   const { currentUser } = useAuth();
   const router = useRouter();
+  const [showVerseOptions, setShowVerseOptions] = useState(false);
+  const [editingVerse, setEditingVerse] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showContributeModal, setShowContributeModal] = useState(false);
+  
+  // Ref for verse options menu
+  const verseOptionsRef = useRef(null);
+
+  // Handle click outside for verse options menu
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (verseOptionsRef.current && !verseOptionsRef.current.contains(event.target)) {
+        setShowVerseOptions(false);
+      }
+    };
+
+    if (showVerseOptions) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showVerseOptions]);
   const [currentVerseIndex, setCurrentVerseIndex] = useState(initialVerseIndex);
   
   // Create a ref to store the latest story data
@@ -155,7 +181,7 @@ const VerseViewer = ({
   const [isTextVisible, setIsTextVisible] = useState(true);
   const [showScrollHint, setShowScrollHint] = useState(false);
   // Modal state
-  const [showContributeModal, setShowContributeModal] = useState(false);
+  // const [showContributeModal, setShowContributeModal] = useState(false);
   
   const verseRefs = useRef([]);
   const containerRef = useRef(null);
@@ -982,10 +1008,12 @@ const VerseViewer = ({
                         >
                           {imageUrl ? (
                             <div className="relative w-full h-full">
-                              <img
+                              <Image
                                 src={imageUrl}
                                 alt={`Verse moment ${momentIndex + 1}`}
                                 className="w-full h-full object-contain"
+                                width={1200}
+                                height={800}
                                 onError={(e) => { e.currentTarget.style.display = 'none'; }}
                               />
                               <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
@@ -1085,7 +1113,7 @@ const VerseViewer = ({
                 >
                   <div className="w-full h-full rounded-full bg-gradient-to-r from-accent-orange to-neon-pink flex items-center justify-center font-bold text-base flex-shrink-0 cursor-pointer overflow-hidden">
                     {getAuthorProfileImageUrl() ? (
-                      <img src={getAuthorProfileImageUrl()} alt={`${getAuthorDisplayName()}'s profile`} className="w-full h-full object-cover" />
+                      <Image src={getAuthorProfileImageUrl()} alt={`${getAuthorDisplayName()}'s profile`} className="w-full h-full object-cover" width={48} height={48} />
                     ) : (
                       <span className="text-white">{getAuthorInitial()}</span>
                     )}
@@ -1093,21 +1121,74 @@ const VerseViewer = ({
                 </a>
               </div>
 
-              <div className="text-white min-w-0">
-                <a
-                  href={`/${encodeURIComponent(getAuthorUsername() || '')}`}
-                  className="block min-w-0"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    const u = getAuthorUsername();
-                    if (u) router.push(`/${encodeURIComponent(u)}`);
-                  }}
-                >
-                  <span className="font-semibold text-sm truncate block max-w-[18rem]" title={getAuthorDisplayName()}>{getAuthorDisplayName()}</span>
-                </a>
-                <div className={`text-xs ${isContribution ? 'text-orange-400' : 'text-cyan-300'}`}>
-                  {isContribution ? 'Contributed' : 'Creator'}
+              <div className="text-white min-w-0 flex items-center gap-3">
+                <div>
+                  <a
+                    href={`/${encodeURIComponent(getAuthorUsername() || '')}`}
+                    className="block min-w-0"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const u = getAuthorUsername();
+                      if (u) router.push(`/${encodeURIComponent(u)}`);
+                    }}
+                  >
+                    <span className="font-semibold text-sm truncate block max-w-[18rem]" title={getAuthorDisplayName()}>{getAuthorDisplayName()}</span>
+                  </a>
+                  <div className={`text-xs ${isContribution ? 'text-orange-400' : 'text-cyan-300'}`}>
+                    {isContribution ? 'Contributed' : 'Creator'}
+                  </div>
                 </div>
+                {currentUser && (currentUser.public_id === getUserId(currentVerse?.author) || currentUser.public_id === getUserId(story?.creator)) && (
+                  <div className="relative">
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowVerseOptions(!showVerseOptions);
+                      }}
+                      className="w-8 h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer transition-all duration-200 hover:bg-white/20"
+                    >
+                      <i className="fas fa-ellipsis-v text-white"></i>
+                    </button>
+                    {showVerseOptions && (
+                      <div className="absolute left-0 mt-2 w-48 rounded-xl overflow-hidden bg-gray-900/95 backdrop-blur-lg border border-white/10 shadow-xl z-50">
+                        {currentUser.public_id === getUserId(currentVerse?.author) && (
+                          <>
+                            <button
+                              onClick={() => {
+                                setShowVerseOptions(false);
+                                if (currentUser.public_id === getUserId(story?.creator)) {
+                                  // Open StoryFormModal for creator
+                                  if (typeof onOpenStoryForm === 'function') {
+                                    onOpenStoryForm(currentVerse);
+                                  }
+                                } else {
+                                  // Open ContributeModal for contributor
+                                  setEditingVerse(currentVerse);
+                                  setShowContributeModal(true);
+                                }
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm text-white hover:bg-cyan-500/20 flex items-center gap-2"
+                            >
+                              <i className="fas fa-edit text-cyan-400"></i>
+                              Edit Verse
+                            </button>
+                            <button
+                              onClick={() => {
+                                setShowVerseOptions(false);
+                                setShowDeleteModal(true);
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm text-white hover:bg-red-500/20 flex items-center gap-2"
+                            >
+                              <i className="fas fa-trash-alt text-red-400"></i>
+                              Delete Verse
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
             
@@ -1116,41 +1197,41 @@ const VerseViewer = ({
               {/* Like Button (at top) */}
               <div className="flex flex-col items-center">
                 <button 
-                  className={`transition-all hover:scale-110 ${isLiked ? 'text-red-500' : 'text-white'}`}
+                  className={`w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer transition-all duration-200 ease-in-out relative ${isLiked ? 'bg-accent-orange/10 border-2 border-accent-orange' : 'border border-white/20'} hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110`}
                   onClick={handleLike}
                 >
                   <div className="relative">
-                    <i className={`${isLiked ? 'fas' : 'far'} fa-heart text-2xl`}></i>
+                    <i className={`${isLiked ? 'fas' : 'far'} fa-heart text-[18px] ${isLiked ? 'text-accent-orange' : 'text-white'}`}></i>
                     {isLiked && (
-                      <div className="absolute inset-0 rounded-full bg-red-500 animate-ping opacity-40"></div>
+                      <div className="absolute inset-0 rounded-full bg-accent-orange animate-ping opacity-40"></div>
                     )}
                   </div>
                 </button>
-                <span className={`text-xs mt-1 ${isLiked ? 'text-red-500' : 'text-white'}`}>{likeCount}</span>
+                <span className={`text-xs mt-1 ${isLiked ? 'text-accent-orange' : 'text-white'}`}>{likeCount}</span>
               </div>
               
               {/* Share Button (below like) */}
               <button 
-                className="text-white transition-all hover:scale-110"
+                className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer transition-all duration-200 ease-in-out relative border border-white/20 hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110"
                 onClick={handleShare}
               >
-                <i className="fas fa-share text-2xl"></i>
+                <i className="fas fa-share text-[18px] text-white"></i>
               </button>
               
               {/* Save Button (below share) */}
               <div className="flex flex-col items-center">
                 <button 
-                  className={`transition-all hover:scale-110 ${isSaved ? 'text-yellow-500' : 'text-white'}`}
+                  className={`w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer transition-all duration-200 ease-in-out relative ${isSaved ? 'bg-accent-orange/10 border-2 border-accent-orange' : 'border border-white/20'} hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110`}
                   onClick={handleSave}
                 >
                   <div className="relative">
-                    <i className={`${isSaved ? 'fas' : 'far'} fa-bookmark text-2xl`}></i>
+                    <i className={`${isSaved ? 'fas' : 'far'} fa-bookmark text-[18px] ${isSaved ? 'text-accent-orange' : 'text-white'}`}></i>
                     {isSaved && (
-                      <div className="absolute inset-0 rounded-full bg-yellow-500 animate-ping opacity-40"></div>
+                      <div className="absolute inset-0 rounded-full bg-accent-orange animate-ping opacity-40"></div>
                     )}
                   </div>
                 </button>
-                <span className={`text-xs mt-1 ${isSaved ? 'text-yellow-500' : 'text-white'}`}>{saveCount}</span>
+                <span className={`text-xs mt-1 ${isSaved ? 'text-accent-orange' : 'text-white'}`}>{saveCount}</span>
               </div>
               
               {/* Plus Button (at bottom) */}
@@ -1201,6 +1282,63 @@ const VerseViewer = ({
         shareData={shareData || {}}
         imageUrl={shareImage}
         isVerse={true}
+      />
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-lg z-[700] flex items-center justify-center">
+          <div className="w-full max-w-md bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl border border-red-500/30 shadow-2xl p-6">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-red-500/20 mx-auto mb-4 flex items-center justify-center">
+                <i className="fas fa-exclamation-triangle text-red-500 text-2xl"></i>
+              </div>
+              <h3 className="text-xl font-bold text-white mb-2">Delete Verse</h3>
+              <p className="text-gray-300">Are you sure you want to delete this verse? This action cannot be undone.</p>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 bg-gray-700/50 hover:bg-gray-600/50 text-white rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    await versesApi.deleteVerse(currentVerse.slug);
+                    setShowDeleteModal(false);
+                    onClose(); // Close the viewer
+                    if (typeof onStoryUpdate === 'function') {
+                      await onStoryUpdate(); // Refresh the story data
+                    }
+                    alert('Verse deleted successfully!');
+                  } catch (error) {
+                    console.error('Error deleting verse:', error);
+                    alert('Error deleting verse. Please try again.');
+                  }
+                }}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl transition-colors flex items-center gap-2"
+              >
+                <i className="fas fa-trash-alt"></i>
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contribute/Edit Modal */}
+      <ContributeModal
+        showContributeModal={showContributeModal}
+        setShowContributeModal={setShowContributeModal}
+        story={story}
+        editingVerse={editingVerse}
+        onStoryUpdated={async () => {
+          if (typeof onStoryUpdate === 'function') {
+            await onStoryUpdate();
+          }
+          setEditingVerse(null);
+        }}
       />
       
       {/* Custom styles for smooth animations */}
