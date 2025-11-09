@@ -346,37 +346,42 @@ const VerseViewer = ({
       setIsTextVisible(true);
       setShowScrollHint(true);
       
-      // Fetch fresh metadata for the current verse
-      const currentVerse = story?.verses?.[initialVerseIndex];
-      if (currentVerse) {
-        fetchVerseMetadata(currentVerse).then(metadata => {
-          if (metadata) {
-            setIsLiked(metadata.is_liked_by_user);
-            setLikeCount(metadata.likes_count);
-            setIsSaved(metadata.is_saved_by_user);
-            setSaveCount(metadata.saves_count);
-            
-            // Update the story ref with fresh metadata
-            if (storyRef.current?.verses) {
-              const updatedVerses = storyRef.current.verses.map(verse => 
-                verse.id === currentVerse.id 
-                  ? { ...verse, ...metadata }
-                  : verse
-              );
-              
-              const updatedStory = {
-                ...storyRef.current,
-                verses: updatedVerses
+      // Pre-fetch metadata for all verses to ensure we have the data
+      if (story?.verses) {
+        Promise.all(story.verses.map(verse => fetchVerseMetadata(verse))).then(metadataArray => {
+          const updatedVerses = story.verses.map((verse, index) => {
+            const metadata = metadataArray[index];
+            if (metadata) {
+              return {
+                ...verse,
+                ...metadata,
+                user_has_liked: metadata.is_liked_by_user,
+                user_has_saved: metadata.is_saved_by_user
               };
-              
-              // Update story ref
-              storyRef.current = updatedStory;
-              
-              // Call parent update if available
-              if (typeof onStoryUpdate === 'function') {
-                onStoryUpdate(updatedStory);
-              }
             }
+            return verse;
+          });
+
+          const updatedStory = {
+            ...storyRef.current,
+            verses: updatedVerses
+          };
+
+          // Update story ref
+          storyRef.current = updatedStory;
+
+          // Call parent update if available
+          if (typeof onStoryUpdate === 'function') {
+            onStoryUpdate(updatedStory);
+          }
+
+          // Set initial verse state
+          const initialVerse = updatedVerses[initialVerseIndex];
+          if (initialVerse) {
+            setIsLiked(initialVerse.is_liked_by_user || initialVerse.user_has_liked || false);
+            setLikeCount(initialVerse.likes_count || 0);
+            setIsSaved(initialVerse.is_saved_by_user || initialVerse.user_has_saved || false);
+            setSaveCount(initialVerse.saves_count || 0);
           }
         });
       }
@@ -489,29 +494,51 @@ const VerseViewer = ({
         setIsTransitioning(true);
         setCurrentVerseIndex(mostVisibleVerseIndex);
         
-        // Update metadata states from the new current verse
-        const newCurrentVerse = story.verses[mostVisibleVerseIndex];
+        // Get the new current verse from our latest story ref data
+        const newCurrentVerse = storyRef.current?.verses?.[mostVisibleVerseIndex];
         if (newCurrentVerse) {
-          // First check our metadata cache
-          const cachedMetadata = verseMetadataRef.current[newCurrentVerse.id];
-          if (cachedMetadata) {
-            // Use cached metadata
-            setIsLiked(cachedMetadata.is_liked_by_user);
-            setLikeCount(cachedMetadata.likes_count);
-            setIsSaved(cachedMetadata.is_saved_by_user);
-            setSaveCount(cachedMetadata.saves_count);
-          } else {
-            // Fall back to verse data
-            setIsLiked(newCurrentVerse.user_has_liked || newCurrentVerse.is_liked_by_user || false);
-            setIsSaved(newCurrentVerse.user_has_saved || newCurrentVerse.is_saved_by_user || false);
-            setLikeCount(newCurrentVerse.likes_count || 0);
-            setSaveCount(newCurrentVerse.saves_count || 0);
-          }
-          
+          // Always set state from the verse data which includes our metadata
+          setIsLiked(newCurrentVerse.is_liked_by_user || newCurrentVerse.user_has_liked || false);
+          setIsSaved(newCurrentVerse.is_saved_by_user || newCurrentVerse.user_has_saved || false);
+          setLikeCount(newCurrentVerse.likes_count || 0);
+          setSaveCount(newCurrentVerse.saves_count || 0);
           setCurrentMomentIndex(0);
           
-          // Then fetch fresh metadata
-          fetchVerseMetadata(newCurrentVerse);
+          // Refresh metadata in background to ensure it's up to date
+          fetchVerseMetadata(newCurrentVerse).then(metadata => {
+            if (metadata && currentVerseIndex === mostVisibleVerseIndex) {
+              // Only update if we're still on the same verse
+              const updatedVerses = storyRef.current.verses.map(verse => 
+                verse.id === newCurrentVerse.id 
+                  ? { 
+                      ...verse,
+                      ...metadata,
+                      user_has_liked: metadata.is_liked_by_user,
+                      user_has_saved: metadata.is_saved_by_user
+                    }
+                  : verse
+              );
+              
+              const updatedStory = {
+                ...storyRef.current,
+                verses: updatedVerses
+              };
+              
+              // Update story ref
+              storyRef.current = updatedStory;
+              
+              // Update current state if needed
+              setIsLiked(metadata.is_liked_by_user);
+              setLikeCount(metadata.likes_count);
+              setIsSaved(metadata.is_saved_by_user);
+              setSaveCount(metadata.saves_count);
+              
+              // Call parent update if available
+              if (typeof onStoryUpdate === 'function') {
+                onStoryUpdate(updatedStory);
+              }
+            }
+          });
         }
         
         // Snap to the exact position of this verse
