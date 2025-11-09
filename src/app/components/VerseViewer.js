@@ -163,6 +163,10 @@ const VerseViewer = ({
   const scrollHintTimeoutRef = useRef(null);
   const momentsContainerRef = useRef(null);
   
+  // Touch tracking for moments carousel
+  const touchStartRef = useRef(0);
+  const touchEndRef = useRef(0);
+  
   // Check if current verse has moments (images)
   const hasMoments = currentVerse?.moments && currentVerse.moments.length > 0;
   const hasMultipleMoments = hasMoments && currentVerse.moments.length > 1;
@@ -457,6 +461,70 @@ const VerseViewer = ({
     }
   }, [isOpen, currentVerseIndex, currentVerse]);
 
+  // Handle touch events for swipe-back detection
+  useEffect(() => {
+    if (!containerRef.current || !isOpen) return;
+    
+    let startX = 0;
+    let currentX = 0;
+    let isDragging = false;
+
+    const handleTouchStart = (e) => {
+      // Enable swipe back when we're at the first moment of any verse
+      if (currentMomentIndex === 0) {
+        startX = e.touches[0].clientX;
+        isDragging = true;
+      }
+    };
+
+    const handleTouchMove = (e) => {
+      if (!isDragging) return;
+      
+      currentX = e.touches[0].clientX;
+      const diffX = currentX - startX;
+
+      if (diffX > 0) { // Only allow right swipe
+        containerRef.current.style.transform = `translateX(${diffX}px)`;
+        containerRef.current.style.transition = 'none';
+      }
+    };
+
+    const handleTouchEnd = () => {
+      if (!isDragging) return;
+      
+      isDragging = false;
+      const diffX = currentX - startX;
+
+      containerRef.current.style.transition = 'transform 0.3s ease';
+      
+      if (diffX > 100) { // Threshold to trigger close
+        containerRef.current.style.transform = 'translateX(100%)';
+        setTimeout(() => {
+          onClose();
+          containerRef.current.style.transform = '';
+          containerRef.current.style.transition = '';
+        }, 300);
+      } else {
+        // Reset position
+        containerRef.current.style.transform = '';
+        setTimeout(() => {
+          containerRef.current.style.transition = '';
+        }, 300);
+      }
+    };
+
+    const container = containerRef.current;
+    container.addEventListener('touchstart', handleTouchStart);
+    container.addEventListener('touchmove', handleTouchMove);
+    container.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      container.removeEventListener('touchstart', handleTouchStart);
+      container.removeEventListener('touchmove', handleTouchMove);
+      container.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [currentVerseIndex, currentMomentIndex, isOpen, onClose]);
+
   // Handle scroll events to detect current verse and update metadata (throttled)
   useEffect(() => {
     const handleScroll = throttle(() => {
@@ -700,70 +768,54 @@ const VerseViewer = ({
     setShowContributeModal(true);
   };
 
-  // Handle horizontal scroll for moments (throttled)
-  useEffect(() => {
-    const handleMomentScroll = throttle((e) => {
-      const container = e.target;
-      const scrollLeft = container.scrollLeft;
-      const containerWidth = container.clientWidth;
-      
-      const moments = container.querySelectorAll('.moment-item');
-      moments.forEach((moment, index) => {
-        const momentLeft = moment.offsetLeft;
-        const momentWidth = moment.offsetWidth;
-        
-        if (scrollLeft >= momentLeft - containerWidth/2 && 
-            scrollLeft < momentLeft + momentWidth - containerWidth/2) {
-          if (currentMomentIndex !== index) {
-            setCurrentMomentIndex(index);
-          }
-        }
-      });
-    }, 50);
+  // Touch handlers for moments carousel
+  const handleMomentTouchStart = (e) => {
+    touchStartRef.current = e.touches[0].clientX;
+  };
 
-    const containerElement = momentsContainerRef.current;
-    if (containerElement) {
-      containerElement.addEventListener('scroll', handleMomentScroll);
-      return () => containerElement.removeEventListener('scroll', handleMomentScroll);
-    }
-  }, [currentMomentIndex]);
-
-  // Navigate to previous moment with smooth animation
-  const goToPreviousMoment = () => {
-    if (!momentsContainerRef.current || !currentVerse || currentMomentIndex <= 0) return;
+  const handleMomentTouchMove = (e) => {
+    touchEndRef.current = e.touches[0].clientX;
     
-    const newIndex = currentMomentIndex - 1;
-    setCurrentMomentIndex(newIndex);
+    // Prevent default only if we're swiping horizontally
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - touchStartRef.current;
+    const deltaY = touch.clientY - (e.targetTouches[0].clientY || 0);
     
-    // Get the target moment element
-    const moments = momentsContainerRef.current.querySelectorAll('.moment-item');
-    if (moments[newIndex]) {
-      const targetMoment = moments[newIndex];
-      const container = momentsContainerRef.current;
-      const containerWidth = container.clientWidth;
-      const targetLeft = targetMoment.offsetLeft - (containerWidth / 2) + (targetMoment.offsetWidth / 2);
-      
-      smoothScroll(container, targetLeft, 600, true);
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      e.preventDefault();
     }
   };
 
-  // Navigate to next moment with smooth animation
-  const goToNextMoment = () => {
-    if (!momentsContainerRef.current || !currentVerse || !currentVerse.moments || currentMomentIndex >= currentVerse.moments.length - 1) return;
+  const handleMomentTouchEnd = () => {
+    const start = touchStartRef.current;
+    const end = touchEndRef.current;
     
-    const newIndex = currentMomentIndex + 1;
-    setCurrentMomentIndex(newIndex);
+    if (!start || !end) return;
     
-    // Get the target moment element
-    const moments = momentsContainerRef.current.querySelectorAll('.moment-item');
-    if (moments[newIndex]) {
-      const targetMoment = moments[newIndex];
-      const container = momentsContainerRef.current;
-      const containerWidth = container.clientWidth;
-      const targetLeft = targetMoment.offsetLeft - (containerWidth / 2) + (targetMoment.offsetWidth / 2);
-      
-      smoothScroll(container, targetLeft, 600, true);
+    const diff = start - end;
+    
+    // Swipe threshold - only 50px needed to trigger
+    if (Math.abs(diff) > 50) {
+      if (diff > 0) {
+        // Swipe left - go to next moment
+        goToNextMoment();
+      } else {
+        // Swipe right - go to previous moment
+        goToPreviousMoment();
+      }
     }
+  };
+
+  // Navigate to previous moment
+  const goToPreviousMoment = () => {
+    if (!currentVerse || currentMomentIndex <= 0) return;
+    setCurrentMomentIndex(prev => prev - 1);
+  };
+
+  // Navigate to next moment
+  const goToNextMoment = () => {
+    if (!currentVerse || !currentVerse.moments || currentMomentIndex >= currentVerse.moments.length - 1) return;
+    setCurrentMomentIndex(prev => prev + 1);
   };
 
   // Toggle focus mode
@@ -913,16 +965,21 @@ const VerseViewer = ({
                     </button>
                   )}
                   
+                  {/* Moments container with touch handlers */}
                   <div 
-                    ref={momentsContainerRef}
-                    className="w-full h-full flex overflow-x-auto snap-x snap-mandatory scrollbar-hide"
-                    style={{ scrollBehavior: 'smooth' }}
+                    className="w-full h-full relative overflow-hidden"
+                    onTouchStart={handleMomentTouchStart}
+                    onTouchMove={handleMomentTouchMove}
+                    onTouchEnd={handleMomentTouchEnd}
                   >
                     {verse.moments.map((moment, momentIndex) => {
                       const imageUrl = getMomentImageUrl(moment);
                       const momentKey = moment && (moment.id || `moment-${momentIndex}`);
                       return (
-                        <div key={momentKey} className="flex-shrink-0 w-full h-full snap-center moment-item">
+                        <div 
+                          key={momentKey} 
+                          className={`absolute inset-0 transition-opacity duration-300 ${momentIndex === currentMomentIndex ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                        >
                           {imageUrl ? (
                             <div className="relative w-full h-full">
                               <img
@@ -953,11 +1010,11 @@ const VerseViewer = ({
                   </div>
                   
                   {/* Unique horizontal scroll indicator */}
-                  <div className="absolute bottom-6 left-0 right-0 flex justify-center space-x-2">
+                  <div className="absolute bottom-32 left-0 right-0 flex justify-center space-x-2 z-60">
                     {verse.moments.map((_, momentIndex) => (
                       <div 
                         key={`indicator-${momentIndex}`}
-                        className={`w-2 h-2 rounded-full transition-all duration-300 ${momentIndex === currentMomentIndex ? 'bg-white w-8' : 'bg-white/30'}`}
+                        className={`w-2 h-2 rounded-full transition-all duration-300 shadow-lg ${momentIndex === currentMomentIndex ? 'bg-white w-8' : 'bg-white/30'}`}
                       ></div>
                     ))}
                   </div>

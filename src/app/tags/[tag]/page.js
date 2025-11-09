@@ -82,6 +82,16 @@ const description = `Discover creative stories and verses inspired by ${prettyTa
 
 // Only render the interactive homepage on this route. Metadata above provides
 // SEO content for crawlers; we avoid adding any server-side visible text here.
-export default function TagPage() {
-  return <Home />;
+export default function TagPage({ params }) {
+  const tagSlug = params.tag || '';
+  // Normalize tag name from slug
+  const tag = (() => {
+    try {
+      return decodeURIComponent(tagSlug);
+    } catch (e) {
+      return tagSlug;
+    }
+  })();
+
+  return <Home initialTag={tag} />;
 }

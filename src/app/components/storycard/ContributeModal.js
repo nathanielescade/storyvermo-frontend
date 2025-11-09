@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Modal, Box, TextField, Button, CircularProgress, IconButton } from '@mui/material';
 import { useDropzone } from 'react-dropzone';
 import { X as CloseIcon } from 'lucide-react';
+import Image from 'next/image';
 import { getCsrfToken } from '../../../../lib/utils';
 import { versesApi, momentsApi, imagesApi } from '../../../../lib/api';
 
@@ -248,38 +249,35 @@ const ContributeModal = ({
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/10 to-transparent h-px w-full animate-pulse"></div>
                 </div>
                 
-                <div className="relative z-10 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md border-b border-cyan-500/30 px-8 py-6">
+                <div className="relative z-10 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md border-b border-cyan-500/30 px-6 py-4">
                     <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-5">
-                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 flex items-center justify-center shadow-lg shadow-cyan-500/40 border border-cyan-500/30">
-                                <i className="fas fa-book text-cyan-400 text-2xl"></i>
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 flex items-center justify-center shadow-lg shadow-cyan-500/40 border border-cyan-500/30">
+                                <i className="fas fa-book text-cyan-400 text-lg"></i>
                             </div>
                             <div>
-                                <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500">
+                                <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500">
                                     {editingVerse ? 'EDIT VERSE' : 'CONTRIBUTE TO STORY'}
                                 </h2>
-                                <p className="text-gray-400 text-sm mt-1">
-                                    {editingVerse ? 'Update your verse in' : 'Add a verse to'} &ldquo;{story.title || 'this story'}&rdquo;
-                                </p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
                             <button 
                                 type="button"
                                 title="Clear form" 
-                                className="w-12 h-12 rounded-full bg-gray-900/60 hover:bg-gray-800/60 flex items-center justify-center text-gray-400 hover:text-white transition-all duration-300 border border-gray-700/50 hover:border-cyan-500/50"
+                                className="w-9 h-9 rounded-lg bg-gray-900/60 hover:bg-gray-800/60 flex items-center justify-center text-gray-400 hover:text-white transition-all duration-300 border border-gray-700/50 hover:border-cyan-500/50"
                                 onClick={() => {
                                     setVerseContent(''); 
                                     setVerseImages([]);
                                 }}
                             >
-                                <i className="fas fa-sync-alt text-lg"></i>
+                                <i className="fas fa-sync-alt text-sm"></i>
                             </button>
                             <button 
                                 onClick={() => setShowContributeModal(false)}
-                                className="w-12 h-12 rounded-full bg-gray-900/60 hover:bg-gray-800/60 flex items-center justify-center text-gray-400 hover:text-white transition-all duration-300 border border-gray-700/50 hover:border-cyan-500/50"
+                                className="w-9 h-9 rounded-lg bg-gray-900/60 hover:bg-gray-800/60 flex items-center justify-center text-gray-400 hover:text-white transition-all duration-300 border border-gray-700/50 hover:border-cyan-500/50"
                             >
-                                <i className="fas fa-times text-xl"></i>
+                                <i className="fas fa-times text-sm"></i>
                             </button>
                         </div>
                     </div>
@@ -314,9 +312,11 @@ const ContributeModal = ({
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     {verseImages.map((image, index) => (
                                         <div key={index} className="relative group">
-                                            <img 
+                                            <Image 
                                                 src={image.preview} 
-                                                alt={`Verse image ${index + 1}`} 
+                                                alt={`Verse image ${index + 1}`}
+                                                width={400}
+                                                height={144}
                                                 className="w-full h-36 object-cover rounded-xl border border-gray-700"
                                             />
                                             <button 

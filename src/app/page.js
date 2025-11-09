@@ -27,11 +27,15 @@ export const metadata = {
 import FeedClient from './FeedClient';
 import { storiesApi } from '../../lib/api';
 
-export default async function Home() {
+export default async function Home({ initialTag = 'for-you' }) {
   // Server-side fetch initial page (cached via next/cache)
   let initial = null;
   try {
-    initial = await storiesApi.getPaginatedStories({ page: 1 });
+    const params = { page: 1 };
+    if (initialTag !== 'for-you') {
+      params.tag = initialTag;
+    }
+    initial = await storiesApi.getPaginatedStories(params);
   } catch (e) {
     console.error('Server fetch for initial stories failed:', e);
     initial = null;
@@ -44,7 +48,7 @@ export default async function Home() {
     stories,
     page: 1,
     hasNext,
-    currentTag: 'for-you'
+    currentTag: initialTag
   };
 
   return <FeedClient initialState={initialState} />;

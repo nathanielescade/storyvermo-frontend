@@ -2,6 +2,7 @@
 // StoryCard.js
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
+import Image from 'next/image';
 import { formatNumber, formatTimeAgo, createBubbles } from '../../../lib/utils';
 import { absoluteUrl, storiesApi, userApi } from '../../../lib/api';
 
@@ -50,6 +51,10 @@ export default function StoryCard({
     const [isViewerOpening, setIsViewerOpening] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
     const [localCommentsCount, setLocalCommentsCount] = useState(story.comments_count || 0);
+    const [touchStart, setTouchStart] = useState(null);
+    const [touchEnd, setTouchEnd] = useState(null);
+    const [isOpening, setIsOpening] = useState(false);
+    const [swipeProgress, setSwipeProgress] = useState(0);
     
     // Hologram icon modals
     const [showContributeModal, setShowContributeModal] = useState(false);
@@ -359,11 +364,69 @@ export default function StoryCard({
         
         return (
             <div className="image-container" style={{ display: storyDeleted ? 'none' : 'block' }}>
-                <div ref={cardRef} className="scene-card" style={{ transition: 'all 0.5s ease-out' }} data-story-id={story.id} data-creator={getCreatorUsername()} data-story-slug={story.slug || ''}>
+                <div 
+                    ref={cardRef} 
+                    className="scene-card" 
+                    style={{ 
+                        transition: isOpening ? 'all 0.5s ease-out' : 'transform 0.1s linear',
+                        transform: `translateX(${swipeProgress}px)`,
+                        perspective: '1000px',
+                        transformStyle: 'preserve-3d',
+                        backfaceVisibility: 'hidden'
+                    }}
+                    data-story-id={story.id} 
+                    data-creator={getCreatorUsername()} 
+                    data-story-slug={story.slug || ''}
+                    onTouchStart={e => {
+                        setTouchStart(e.targetTouches[0].clientX);
+                        setTouchEnd(e.targetTouches[0].clientX);
+                        setIsOpening(false);
+                    }}
+                    onTouchMove={e => {
+                        const currentX = e.targetTouches[0].clientX;
+                        setTouchEnd(currentX);
+                        
+                        const diff = touchStart - currentX;
+                        const progress = Math.min(0, -diff);
+                        setSwipeProgress(progress);
+                        
+                        // Start opening verse viewer when swiped more than 25% of screen width
+                        if (diff > window.innerWidth * 0.25 && !isOpening) {
+                            setIsOpening(true);
+                            handleOpenVerses();
+                        }
+                    }}
+                    onTouchEnd={() => {
+                        if (!touchStart || !touchEnd) return;
+                        
+                        const distance = touchStart - touchEnd;
+                        // More sensitive threshold (30px instead of 50px)
+                        const isLeftSwipe = distance > 30;
+                        
+                        if (isLeftSwipe && !isOpening) {
+                            setIsOpening(true);
+                            handleOpenVerses();
+                        }
+                        
+                        // Reset position with animation
+                        setSwipeProgress(0);
+                        setTouchStart(null);
+                        setTouchEnd(null);
+                    }}
+                >
                     {coverImageUrl ? (
-                        <img src={coverImageUrl} alt={story.title || 'Story cover'} className="scene-bg" />
+                        <div className="relative w-full h-full">
+                            <Image 
+                                src={coverImageUrl} 
+                                alt={story.title || 'Story cover'} 
+                                className="scene-bg"
+                                fill
+                                sizes="(max-width: 768px) 100vw, 50vw"
+                                priority={index < 3} // Prioritize loading first 3 images
+                            />
+                        </div>
                     ) : (
-                        <div className="scene-bg-placeholder bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
+                        <div className="scene-bg-placeholder bg-linear-to-br from-slate-800 to-slate-900 flex items-center justify-center">
                             <div className="text-slate-600 text-4xl">
                                 <i className="fas fa-image"></i>
                             </div>
@@ -453,8 +516,6 @@ export default function StoryCard({
                             getCreatorInitial={getCreatorInitial}
                         />
                     </div>
-                    
-                    <div className="story-swipe-indicator"></div>
                 </div>
                 
                 {/* Modals */}
@@ -576,12 +637,15 @@ export default function StoryCard({
         return (
             <div className="verse-card" onClick={handleOpenVerses}>
                 {imageUrl ? (
-                    <img 
+                    <Image 
                         src={imageUrl} 
-                        alt={story.title || 'Untitled Story'} 
+                        alt={story.title || 'Untitled Story'}
+                        width={400}
+                        height={300}
+                        className="w-full h-full object-cover"
                     />
                 ) : (
-                    <div className="verse-card-placeholder bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
+                    <div className="verse-card-placeholder bg-linear-to-br from-slate-800 to-slate-900 flex items-center justify-center">
                         <div className="text-slate-600 text-4xl">
                             <i className="fas fa-image"></i>
                         </div>

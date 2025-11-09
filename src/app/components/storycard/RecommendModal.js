@@ -1,5 +1,6 @@
 // RecommendModal.js
 import React, { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { userApi, storyApi, storiesApi } from '../../../../lib/api';
 
 const RecommendModal = ({ 
@@ -84,48 +85,45 @@ const RecommendModal = ({
 
     return (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-lg z-[600] flex items-center justify-center">
-            <div className="w-full max-w-5xl max-h-[95vh] bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 rounded-3xl border border-cyan-500/40 shadow-2xl overflow-visible transform scale-100 transition-all duration-500 relative flex flex-col">
+            <div className="w-full max-w-5xl max-h-[95vh] bg-linear-to-br from-gray-950 via-slate-950 to-indigo-950 rounded-3xl border border-cyan-500/40 shadow-2xl overflow-visible transform scale-100 transition-all duration-500 relative flex flex-col">
                 <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
                     <div className="absolute inset-0 rounded-3xl border-2 border-cyan-500/30 animate-pulse"></div>
                     <div className="absolute inset-0 rounded-3xl border-2 border-purple-500/20 animate-pulse" style={{ animationDelay: '0.5s' }}></div>
                     <div className="absolute inset-0 rounded-3xl border-2 border-pink-500/10 animate-pulse" style={{ animationDelay: '1s' }}></div>
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/10 to-transparent h-px w-full animate-pulse"></div>
+                    <div className="absolute inset-0 bg-linear-to-r from-transparent via-cyan-500/10 to-transparent h-px w-full animate-pulse"></div>
                 </div>
                 
-                <div className="relative z-10 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md border-b border-cyan-500/30 px-8 py-6">
+                <div className="relative z-10 bg-linear-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md border-b border-cyan-500/30 px-6 py-4">
                     <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-5">
-                            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 flex items-center justify-center shadow-lg shadow-cyan-500/40 border border-cyan-500/30">
-                                <i className="fas fa-paper-plane text-cyan-400 text-2xl"></i>
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-linear-to-br from-cyan-500/30 to-blue-600/30 flex items-center justify-center shadow-lg shadow-cyan-500/40 border border-cyan-500/30">
+                                <i className="fas fa-paper-plane text-cyan-400 text-lg"></i>
                             </div>
                             <div>
-                                <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500">
+                                <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-linear-to-r from-cyan-400 via-blue-500 to-purple-500">
                                     RECOMMEND STORY
                                 </h2>
-                                <p className="text-gray-400 text-sm mt-1">
-                                    Recommend &ldquo;{story.title || 'this story'}&rdquo; to your followers
-                                </p>
                             </div>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2">
                             <button 
                                 onClick={() => {
                                     setShowRecommendModal(false);
                                     setSearchTerm('');
                                     setSelectedUsers([]);
                                 }}
-                                className="w-12 h-12 rounded-full bg-gray-900/60 hover:bg-gray-800/60 flex items-center justify-center text-gray-400 hover:text-white transition-all duration-300 border border-gray-700/50 hover:border-cyan-500/50"
+                                className="w-9 h-9 rounded-lg bg-gray-900/60 hover:bg-gray-800/60 flex items-center justify-center text-gray-400 hover:text-white transition-all duration-300 border border-gray-700/50 hover:border-cyan-500/50"
                             >
-                                <i className="fas fa-times text-xl"></i>
+                                <i className="fas fa-times text-sm"></i>
                             </button>
                         </div>
                     </div>
                 </div>
                 
-                <div className="relative z-10 p-8 overflow-y-auto flex-grow custom-scrollbar" style={{ minHeight: '0' }}>
+                <div className="relative z-10 p-8 overflow-y-auto grow custom-scrollbar" style={{ minHeight: '0' }}>
                     <div className="max-w-5xl mx-auto space-y-8">
                         <div className="space-y-4">
-                            <label className="block text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
+                            <label className="flex text-sm font-medium text-gray-300 mb-4 items-center gap-2">
                                 <i className="fas fa-search text-purple-400"></i> Search Followers
                             </label>
                             <div className="relative">
@@ -136,12 +134,12 @@ const RecommendModal = ({
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="w-full px-5 py-4 bg-slate-900/60 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition-all duration-300 text-lg"
                                 />
-                                <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-500/5 to-indigo-500/5 opacity-0 pointer-events-none transition-opacity duration-300"></div>
+                                <div className="absolute inset-0 rounded-2xl bg-linear-to-r from-purple-500/5 to-indigo-500/5 opacity-0 pointer-events-none transition-opacity duration-300"></div>
                             </div>
                         </div>
                         
                         <div className="space-y-4">
-                            <label className="block text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
+                            <label className="flex text-sm font-medium text-gray-300 mb-4 items-center gap-2">
                                 <i className="fas fa-users text-purple-400"></i> Select Followers
                             </label>
                             
@@ -189,9 +187,19 @@ const RecommendModal = ({
                                                             className="w-5 h-5 text-cyan-500 rounded focus:ring-cyan-500 focus:ring-2"
                                                         />
                                                         <label htmlFor={`user-${user.id}`} className="flex items-center gap-3 cursor-pointer flex-1">
-                                                            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-white font-semibold">
-                                                                {user.name ? user.name.charAt(0) : user.username.charAt(0)}
-                                                            </div>
+                                                            {user.profile_picture ? (
+                                                                <Image 
+                                                                    src={user.profile_picture}
+                                                                    alt={user.name || user.username}
+                                                                    width={40}
+                                                                    height={40}
+                                                                    className="w-10 h-10 rounded-full object-cover"
+                                                                />
+                                                            ) : (
+                                                                <div className="w-10 h-10 rounded-full bg-linear-to-r from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-white font-semibold">
+                                                                    {user.name ? user.name.charAt(0) : user.username.charAt(0)}
+                                                                </div>
+                                                            )}
                                                             <div>
                                                                 <div className="text-white font-medium">{user.name || user.username}</div>
                                                                 <div className="text-gray-400 text-sm">@{user.username}</div>
@@ -219,7 +227,7 @@ const RecommendModal = ({
                     </div>
                 </div>
                 
-                <div className="relative z-10 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md border-t border-gray-800/50 px-8 py-6" style={{ position: 'sticky', bottom: '0', zIndex: '20' }}>
+                <div className="relative z-10 bg-linear-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md border-t border-gray-800/50 px-8 py-6" style={{ position: 'sticky', bottom: '0', zIndex: '20' }}>
                     <div className="flex justify-between">
                         <button 
                             onClick={() => {
@@ -227,16 +235,16 @@ const RecommendModal = ({
                                 setSearchTerm('');
                                 setSelectedUsers([]);
                             }}
-                            className="px-8 py-3 bg-gray-800/60 hover:bg-gray-700/60 text-gray-300 rounded-2xl font-medium transition-all duration-300 border border-gray-700/50 hover:border-gray-600/50"
+                            className="px-4 py-2 bg-gray-800/60 hover:bg-gray-700/60 text-gray-300 rounded-xl font-medium transition-all duration-300 border border-gray-700/50 hover:border-gray-600/50"
                         >
                             Cancel
                         </button>
                         <button
                             onClick={handleRecommendSubmit}
                             disabled={selectedUsers.length === 0 || loading}
-                            className="px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white rounded-2xl font-medium flex items-center gap-3 transition-all duration-300 transform hover:scale-105 shadow-lg shadow-cyan-500/30 border border-cyan-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="px-2 py-2 bg-linear-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white rounded-xl font-medium flex items-center gap-2 transition-all duration-300 transform hover:scale-105 shadow-lg shadow-cyan-500/30 border border-cyan-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            <i className="fas fa-paper-plane text-xl"></i>
+                            <i className="fas fa-paper-plane text-sm"></i>
                             Recommend to {selectedUsers.length} {selectedUsers.length === 1 ? 'Follower' : 'Followers'}
                         </button>
                     </div>
