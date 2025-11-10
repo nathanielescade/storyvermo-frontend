@@ -428,37 +428,8 @@ const VerseViewer = ({
         });
       }
       
-      // Scroll to initial verse immediately without animation first, then smooth scroll if needed
-      if (verseRefs.current[initialVerseIndex] && containerRef.current) {
-        const targetVerse = verseRefs.current[initialVerseIndex];
-        const container = containerRef.current;
-        const targetPosition = targetVerse.offsetTop;
-        
-        // First set position immediately without animation to prevent flicker
-        container.scrollTop = targetPosition;
-        
-        // Then after a brief delay, ensure we're exactly at the right position with a smooth animation
-        requestAnimationFrame(() => {
-          const currentPosition = container.scrollTop;
-          if (Math.abs(currentPosition - targetPosition) > 1) {
-            smoothScroll(container, targetPosition, 400);
-          }
-        });
-      }
-      
       // Set timeout to show scroll hint after 2 seconds
       scrollHintTimeoutRef.current = setTimeout(() => {
-        if (containerRef.current && story.verses.length > 1) {
-          // Scroll down slightly and then back up to indicate there's more content
-          const currentScroll = containerRef.current.scrollTop;
-          smoothScroll(containerRef, currentScroll + 20, 300);
-          
-          setTimeout(() => {
-            if (containerRef.current) {
-              smoothScroll(containerRef, currentScroll, 300);
-            }
-          }, 500);
-        }
         setShowScrollHint(false);
       }, 2000);
     }
@@ -570,10 +541,9 @@ const VerseViewer = ({
     };
   }, [currentVerseIndex, currentMomentIndex, isOpen, onClose]);
 
-  // Track scroll state
+  // Track if user is actively scrolling
   const [isUserScrolling, setIsUserScrolling] = useState(false);
   const userScrollTimeout = useRef(null);
-  const lastScrollTime = useRef(Date.now());
 
   // Handle scroll events to detect current verse and update metadata (throttled)
   useEffect(() => {
@@ -583,38 +553,17 @@ const VerseViewer = ({
       const container = containerRef.current;
       const scrollTop = container.scrollTop;
       const containerHeight = container.clientHeight;
-      let mostVisibleVerseIndex = currentVerseIndex;
-      let maxVisibility = 0;
       
-      // Update last scroll time
-      lastScrollTime.current = Date.now();
+      // Calculate which verse is currently in view
+      const verseIndex = Math.round(scrollTop / containerHeight);
       
-      // Find the most visible verse
-      for (let i = 0; i < verseRefs.current.length; i++) {
-        const verse = verseRefs.current[i];
-        if (verse) {
-          const verseTop = verse.offsetTop;
-          const verseHeight = verse.offsetHeight;
-          const verseBottom = verseTop + verseHeight;
-          
-          // Calculate how much of the verse is visible in the viewport
-          const visibleTop = Math.max(scrollTop, verseTop);
-          const visibleBottom = Math.min(scrollTop + containerHeight, verseBottom);
-          const visibleHeight = Math.max(0, visibleBottom - visibleTop);
-          const visibility = visibleHeight / verseHeight;          if (visibility > maxVisibility) {
-            maxVisibility = visibility;
-            mostVisibleVerseIndex = i;
-          }
-        }
-      }
-      
-      // Only update verse if enough time has passed since last scroll and verse is significantly visible
-      const timeSinceLastScroll = Date.now() - lastScrollTime.current;
-      if (maxVisibility > 0.5 && mostVisibleVerseIndex !== currentVerseIndex && timeSinceLastScroll > 100) {
-        setCurrentVerseIndex(mostVisibleVerseIndex);
+      // Ensure we're within bounds
+      if (verseIndex >= 0 && verseIndex < story.verses.length && verseIndex !== currentVerseIndex) {
+        setIsTransitioning(true);
+        setCurrentVerseIndex(verseIndex);
         
         // Get the new current verse from our latest story ref data
-        const newCurrentVerse = storyRef.current?.verses?.[mostVisibleVerseIndex];
+        const newCurrentVerse = storyRef.current?.verses?.[verseIndex];
         if (newCurrentVerse) {
           // Always set state from the verse data which includes our metadata
           setIsLiked(newCurrentVerse.is_liked_by_user || newCurrentVerse.user_has_liked || false);
@@ -625,7 +574,7 @@ const VerseViewer = ({
           
           // Refresh metadata in background to ensure it's up to date
           fetchVerseMetadata(newCurrentVerse).then(metadata => {
-            if (metadata && currentVerseIndex === mostVisibleVerseIndex) {
+            if (metadata && currentVerseIndex === verseIndex) {
               // Only update if we're still on the same verse
               const updatedVerses = storyRef.current.verses.map(verse => 
                 verse.id === newCurrentVerse.id 
@@ -661,15 +610,15 @@ const VerseViewer = ({
         }
         
         // Snap to the exact position of this verse
-        const targetVerse = verseRefs.current[mostVisibleVerseIndex];
-        if (targetVerse && containerRef.current) {
-          const targetPosition = targetVerse.offsetTop;
-          setTimeout(() => {
-            smoothScroll(containerRef, targetPosition, 300);
-            setIsTransitioning(false);
-          }, 50);
-        }
+        const targetPosition = verseIndex * containerHeight;
+        setTimeout(() => {
+          smoothScroll(containerRef, targetPosition, 300);
+          setIsTransitioning(false);
+        }, 50);
       }
+      
+      // Update reading progress based on current verse
+      setReadingProgress(((verseIndex + 1) / story.verses.length) * 100);
     }, 50);
 
     const containerElement = containerRef.current;
@@ -678,29 +627,6 @@ const VerseViewer = ({
       return () => containerElement.removeEventListener('scroll', handleScroll);
     }
   }, [currentVerseIndex, story?.verses]); // Added story.verses as dependency
-
-  // Track reading progress (throttled)
-  useEffect(() => {
-    const handleScroll = throttle(() => {
-      if (!containerRef.current || !contentRef.current) return;
-      
-      const container = containerRef.current;
-      const content = contentRef.current;
-      const scrollTop = container.scrollTop;
-      const scrollHeight = content.scrollHeight - container.clientHeight;
-      
-      if (scrollHeight > 0) {
-        const progress = Math.min(100, Math.max(0, (scrollTop / scrollHeight) * 100));
-        setReadingProgress(progress);
-      }
-    }, 50);
-
-    const containerElement = containerRef.current;
-    if (containerElement) {
-      containerElement.addEventListener('scroll', handleScroll);
-      return () => containerElement.removeEventListener('scroll', handleScroll);
-    }
-  }, [currentVerseIndex]);
 
   // Handle like action with optimistic UI and proper story state update
   const handleLike = async () => {
@@ -977,7 +903,7 @@ const VerseViewer = ({
       {/* Vertical scroll container for verses - TikTok style */}
       <div 
         ref={containerRef}
-        className="h-full w-full overflow-y-scroll scrollbar-hide overscroll-none scroll-optimized no-bounce"
+        className="h-full w-full overflow-y-scroll scrollbar-hide overscroll-none scroll-optimized no-bounce snap-y snap-mandatory"
         style={{ scrollBehavior: 'auto' }} // Removed snap scrolling to prevent unwanted auto-scroll
         onTouchStart={() => setIsUserScrolling(true)}
         onTouchEnd={() => {
@@ -995,7 +921,7 @@ const VerseViewer = ({
             <div 
               key={`verse-${verse.id}-${index}`}
               ref={el => verseRefs.current[index] = el}
-              className="h-screen w-full flex flex-col relative transition-all duration-500 overflow-hidden"
+              className="h-screen w-full flex flex-col relative transition-all duration-500 overflow-hidden snap-start"
             >
               {/* Moments (horizontal scroll) */}
               {verse.moments && verse.moments.length > 0 ? (
@@ -1186,7 +1112,7 @@ const VerseViewer = ({
                       <i className="fas fa-ellipsis-v text-white"></i>
                     </button>
                     {showVerseOptions && (
-                      <div className="absolute left-0 mt-2 w-48 rounded-xl overflow-hidden bg-gray-900/95 backdrop-blur-lg border border-white/10 shadow-xl z-50">
+                      <div className="absolute left-0 mt-2 w-48 rounded-xl overflow-hidden bg-gray-900/95 backdrop-blur-lg border border-white/10 shadow-xl z-50" ref={verseOptionsRef}>
                         {currentUser.public_id === getUserId(currentVerse?.author) && (
                           <>
                             <button
@@ -1398,6 +1324,15 @@ const VerseViewer = ({
         /* Prevent momentum scrolling bounce */
         .no-bounce {
           overscroll-behavior: none;
+        }
+        
+        /* Snap scrolling for TikTok style */
+        .snap-y {
+          scroll-snap-type: y mandatory;
+        }
+        
+        .snap-start {
+          scroll-snap-align: start;
         }
       `}</style>
       

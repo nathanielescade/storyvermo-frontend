@@ -31,14 +31,12 @@ export default async function Home({ initialTag = 'for-you' }) {
   // Server-side fetch initial page (cached via next/cache)
   let initial = null;
   try {
-    const params = { page: 1 };
-    if (initialTag !== 'for-you') {
-      params.tag = initialTag;
-    }
+    const params = { page: 1, tag: 'for-you' }; // Always load for-you initially
     initial = await storiesApi.getPaginatedStories(params);
   } catch (e) {
     console.error('Server fetch for initial stories failed:', e);
-    initial = null;
+    // Return empty initial state instead of null
+    initial = { results: [], next: null };
   }
 
   const stories = initial?.results || (Array.isArray(initial) ? initial : []);

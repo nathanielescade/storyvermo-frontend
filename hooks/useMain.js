@@ -19,9 +19,25 @@ export default function useMain(initialState = null) {
     
     const { currentUser, isAuthenticated, refreshAuth } = useAuth();
     
-    // Initialize the app
+    // Initialize the app with stories
     useEffect(() => {
         const initializeApp = async () => {
+            if (!stories.length && !loading) {
+                try {
+                    setLoading(true);
+                    const params = { page: 1 };
+                    if (currentTag !== 'for-you') params.tag = currentTag;
+                    const result = await storiesApi.getPaginatedStories(params);
+                    setStories(result.results || []);
+                    setHasNext(!!result.next);
+                    setPage(1);
+                } catch (error) {
+                    console.error('Error initializing feed:', error);
+                    setError('Failed to load stories');
+                } finally {
+                    setLoading(false);
+                }
+            }
             if (initialState) return;
             
             try {
@@ -158,6 +174,7 @@ export default function useMain(initialState = null) {
     }, [currentTag]);
     
     // Handle infinite scroll with aggressive preloading
+    // Fixed handleFetchMore in useMain.js
     const handleFetchMore = useCallback(async () => {
         if (isFetching || !hasNext) return;
         
@@ -168,13 +185,24 @@ export default function useMain(initialState = null) {
             const params = { page: nextPage };
             if (currentTag !== 'for-you') params.tag = currentTag;
             
-            // Use prefetched stories if available
+            let result;
             let newStories;
+            
+            // Use prefetched stories if available
             if (prefetchedStories && prefetchedStories.length > 0) {
                 newStories = prefetchedStories;
                 setPrefetchedStories(null);
+                // We need to fetch the actual next page data to get the 'next' field
+                // So we still make the API call but use prefetched data for immediate display
+                try {
+                    result = await storiesApi.getPaginatedStories(params);
+                } catch (err) {
+                    console.warn('Failed to get pagination info:', err);
+                    // If this fails, assume there might be more pages
+                    result = { next: true };
+                }
             } else {
-                const result = await storiesApi.getPaginatedStories(params);
+                result = await storiesApi.getPaginatedStories(params);
                 newStories = result.results || [];
             }
             
@@ -187,16 +215,24 @@ export default function useMain(initialState = null) {
                 setPage(nextPage);
             }
             
-            // Prefetch next page for seamless experience
-            if (hasNext) {
+            // CRITICAL FIX: Use the API's 'next' field to determine if there are more pages
+            // Don't rely on the count of stories received
+            const hasMorePages = result.next !== null && result.next !== undefined;
+            setHasNext(hasMorePages);
+            
+            // Prefetch next page for seamless experience ONLY if there are more pages
+            if (hasMorePages) {
                 const nextParams = { page: nextPage + 1 };
                 if (currentTag !== 'for-you') nextParams.tag = currentTag;
-
+    
                 if (!isPrefetchingRef.current) {
                     isPrefetchingRef.current = true;
                     storiesApi.getPaginatedStories(nextParams)
                         .then(nextStories => {
-                            setPrefetchedStories(nextStories.results || []);
+                            // Only set prefetched stories if they exist
+                            if (nextStories.results && nextStories.results.length > 0) {
+                                setPrefetchedStories(nextStories.results);
+                            }
                         })
                         .catch(err => {
                             console.warn('Failed to prefetch next page', err);
@@ -206,8 +242,6 @@ export default function useMain(initialState = null) {
                         });
                 }
             }
-            
-            setHasNext(newStories.length >= 5); // Assuming page size is 5
         } catch (error) {
             console.error('Error fetching more stories:', error);
             setError(error.message || 'Failed to load more stories');
@@ -215,6 +249,12 @@ export default function useMain(initialState = null) {
             setIsFetching(false);
         }
     }, [isFetching, hasNext, page, currentTag, stories, prefetchedStories]);
+    
+    
+    
+    
+    
+    
     
     // Handle follow user
     const handleFollowUser = useCallback(async (username) => {
