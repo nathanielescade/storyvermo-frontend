@@ -527,9 +527,17 @@ const Header = ({ openAuthModal }) => {
                 ref={notificationRef}
                 className="notification-dropdown dropdown-menu" 
                 id="notificationDropdown" 
-                style={{ minWidth: '320px', maxWidth: '420px', position: 'fixed', zIndex: '9999', display: showNotifications ? 'block' : 'none' }}
+                style={{ 
+                  minWidth: '320px', 
+                  maxWidth: '420px', 
+                  position: 'fixed', 
+                  zIndex: '9999',
+                  display: showNotifications ? 'flex' : 'none',
+                  flexDirection: 'column',
+                  maxHeight: '80vh'
+                }}
               >
-                <div className="notification-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'transparent', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <div className="notification-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'transparent', borderBottom: '1px solid rgba(255,255,255,0.04)', flex: 'none' }}>
                   <div className="notification-title">Notifications</div>
                   <div className="notification-clear" style={{ cursor: 'pointer', color: '#9bdff8', fontSize: '0.9rem', padding: '6px 8px', borderRadius: '6px', background: 'rgba(0,0,0,0.25)' }} onClick={async (e) => {
                     e.stopPropagation();
@@ -545,13 +553,13 @@ const Header = ({ openAuthModal }) => {
                     Clear all
                   </div>
                 </div>
-                <div className="notification-list" style={{ maxHeight: '360px', overflowY: 'auto', padding: '8px' }}>
+                <div className="notification-list" style={{ flex: '1 1 auto', overflowY: 'auto', padding: '8px', minHeight: '100px', maxHeight: '360px' }}>
                   {previewLoading ? (
                     <div className="text-center py-4 text-gray-400">Loading...</div>
                   ) : notificationsPreview.length === 0 ? (
                     <div className="text-center py-4 text-gray-400">No notifications yet</div>
                   ) : (
-                    notificationsPreview.map(n => (
+                    notificationsPreview.slice(0,5).map(n => (
                       <div key={n.id} className={`p-2 rounded-md ${!n.is_read ? 'bg-black/20' : ''}`} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', cursor: 'pointer' }} onClick={async (e) => {
                         e.stopPropagation();
                         try {
@@ -566,11 +574,26 @@ const Header = ({ openAuthModal }) => {
                         } catch (err) {
                           console.error('Failed to mark read', err);
                         }
-                        // Navigate
-                        if (n.story) router.push(`/stories/${n.story.slug}`);
-                        else if (n.verse) router.push(`/verses/${n.verse.slug}`);
-                        else if (n.sender) router.push(`/${n.sender.username}`);
-                        else router.push('/notifications');
+                        // Navigate based on notification type and content
+                        if (n.verse && n.story) {
+                          router.push(`/stories/${n.story.slug}/?verse=${n.verse.slug}`);
+                        } else if (n.verse) {
+                          router.push(`/stories/${n.verse.story_slug}/?verse=${n.verse.slug}`);
+                        } else if (n.story) {
+                          router.push(`/stories/${n.story.slug}`);
+                        } else if (n.type === 'LIKE' || n.type === 'RECOMMEND' || n.notification_type === 'LIKE' || n.notification_type === 'RECOMMEND') {
+                          if (n.verse_slug) {
+                            router.push(`/stories/${n.story_slug}/?verse=${n.verse_slug}`);
+                          } else if (n.story_slug) {
+                            router.push(`/stories/${n.story_slug}`);
+                          } else {
+                            router.push('/notifications');
+                          }
+                        } else if (n.sender) {
+                          router.push(`/${n.sender.username}`);
+                        } else {
+                          router.push('/notifications');
+                        }
                       }}>
                         <div style={{ width: 40, height: 40, borderRadius: 999, background: 'linear-gradient(90deg,#ff6b35,#8a4fff)', display: 'flex', alignItems: 'center', justifyItems: 'center', color: '#fff', fontWeight: 700, flexShrink: 0 }}>
                           {n.sender?.username ? n.sender.username.charAt(0).toUpperCase() : ''}
@@ -583,8 +606,8 @@ const Header = ({ openAuthModal }) => {
                     ))
                   )}
                 </div>
-                <div className="notification-footer" style={{ padding: '8px', borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)' }}>
-                  <Link href="/notifications" className="notification-view-all" style={{ cursor: 'pointer', color: '#9bdff8', textAlign: 'center', padding: '10px', display: 'block', margin: '0 8px', borderRadius: '8px', background: 'linear-gradient(90deg, rgba(0,212,255,0.1) 0%, rgba(155,223,248,0.1) 100%)', transition: 'all 0.2s ease', fontWeight: '500', textShadow: '0 0 10px rgba(155,223,248,0.5)', border: '1px solid rgba(155,223,248,0.2)' }}>
+                <div className="notification-footer" style={{ padding: '12px', borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', flex: 'none' }}>
+                  <Link href="/notifications" onClick={() => setShowNotifications(false)} className="notification-view-all" style={{ cursor: 'pointer', color: '#fff', textAlign: 'center', padding: '12px', display: 'block', margin: '0', borderRadius: '8px', background: 'linear-gradient(90deg, rgba(0,212,255,0.3) 0%, rgba(155,223,248,0.3) 100%)', transition: 'all 0.2s ease', fontWeight: '600', textShadow: '0 0 10px rgba(155,223,248,0.5)', border: '1px solid rgba(155,223,248,0.4)', boxShadow: '0 0 15px rgba(155,223,248,0.15)' }}>
                     <i className="fas fa-bell" style={{ marginRight: '8px' }}></i>View all notifications
                   </Link>
                 </div>

@@ -78,7 +78,7 @@ const HologramIcons = ({
                 className="hologram-icon-btn" 
                 title="View Image" 
                 onClick={handleEnlarge}
-                style={{ background: 'rgba(255,255,255,0.18)', borderRadius: '50%', border: '2px solid #ff6b35', width: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.10)', color: '#ff6b35', fontSize: '1.25rem', cursor: 'pointer' }}
+                style={{ background: 'rgba(255,255,255,0.18)', borderRadius: '50%', border: '2px solid #00ff9d', width: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.10)', color: '#00ff9d', fontSize: '1.25rem', cursor: 'pointer' }}
             >
                 <i className="fas fa-expand"></i>
             </button>

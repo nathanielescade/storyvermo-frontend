@@ -1,11 +1,53 @@
 // src/app/search/SearchClient.js
 'use client';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import StoryCard from '../components/StoryCard';
 import { searchApi, storiesApi, userApi, absoluteUrl } from '../../../lib/api'; 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
 import Link from 'next/link';
+
+const StorySkeleton = () => (
+  <div className="rounded-2xl overflow-hidden bg-slate-900/60 border border-cyan-500/20">
+    <div className="w-full h-40 bg-slate-800 animate-pulse"></div>
+    <div className="p-3">
+      <div className="h-5 bg-slate-800 rounded w-3/4 animate-pulse mb-2"></div>
+      <div className="flex gap-3">
+        <div className="h-4 bg-slate-800 rounded w-12 animate-pulse"></div>
+        <div className="h-4 bg-slate-800 rounded w-12 animate-pulse"></div>
+        <div className="h-4 bg-slate-800 rounded w-12 animate-pulse"></div>
+      </div>
+    </div>
+  </div>
+);
+
+const VerseSkeleton = () => (
+  <div className="block bg-slate-900/50 rounded-2xl overflow-hidden">
+    <div className="relative w-full h-48 bg-slate-800 animate-pulse">
+      <div className="absolute left-3 top-3 h-5 w-20 bg-slate-700 rounded-xl animate-pulse"></div>
+      <div className="absolute left-3 bottom-3 flex items-center gap-2">
+        <div className="w-8 h-8 rounded-full bg-slate-700 animate-pulse"></div>
+        <div className="h-4 w-24 bg-slate-700 rounded animate-pulse"></div>
+      </div>
+    </div>
+    <div className="p-4">
+      <div className="h-4 bg-slate-800 rounded w-1/3 animate-pulse mb-2"></div>
+      <div className="h-6 bg-slate-800 rounded w-3/4 animate-pulse mb-2"></div>
+      <div className="h-4 bg-slate-800 rounded w-1/2 animate-pulse"></div>
+    </div>
+  </div>
+);
+
+const CreatorSkeleton = () => (
+  <div className="flex items-center p-4 bg-slate-900/60 rounded-2xl border border-cyan-500/20">
+    <div className="w-16 h-16 rounded-full bg-slate-800 animate-pulse"></div>
+    <div className="ml-4 flex-1">
+      <div className="h-5 bg-slate-800 rounded w-1/3 animate-pulse mb-2"></div>
+      <div className="h-4 bg-slate-800 rounded w-1/4 animate-pulse mb-2"></div>
+      <div className="h-8 bg-slate-800 rounded w-24 animate-pulse"></div>
+    </div>
+  </div>
+);
 
 export function SearchClient() {
   const router = useRouter();
@@ -22,6 +64,31 @@ export function SearchClient() {
   });
   const [error, setError] = useState(null);
   const [isMounted, setIsMounted] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const observer = useRef();
+  const lastElementRef = useRef();
+
+  // Intersection Observer callback
+  const lastItemRef = useCallback(node => {
+    if (results.loading || loadingMore) return;
+    
+    if (observer.current) {
+      observer.current.disconnect();
+    }
+
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        setPage(prevPage => prevPage + 1);
+      }
+    });
+
+    if (node) {
+      observer.current.observe(node);
+      lastElementRef.current = node;
+    }
+  }, [results.loading, loadingMore, hasMore]);
   
   // New state for story feed modal
   const [storyFeedModal, setStoryFeedModal] = useState({ visible: false, initialIndex: 0 });
@@ -66,14 +133,19 @@ export function SearchClient() {
   };
 
   // Search function
-  const performSearch = async (searchQuery) => {
+  const performSearch = async (searchQuery, pageNum = 1, isLoadingMore = false) => {
     if (!searchQuery.trim()) {
       setResults(prev => ({ ...prev, stories: [], verses: [], creators: [], loading: false }));
+      setHasMore(false);
       return;
     }
 
     try {
-      setResults(prev => ({ ...prev, loading: true }));
+      if (!isLoadingMore) {
+        setResults(prev => ({ ...prev, loading: true }));
+      } else {
+        setLoadingMore(true);
+      }
       setError(null);
       
       // Use the searchApi functions instead of direct apiRequest calls
@@ -83,19 +155,49 @@ export function SearchClient() {
         searchApi.searchCreators(searchQuery)
       ]);
 
-      // Process the results
-      const newResults = {
-        stories: storiesRes.status === 'fulfilled' && storiesRes.value ? storiesRes.value : [],
-        verses: versesRes.status === 'fulfilled' && versesRes.value ? versesRes.value : [],
-        creators: creatorsRes.status === 'fulfilled' && creatorsRes.value ? creatorsRes.value : [],
+      // Process the results with pagination
+      const pageSize = 12;
+      const start = (pageNum - 1) * pageSize;
+      
+      const stories = storiesRes.status === 'fulfilled' && storiesRes.value ? storiesRes.value : [];
+      const verses = versesRes.status === 'fulfilled' && versesRes.value ? versesRes.value : [];
+      const creators = creatorsRes.status === 'fulfilled' && creatorsRes.value ? creatorsRes.value : [];
+
+      // Paginate the results
+      const paginatedResults = {
+        stories: stories.slice(start, start + pageSize),
+        verses: verses.slice(start, start + pageSize),
+        creators: creators.slice(start, start + pageSize),
         loading: false
       };
 
-      setResults(newResults);
+      // Update hasMore flag for each type
+      setHasMore(
+        (activeTab === 'stories' && start + pageSize < stories.length) ||
+        (activeTab === 'verses' && start + pageSize < verses.length) ||
+        (activeTab === 'creators' && start + pageSize < creators.length)
+      );
+
+      if (isLoadingMore) {
+        setResults(prev => ({
+          stories: [...prev.stories, ...paginatedResults.stories],
+          verses: [...prev.verses, ...paginatedResults.verses],
+          creators: [...prev.creators, ...paginatedResults.creators],
+          loading: false
+        }));
+      } else {
+        setResults(paginatedResults);
+      }
     } catch (error) {
       console.error('Search error:', error);
       setError('Failed to perform search. Please try again.');
       setResults(prev => ({ ...prev, loading: false }));
+    } finally {
+      if (!isLoadingMore) {
+        setResults(prev => ({ ...prev, loading: false }));
+      } else {
+        setLoadingMore(false);
+      }
     }
   };
 
@@ -105,10 +207,18 @@ export function SearchClient() {
       const initialQuery = searchParams.get('q') || '';
       setQuery(initialQuery);
       if (initialQuery) {
-        performSearch(initialQuery);
+        setPage(1); // Reset page when query changes
+        performSearch(initialQuery, 1, false);
       }
     }
   }, [isMounted, searchParams]);
+
+  // Effect for loading more when page changes
+  useEffect(() => {
+    if (page > 1 && query) {
+      performSearch(query, page, true);
+    }
+  }, [page]);
 
   // Handle story card click
   const handleStoryClick = (e, index) => {
@@ -258,10 +368,16 @@ export function SearchClient() {
             {/* Stories Tab */}
             {activeTab === 'stories' && (
               <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {results.stories.length > 0 ? (
+                {results.loading ? (
+                  // Show skeletons while loading
+                  [...Array(8)].map((_, i) => (
+                    <StorySkeleton key={`skeleton-${i}`} />
+                  ))
+                ) : results.stories.length > 0 ? (
                   results.stories.map((story, index) => (
                     <div 
                       key={story.id || story.slug}
+                      ref={index === results.stories.length - 1 ? lastItemRef : null}
                       onClick={(e) => handleStoryClick(e, index)}
                       className="cursor-pointer group"
                     >
@@ -301,15 +417,30 @@ export function SearchClient() {
                     <p>Use the search bar in the header to find stories</p>
                   </div>
                 )}
+                {/* Loading more indicator */}
+                {loadingMore && (
+                  <div className="col-span-full mt-8">
+                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {[...Array(4)].map((_, i) => (
+                        <StorySkeleton key={`loading-more-${i}`} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Verses Tab */}
             {activeTab === 'verses' && (
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {results.verses.length > 0 ? (
-                  results.verses.map((verse, index) => {
-                    const id = verse.id || verse.public_id || verse.slug || '';
+            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {results.loading ? (
+                // Show skeletons while loading
+                [...Array(8)].map((_, i) => (
+                  <VerseSkeleton key={`skeleton-${i}`} />
+                ))
+              ) : results.verses.length > 0 ? (
+                results.verses.map((verse, index) => {
+                  const id = verse.id || verse.public_id || verse.slug || '';
                     const storyObj = verse.story || {};
                     const storySlug = (typeof storyObj === 'string' ? storyObj : (storyObj.slug || storyObj.story_slug)) || verse.story_slug || '';
                     const storyTitle = (typeof storyObj === 'object' && storyObj) ? (storyObj.title || storyObj.story_title) : (verse.story_title || 'Story');
@@ -410,14 +541,20 @@ export function SearchClient() {
 
             {/* Creators Tab */}
             {activeTab === 'creators' && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {results.creators.length > 0 ? (
-                  results.creators.map((creator) => (
-                    <div
-                      key={creator.id || creator.username}
-                      className="flex items-center p-4 bg-slate-900/60 rounded-2xl border border-cyan-500/20 hover:border-cyan-500/40 transition-all duration-300 cursor-pointer group"
-                      onClick={() => router.push(`/${creator.username}`)}
-                    >
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {results.loading ? (
+                // Show skeletons while loading
+                [...Array(6)].map((_, i) => (
+                  <CreatorSkeleton key={`skeleton-${i}`} />
+                ))
+              ) : results.creators.length > 0 ? (
+                results.creators.map((creator, index) => (
+                  <div
+                    key={creator.id || creator.username}
+                    ref={index === results.creators.length - 1 ? lastItemRef : null}
+                    className="flex items-center p-4 bg-slate-900/60 rounded-2xl border border-cyan-500/20 hover:border-cyan-500/40 transition-all duration-300 cursor-pointer group"
+                    onClick={() => router.push(`/${creator.username}`)}
+                  >
                       {creator.profile_image_url ? (
                         <img
                           src={absoluteUrl(creator.profile_image_url)}

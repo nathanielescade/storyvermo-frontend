@@ -49,18 +49,30 @@ const defaultTheme = {
 
 // Custom smooth scroll function with easing
 const smoothScroll = (element, target, duration = 500, horizontal = false) => {
+  // If the difference is very small, just set the position directly
   const start = horizontal ? element.scrollLeft : element.scrollTop;
   const change = target - start;
+  
+  if (Math.abs(change) < 2) {
+    if (horizontal) {
+      element.scrollLeft = target;
+    } else {
+      element.scrollTop = target;
+    }
+    return;
+  }
+
   const startTime = performance.now();
   
-  const easeInOutCubic = (t) => {
-    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  // Use a custom easing function that's more gentle at the start and end
+  const easeOutQuart = (t) => {
+    return 1 - Math.pow(1 - t, 4);
   };
   
   const animateScroll = (currentTime) => {
     const elapsedTime = currentTime - startTime;
     const progress = Math.min(elapsedTime / duration, 1);
-    const easeProgress = easeInOutCubic(progress);
+    const easeProgress = easeOutQuart(progress);
     
     if (horizontal) {
       element.scrollLeft = start + change * easeProgress;
@@ -416,16 +428,23 @@ const VerseViewer = ({
         });
       }
       
-      // Scroll to initial verse with smooth animation
-      setTimeout(() => {
-        if (verseRefs.current[initialVerseIndex] && containerRef.current) {
-          const targetVerse = verseRefs.current[initialVerseIndex];
-          const container = containerRef.current;
-          const targetPosition = targetVerse.offsetTop;
-          
-          smoothScroll(container, targetPosition, 800);
-        }
-      }, 100);
+      // Scroll to initial verse immediately without animation first, then smooth scroll if needed
+      if (verseRefs.current[initialVerseIndex] && containerRef.current) {
+        const targetVerse = verseRefs.current[initialVerseIndex];
+        const container = containerRef.current;
+        const targetPosition = targetVerse.offsetTop;
+        
+        // First set position immediately without animation to prevent flicker
+        container.scrollTop = targetPosition;
+        
+        // Then after a brief delay, ensure we're exactly at the right position with a smooth animation
+        requestAnimationFrame(() => {
+          const currentPosition = container.scrollTop;
+          if (Math.abs(currentPosition - targetPosition) > 1) {
+            smoothScroll(container, targetPosition, 400);
+          }
+        });
+      }
       
       // Set timeout to show scroll hint after 2 seconds
       scrollHintTimeoutRef.current = setTimeout(() => {
@@ -551,6 +570,11 @@ const VerseViewer = ({
     };
   }, [currentVerseIndex, currentMomentIndex, isOpen, onClose]);
 
+  // Track scroll state
+  const [isUserScrolling, setIsUserScrolling] = useState(false);
+  const userScrollTimeout = useRef(null);
+  const lastScrollTime = useRef(Date.now());
+
   // Handle scroll events to detect current verse and update metadata (throttled)
   useEffect(() => {
     const handleScroll = throttle(() => {
@@ -561,6 +585,9 @@ const VerseViewer = ({
       const containerHeight = container.clientHeight;
       let mostVisibleVerseIndex = currentVerseIndex;
       let maxVisibility = 0;
+      
+      // Update last scroll time
+      lastScrollTime.current = Date.now();
       
       // Find the most visible verse
       for (let i = 0; i < verseRefs.current.length; i++) {
@@ -574,18 +601,16 @@ const VerseViewer = ({
           const visibleTop = Math.max(scrollTop, verseTop);
           const visibleBottom = Math.min(scrollTop + containerHeight, verseBottom);
           const visibleHeight = Math.max(0, visibleBottom - visibleTop);
-          const visibility = visibleHeight / verseHeight;
-          
-          if (visibility > maxVisibility) {
+          const visibility = visibleHeight / verseHeight;          if (visibility > maxVisibility) {
             maxVisibility = visibility;
             mostVisibleVerseIndex = i;
           }
         }
       }
       
-      // Update current verse if changed
-      if (currentVerseIndex !== mostVisibleVerseIndex) {
-        setIsTransitioning(true);
+      // Only update verse if enough time has passed since last scroll and verse is significantly visible
+      const timeSinceLastScroll = Date.now() - lastScrollTime.current;
+      if (maxVisibility > 0.5 && mostVisibleVerseIndex !== currentVerseIndex && timeSinceLastScroll > 100) {
         setCurrentVerseIndex(mostVisibleVerseIndex);
         
         // Get the new current verse from our latest story ref data
@@ -952,15 +977,25 @@ const VerseViewer = ({
       {/* Vertical scroll container for verses - TikTok style */}
       <div 
         ref={containerRef}
-        className="h-full w-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide overscroll-none"
-        style={{ scrollBehavior: 'smooth' }}
+        className="h-full w-full overflow-y-scroll scrollbar-hide overscroll-none scroll-optimized no-bounce"
+        style={{ scrollBehavior: 'auto' }} // Removed snap scrolling to prevent unwanted auto-scroll
+        onTouchStart={() => setIsUserScrolling(true)}
+        onTouchEnd={() => {
+          if (userScrollTimeout.current) clearTimeout(userScrollTimeout.current);
+          userScrollTimeout.current = setTimeout(() => setIsUserScrolling(false), 150);
+        }}
+        onWheel={() => {
+          setIsUserScrolling(true);
+          if (userScrollTimeout.current) clearTimeout(userScrollTimeout.current);
+          userScrollTimeout.current = setTimeout(() => setIsUserScrolling(false), 150);
+        }}
       >
         <div ref={contentRef}>
           {story.verses.map((verse, index) => (
             <div 
               key={`verse-${verse.id}-${index}`}
               ref={el => verseRefs.current[index] = el}
-              className="h-screen w-full snap-start flex flex-col relative transition-all duration-500 overflow-hidden"
+              className="h-screen w-full flex flex-col relative transition-all duration-500 overflow-hidden"
             >
               {/* Moments (horizontal scroll) */}
               {verse.moments && verse.moments.length > 0 ? (

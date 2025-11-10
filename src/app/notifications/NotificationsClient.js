@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -12,19 +12,52 @@ export function NotificationsClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [markingAllRead, setMarkingAllRead] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const observer = useRef();
+  const lastNotificationElementRef = useRef();
   const { currentUser, isAuthenticated } = useAuth();
   const router = useRouter();
 
+  // Intersection Observer callback
+  const lastNotificationRef = useCallback(node => {
+    if (loading || loadingMore) return;
+    
+    if (observer.current) {
+      observer.current.disconnect();
+    }
+
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore) {
+        setPage(prevPage => prevPage + 1);
+      }
+    }, { threshold: 0.5 });
+
+    if (node) {
+      observer.current.observe(node);
+      lastNotificationElementRef.current = node;
+    }
+  }, [loading, loadingMore, hasMore]);
+
+  // Effect for initial load
   useEffect(() => {
     // Check if we have authentication info before fetching
     if (isAuthenticated && currentUser) {
-      fetchNotifications();
+      fetchNotifications(1, false);
     } else if (!loading) {
       setError({ type: 'auth', message: 'Please log in to view notifications' });
     }
   }, [isAuthenticated, currentUser]);
 
-  const fetchNotifications = async () => {
+  // Effect for loading more when page changes
+  useEffect(() => {
+    if (page > 1) {
+      fetchNotifications(page, true);
+    }
+  }, [page]);
+
+  const fetchNotifications = async (pageNumber = 1, isLoadingMore = false) => {
     if (!isAuthenticated || !currentUser) {
       setError({ type: 'auth', message: 'Please log in to view notifications' });
       setLoading(false);
@@ -32,13 +65,31 @@ export function NotificationsClient() {
     }
 
     try {
-      setLoading(true);
+      if (!isLoadingMore) {
+        setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
       setError(null);
+
+      // Simulate pagination by slicing the data (replace this with actual API pagination when available)
       const data = await notificationsApi.getNotifications();
-      // API might return different shapes: { notifications: [...] } or { results: [...] } or the array itself
       const list = data?.notifications ?? data?.results ?? (Array.isArray(data) ? data : null) ?? [];
       const normalized = list || [];
-      setNotifications(normalized);
+      
+      const pageSize = 10;
+      const start = (pageNumber - 1) * pageSize;
+      const paginatedData = normalized.slice(start, start + pageSize);
+      
+      // Check if there's more data
+      setHasMore(start + pageSize < normalized.length);
+
+      if (isLoadingMore) {
+        setNotifications(prev => [...prev, ...paginatedData]);
+      } else {
+        setNotifications(paginatedData);
+      }
+
       // dispatch unread count for header
       const unread = normalized.filter(n => !n.is_read).length;
       try { window.dispatchEvent(new CustomEvent('notifications:count:update', { detail: unread })); } catch (e) { /* ignore */ }
@@ -58,26 +109,38 @@ export function NotificationsClient() {
         });
       }
     } finally {
-      setLoading(false);
+      if (!isLoadingMore) {
+        setLoading(false);
+      } else {
+        setLoadingMore(false);
+      }
     }
   };
 
   const handleNotificationClick = async (notification) => {
     let targetUrl = '';
     
-    // Determine target URL
-    if (notification.story) {
-      // For stories, we use /[username]/[story-slug] format based on creator
-      targetUrl = notification.story.creator?.username 
-        ? `/${notification.story.creator.username}/${notification.story.slug}`
-        : `/stories/${notification.story.slug}`;
+    // Determine target URL based on notification type and content
+    if (notification.verse && notification.story) {
+      // If both verse and story are present, go to the verse in story context
+      targetUrl = `/stories/${notification.story.slug}/?verse=${notification.verse.slug}`;
     } else if (notification.verse) {
-      // For verses in a story
+      // If only verse is present, create URL with verse parameter
       targetUrl = notification.verse.story_slug
-        ? `/${notification.verse.creator_username}/${notification.verse.story_slug}/${notification.verse.slug}`
+        ? `/stories/${notification.verse.story_slug}/?verse=${notification.verse.slug}`
         : `/verses/${notification.verse.slug}`;
+    } else if (notification.story) {
+      // For story-related notifications
+      targetUrl = `/stories/${notification.story.slug}`;
+    } else if (notification.type === 'LIKE' || notification.type === 'RECOMMEND' || notification.notification_type === 'LIKE' || notification.notification_type === 'RECOMMEND') {
+      // For likes and recommendations, prefer navigating to the content rather than the user
+      if (notification.verse_slug) {
+        targetUrl = `/stories/${notification.story_slug}/?verse=${notification.verse_slug}`;
+      } else if (notification.story_slug) {
+        targetUrl = `/stories/${notification.story_slug}`;
+      }
     } else if (notification.sender) {
-      // For user profiles
+      // For user-focused notifications (follows, etc.)
       targetUrl = `/${notification.sender.username}`;
     }
 
@@ -167,6 +230,12 @@ export function NotificationsClient() {
             <i className="fas fa-book-open"></i>
           </div>
         );
+      case 'SHARE':
+        return (
+          <div className={`${iconClasses} bg-gradient-to-r from-green-500 to-teal-500`}>
+            <i className="fas fa-share-alt"></i>
+          </div>
+        );
       case 'WELCOME':
         return (
           <div className={`${iconClasses} bg-gradient-to-r from-orange-500 to-yellow-400`}>
@@ -226,26 +295,26 @@ export function NotificationsClient() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950">
       {/* Header */}
-      <div className="sticky top-0 z-50 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md border-b border-cyan-500/30 py-4 px-6 flex items-center justify-between">
+      <div className="sticky top-0 z-50 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md border-b border-cyan-500/30 py-4 px-3 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 text-white hover:bg-slate-800/50 p-2 rounded-lg transition-colors">
           <i className="fas fa-arrow-left"></i>
-          <span>Back</span>
+          <span></span>
         </Link>
         <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500">Notifications</h1>
         {notifications.length > 0 && (
           <button 
             onClick={handleMarkAllAsRead}
             disabled={markingAllRead}
-            className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-2xl font-medium flex items-center gap-2 disabled:opacity-50 transition-all"
+            className="px-3 py-1.5 text-sm bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-xl font-medium flex items-center gap-1.5 disabled:opacity-50 transition-all hover:opacity-90"
           >
             {markingAllRead ? (
               <>
-                <i className="fas fa-spinner fa-spin"></i>
+                <i className="fas fa-spinner fa-spin text-sm"></i>
                 <span>Processing...</span>
               </>
             ) : (
               <>
-                <i className="fas fa-check"></i>
+                <i className="fas fa-check text-sm"></i>
                 <span>Mark all as read</span>
               </>
             )}
@@ -285,9 +354,10 @@ export function NotificationsClient() {
           </div>
         ) : (
           <div className="space-y-3 max-h-[calc(100vh-180px)] overflow-y-auto pb-10 custom-scrollbar">
-            {notifications.map((notification) => (
+            {notifications.map((notification, index) => (
               <div 
                 key={notification.id}
+                ref={index === notifications.length - 1 ? lastNotificationRef : null}
                 onClick={() => handleNotificationClick(notification)}
                 className={`p-4 rounded-2xl cursor-pointer transition-all hover:bg-slate-800/50 flex items-start gap-3 ${
                   !notification.is_read ? 'bg-slate-900/60 border-l-4 border-cyan-500' : 'bg-slate-900/60 backdrop-blur-sm'
@@ -361,6 +431,13 @@ export function NotificationsClient() {
                 )}
               </div>
             ))}
+            {loadingMore && (
+              <div className="space-y-3 mt-4">
+                {[...Array(3)].map((_, i) => (
+                  <NotificationSkeleton key={`loading-more-${i}`} />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

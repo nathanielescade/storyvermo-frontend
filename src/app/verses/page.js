@@ -4,7 +4,7 @@ import { absoluteUrl } from '../../../lib/api';
 
 export async function generateMetadata() {
   const title = 'Verses — StoryVermo';
-const description = 'Explore the latest verses from storytellers on StoryVermo — short, powerful moments captured within stories.';
+  const description = 'Explore the latest verses from storytellers on StoryVermo — short, powerful moments captured within stories.';
 
   const url = absoluteUrl('/verses/');
   return { title, description, alternates: { canonical: url } };
@@ -31,23 +31,44 @@ export default async function VersesPage() {
   }
 
   return (
-    <div className="pt-24 pb-12 bg-black/60">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="w-full rounded-3xl bg-linear-to-br from-gray-950 via-slate-950 to-indigo-950 p-6 shadow-2xl">
-          <header className="mb-6">
-            <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-linear-to-r from-cyan-400 via-blue-400 to-purple-500">Verses</h1>
-            <p className="text-sm text-gray-300 mt-2">Browse verses from stories. Click a verse to open its story and jump to that verse.</p>
-            {error && <p className="text-sm text-red-400 mt-2">Unable to load verses: {error}</p>}
+    <div className="min-h-screen pt-24 pb-12 bg-black">
+      <div className="px-4 md:px-6 lg:px-8">
+        <div className="w-full rounded-3xl bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 p-6 md:p-8 shadow-2xl border border-cyan-500/20 relative overflow-hidden">
+          {/* Animated border effects */}
+          <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+            <div className="absolute inset-0 rounded-3xl border-2 border-cyan-500/30 animate-pulse"></div>
+            <div className="absolute inset-0 rounded-3xl border-2 border-purple-500/20 animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+          </div>
+
+          <header className="mb-8 relative z-10">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 flex items-center justify-center shadow-lg shadow-cyan-500/40 border border-cyan-500/30">
+                <i className="fas fa-book-open text-cyan-400 text-xl"></i>
+              </div>
+              <h1 className="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-500">
+                Verses
+              </h1>
+            </div>
+            <p className="text-sm md:text-base text-gray-300 mt-3 ml-15">
+              Browse verses from stories. Click a verse to open its story and jump to that verse.
+            </p>
+            {error && (
+              <div className="mt-4 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+                <p className="text-sm text-red-400 flex items-center gap-2">
+                  <i className="fas fa-exclamation-circle"></i>
+                  Unable to load verses: {error}
+                </p>
+              </div>
+            )}
           </header>
 
-          <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 relative z-10">
             {Array.isArray(verses) && verses.length > 0 ? (
               verses.map((v) => {
                 const id = v.id || v.public_id || v.slug || '';
                 const storyObj = v.story || {};
                 const storySlug = (typeof storyObj === 'string' ? storyObj : (storyObj.slug || storyObj.story_slug)) || v.story_slug || '';
                 const storyTitle = (typeof storyObj === 'object' && storyObj) ? (storyObj.title || storyObj.story_title) : (v.story_title || 'Story');
-                const excerpt = v.content ? v.content.slice(0, 120) : '';
 
                 // Helper: extract first moment image for use as thumbnail
                 const getFirstMomentImage = (verse) => {
@@ -55,7 +76,6 @@ export default async function VersesPage() {
                   const moments = verse.moments || verse.images || [];
                   const first = Array.isArray(moments) && moments.length > 0 ? moments[0] : null;
                   if (!first) return null;
-                  // first may be string, object with url/file_url/image
                   if (typeof first === 'string') return absoluteUrl(first);
                   if (first.file_url) return absoluteUrl(first.file_url);
                   if (first.url) return absoluteUrl(first.url);
@@ -72,10 +92,7 @@ export default async function VersesPage() {
                 const likes = v.likes_count || v.like_count || v.likes || 0;
                 const saves = v.saves_count || v.save_count || v.saves || 0;
 
-                // Title handling: avoid CSS-only clamping which caused short titles to show ellipsis.
-                // We'll manually truncate in JS only for long titles so one- or two-word titles display fully.
-                const rawTitle = (v.title && String(v.title).trim()) || (excerpt ? `${excerpt}...` : 'Untitled Verse');
-                const displayTitle = rawTitle.length > 80 ? `${rawTitle.slice(0, 80).trim()}...` : rawTitle;
+                const displayTitle = (v.content && String(v.content).trim()) || 'Untitled Verse';
                 const displayStoryTitle = (storyTitle && String(storyTitle).trim()) || 'Story';
 
                 const href = storySlug ? `/stories/${encodeURIComponent(storySlug)}/?verse=${encodeURIComponent(id)}` : '#';
@@ -84,61 +101,80 @@ export default async function VersesPage() {
                   <Link
                     key={id || Math.random().toString(36).slice(2,8)}
                     href={href}
-                    className="block bg-slate-900/50 rounded-2xl overflow-hidden transform transition-all duration-200 hover:scale-105 hover:shadow-xl"
+                    className="block bg-gradient-to-br from-slate-900/50 to-indigo-900/30 rounded-2xl overflow-hidden transform transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-cyan-500/20 border border-gray-800/50 hover:border-cyan-500/40 group"
                   >
-                    <div className="relative w-full h-48 bg-gray-800">
+                    <div className="relative w-full h-52 bg-gradient-to-br from-gray-900 to-slate-900">
                       {thumb ? (
-                        // Keep plain img for blob/object compatibility; using object-cover for a clean crop
-                        <img src={thumb} alt={v.title || 'Verse image'} className="w-full h-full object-cover" />
+                        <img 
+                          src={thumb} 
+                          alt={v.title || 'Verse image'} 
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                        />
                       ) : (
-                        <div className="w-full h-full bg-linear-to-br from-slate-800 to-slate-900 flex items-center justify-center text-white/20">
-                          <i className="fas fa-book-open text-4xl"></i>
+                        <div className="w-full h-full bg-gradient-to-br from-slate-800 via-indigo-900/30 to-slate-900 flex items-center justify-center text-cyan-400/30">
+                          <i className="fas fa-book-open text-5xl"></i>
                         </div>
                       )}
 
-                      {/* subtle gradient overlay for legibility */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
+                      {/* Enhanced gradient overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none" />
 
-                      {/* top-left badge */}
-                      <div className="absolute left-3 top-3 bg-black/50 backdrop-blur-sm text-xs text-white px-2 py-1 rounded-xl">
+                      {/* Moments badge */}
+                      <div className="absolute left-3 top-3 bg-gradient-to-r from-cyan-500/80 to-blue-500/80 backdrop-blur-sm text-xs text-white px-3 py-1.5 rounded-xl font-medium shadow-lg border border-cyan-400/30">
+                        <i className="fas fa-images mr-1.5"></i>
                         {momentsCount} {momentsCount === 1 ? 'moment' : 'moments'}
                       </div>
 
-                      {/* bottom-left author chip */}
-                      <div className="absolute left-3 bottom-3 flex items-center gap-2 bg-black/40 backdrop-blur-sm px-2 py-1 rounded-full">
-                        <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-semibold text-white">
+                      {/* Author chip */}
+                      <div className="absolute left-3 bottom-3 flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-gray-700/50 shadow-lg">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-xs font-bold text-white shadow-lg">
                           {(() => {
                             const name = v.author?.username || v.author_name || '';
                             if (!name) return 'U';
                             return name.split(' ').map(s => s[0]?.toUpperCase()).slice(0,2).join('');
                           })()}
                         </div>
-                        <div className="text-xs text-white/90">{v.author?.username || v.author_name || 'Unknown'}</div>
+                        <div className="text-xs text-white/90 font-medium">
+                          {v.author?.username || v.author_name || 'Unknown'}
+                        </div>
                       </div>
 
-                      {/* bottom-right counters */}
-                      <div className="absolute right-3 bottom-3 flex items-center gap-3">
-                        <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded-lg text-xs text-rose-300">
-                          <i className="fas fa-heart"></i>
-                          <span className="ml-1 text-white text-sm">{likes}</span>
+                      {/* Engagement counters */}
+                      <div className="absolute right-3 bottom-3 flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1.5 rounded-lg text-xs border border-rose-500/30 shadow-lg">
+                          <i className="fas fa-heart text-rose-400"></i>
+                          <span className="text-white font-semibold">{likes}</span>
                         </div>
-                        <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded-lg text-xs text-yellow-300">
-                          <i className="fas fa-bookmark"></i>
-                          <span className="ml-1 text-white text-sm">{saves}</span>
+                        <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-2.5 py-1.5 rounded-lg text-xs border border-yellow-500/30 shadow-lg">
+                          <i className="fas fa-bookmark text-yellow-400"></i>
+                          <span className="text-white font-semibold">{saves}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="p-4">
-                      <div className="text-sm text-gray-400 mb-1">{displayStoryTitle}</div>
-                      <div className="text-white font-semibold mb-1 text-lg leading-tight">{displayTitle}</div>
-                      <div className="text-xs text-gray-400 mb-2">in <span className="text-indigo-300">{displayStoryTitle}</span></div>
+                    <div className="p-4 bg-gradient-to-br from-slate-900/80 to-indigo-900/40">
+                      <div className="text-xs text-gray-400 mb-2 flex items-center gap-1.5">
+                        <i className="fas fa-book text-indigo-400"></i>
+                        <span className="text-indigo-300 font-medium">{displayStoryTitle}</span>
+                      </div>
+                      <div className="text-white font-semibold mb-1 text-base leading-tight line-clamp-2 group-hover:text-cyan-300 transition-colors duration-300">
+                        {displayTitle}
+                      </div>
                     </div>
                   </Link>
                 );
               })
             ) : (
-              <div className="col-span-full text-center text-gray-400">{error ? 'Unable to load verses at this time.' : 'No verses found.'}</div>
+              <div className="col-span-full text-center py-16">
+                <div className="inline-flex flex-col items-center gap-4 p-8 bg-gradient-to-br from-slate-900/50 to-indigo-900/30 rounded-2xl border border-gray-800/50">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-800 to-slate-900 flex items-center justify-center">
+                    <i className="fas fa-book-open text-3xl text-gray-600"></i>
+                  </div>
+                  <p className="text-gray-400 text-lg">
+                    {error ? 'Unable to load verses at this time.' : 'No verses found.'}
+                  </p>
+                </div>
+              </div>
             )}
           </section>
         </div>
