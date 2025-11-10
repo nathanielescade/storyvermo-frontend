@@ -372,7 +372,11 @@ export default function StoryCard({
                         transform: `translateX(${swipeProgress}px)`,
                         perspective: '1000px',
                         transformStyle: 'preserve-3d',
-                        backfaceVisibility: 'hidden'
+                        backfaceVisibility: 'hidden',
+                        position: 'relative',
+                        touchAction: 'pan-x',
+                        userSelect: 'none',
+                        WebkitUserSelect: 'none'
                     }}
                     data-story-id={story.id} 
                     data-creator={getCreatorUsername()} 
@@ -434,10 +438,16 @@ export default function StoryCard({
                     )}
                     <div className="scene-overlay"></div>
                     
-                    {/* Updated hologram with Tailwind classes */}
+                    {/* Updated hologram with fixed positioning */}
                     <div 
                         ref={hologramRef}
-                        className="absolute bottom-20 left-[5%] right-[5%] bg-black/60 backdrop-blur-[0.5px] border-2 border-[rgba(80,105,219,0.4)] rounded-2xl p-3 overflow-visible max-md:bottom-[150px]"
+                        className="fixed-hologram absolute bottom-20 left-[5%] right-[5%] bg-black/60 backdrop-blur-[0.5px] border-2 border-[rgba(80,105,219,0.4)] rounded-2xl p-3 overflow-visible max-md:bottom-[130px] pointer-events-auto"
+                        style={{
+                            position: 'absolute',
+                            transform: 'translateZ(0)',
+                            willChange: 'transform',
+                            userSelect: 'none'
+                        }}
                     >
                         <HologramIcons 
                             story={currentStory}

@@ -6,6 +6,7 @@ import DimensionNav from './DimensionNav';
 import AuthModal from './AuthModal';
 import StoryFormModal from './StoryFormModal';
 import DiscoverModal from './DiscoverModal';
+import PWAInstallPrompt from './PWAInstallPrompt';
 import { useAuth } from '../../../contexts/AuthContext';
 
 export default function GlobalShell() {
@@ -106,6 +107,7 @@ export default function GlobalShell() {
       {hasMounted && <StoryFormModal isOpen={isStoryFormModalOpen} onClose={closeStoryFormModal} mode="create" />}
 
       <DiscoverModal isOpen={isDiscoverModalOpen} onClose={closeDiscoverModal} />
+      {hasMounted && <PWAInstallPrompt />}
     </>
   );
 }

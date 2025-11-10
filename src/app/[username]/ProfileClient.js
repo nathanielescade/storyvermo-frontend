@@ -460,7 +460,15 @@ export default function ProfileClient({ username, initialProfile = null }) {
                 </button>
               )}
               {/* Action Buttons */}
-              {currentUser && currentUser.username !== username && (
+              {currentUser && currentUser.username === username ? (
+                <Link
+                  href="/settings/profile"
+                  className="px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-400 border border-cyan-500/30 hover:border-cyan-500/50 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all flex items-center gap-2"
+                >
+                  <i className="fas fa-pencil-alt text-xs"></i>
+                  Edit Profile
+                </Link>
+              ) : currentUser && (
                 <button 
                   onClick={handleFollow}
                   className={`px-4 py-1 rounded-full text-xs font-bold ${

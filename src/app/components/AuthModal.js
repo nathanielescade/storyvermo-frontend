@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
+import Select from 'react-select';
+import ReactCountryFlag from 'react-country-flag';
+import { Country, City } from 'country-state-city';
 
 const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) => {
   const { login, refreshAuth, register: registerUser } = useAuth();
@@ -10,13 +13,82 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [formData, setFormData] = useState({
+    account_type: 'personal',
+    brand_name: '',
     first_name: '',
     last_name: '',
     email: '',
     username: '',
     password: '',
-    password_confirm: ''
+    password_confirm: '',
+    country: '',
+    city: '',
+    gender: '',
+    bio: '',
+    preferred_categories: []
   });
+  const [selectedCountry, setSelectedCountry] = useState(null);
+  const [selectedCity, setSelectedCity] = useState(null);
+  const [selectedGender, setSelectedGender] = useState(null);
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [availableCities, setAvailableCities] = useState([]);
+
+  // Content creation categories grouped by type
+  const categoryOptions = [
+    // Creative Writing & Storytelling
+    { value: 'fiction', label: 'Fiction Writing', icon: '📚', group: 'Creative Writing' },
+    { value: 'poetry', label: 'Poetry & Verse', icon: '🎭', group: 'Creative Writing' },
+    { value: 'sci_fi', label: 'Science Fiction', icon: '🚀', group: 'Creative Writing' },
+    { value: 'fantasy', label: 'Fantasy', icon: '🐉', group: 'Creative Writing' },
+    
+    // Arts & Creativity
+    { value: 'visual_arts', label: 'Visual Arts', icon: '🎨', group: 'Arts & Creativity' },
+    { value: 'photography', label: 'Photography', icon: '�', group: 'Arts & Creativity' },
+    { value: 'illustration', label: 'Illustration & Comics', icon: '✏️', group: 'Arts & Creativity' },
+    { value: 'fashion', label: 'Fashion & Style', icon: '�', group: 'Arts & Creativity' },
+    
+    // Entertainment & Pop Culture
+    { value: 'movies', label: 'Movies & Film', icon: '🎬', group: 'Entertainment' },
+    { value: 'music', label: 'Music & Audio', icon: '🎵', group: 'Entertainment' },
+    { value: 'gaming', label: 'Gaming & eSports', icon: '🎮', group: 'Entertainment' },
+    { value: 'pop_culture', label: 'Pop Culture', icon: '🌟', group: 'Entertainment' },
+    
+    // Technology & Innovation
+    { value: 'tech', label: 'Tech & Innovation', icon: '💻', group: 'Technology' },
+    { value: 'ai_ml', label: 'AI & Future Tech', icon: '🤖', group: 'Technology' },
+    { value: 'web3', label: 'Web3 & Crypto', icon: '⛓️', group: 'Technology' },
+    
+    // Lifestyle & Wellness
+    { value: 'fitness', label: 'Fitness & Health', icon: '💪', group: 'Lifestyle' },
+    { value: 'mindfulness', label: 'Mindfulness & Growth', icon: '🧘', group: 'Lifestyle' },
+    { value: 'travel', label: 'Travel & Adventure', icon: '✈️', group: 'Lifestyle' },
+    
+    // Food & Culture
+    { value: 'food', label: 'Food & Cooking', icon: '�', group: 'Food & Culture' },
+    { value: 'drinks', label: 'Drinks & Mixology', icon: '�', group: 'Food & Culture' },
+    { value: 'culture', label: 'Cultural Stories', icon: '🌏', group: 'Food & Culture' },
+    
+    // Sports & Activities
+    { value: 'sports', label: 'Sports & Athletics', icon: '⚽', group: 'Sports' },
+    { value: 'outdoor', label: 'Outdoor Life', icon: '🏕️', group: 'Sports' },
+    { value: 'extreme_sports', label: 'Extreme Sports', icon: '🏂', group: 'Sports' },
+    
+    // Business & Professional
+    { value: 'startup', label: 'Startups & Business', icon: '💼', group: 'Business' },
+    { value: 'finance', label: 'Finance & Investing', icon: '�', group: 'Business' },
+    { value: 'career', label: 'Career & Growth', icon: '🎯', group: 'Business' },
+    
+    // Social Causes & Community
+    { value: 'causes', label: 'Social Causes', icon: '✊', group: 'Community' },
+    { value: 'education', label: 'Education & Learning', icon: '📚', group: 'Community' },
+    { value: 'events', label: 'Local Events', icon: '🎪', group: 'Community' },
+    
+    // Fun & Misc
+    { value: 'memes', label: 'Memes & Humor', icon: '😄', group: 'Fun & Misc' },
+    { value: 'pets', label: 'Pets & Animals', icon: '🐾', group: 'Fun & Misc' },
+    { value: 'nature', label: 'Nature & Wildlife', icon: '🌿', group: 'Fun & Misc' },
+    { value: 'diy', label: 'DIY & Projects', icon: '🛠️', group: 'Fun & Misc' }
+  ];
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -25,16 +97,134 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
   const formRef = useRef(null);
 
   // Reset form when switching modes
+  // Custom styles for react-select
+  const customSelectStyles = {
+    control: (base, state) => ({
+      ...base,
+      background: 'linear-gradient(to bottom, rgb(31, 41, 55), rgb(17, 24, 39))',
+      borderColor: state.isFocused ? '#3b82f6' : 'rgba(59, 130, 246, 0.5)',
+      borderRadius: '0.75rem',
+      padding: '4px',
+      boxShadow: state.isFocused ? '0 0 0 2px rgba(59, 130, 246, 0.3)' : 'none',
+      '&:hover': {
+        borderColor: '#3b82f6'
+      }
+    }),
+    menu: (base) => ({
+      ...base,
+      background: 'rgb(17, 24, 39)',
+      borderRadius: '0.75rem',
+      padding: '8px'
+    }),
+    option: (base, state) => ({
+      ...base,
+      background: state.isFocused ? 'rgba(59, 130, 246, 0.2)' : 'transparent',
+      color: 'white',
+      borderRadius: '0.5rem',
+      '&:hover': {
+        background: 'rgba(59, 130, 246, 0.2)'
+      }
+    }),
+    singleValue: (base) => ({
+      ...base,
+      color: 'white'
+    }),
+    input: (base) => ({
+      ...base,
+      color: 'white'
+    }),
+    placeholder: (base) => ({
+      ...base,
+      color: 'rgb(107, 114, 128)'
+    })
+  };
+
+  // Format country options
+  const countryOptions = Country.getAllCountries().map(country => ({
+    value: country.isoCode,
+    label: country.name,
+    flag: country.isoCode
+  }));
+
+  // Gender options
+  const genderOptions = [
+    { value: 'male', label: 'Male', icon: '👨' },
+    { value: 'female', label: 'Female', icon: '👩' },
+    { value: 'non_binary', label: 'Non-binary', icon: '🧑' },
+    { value: 'other', label: 'Other', icon: '💫' },
+    { value: 'prefer_not_to_say', label: 'Prefer not to say', icon: '🤐' }
+  ];
+
+  // Handle country change
+  const handleCountryChange = (selectedOption) => {
+    setSelectedCountry(selectedOption);
+    setSelectedCity(null);
+    setFormData(prev => ({
+      ...prev,
+      country: selectedOption?.value || '',
+      city: ''
+    }));
+    
+    if (selectedOption) {
+      const cities = City.getCitiesOfCountry(selectedOption.value) || [];
+      setAvailableCities(cities.map(city => ({
+        value: city.name,
+        label: city.name
+      })));
+    } else {
+      setAvailableCities([]);
+    }
+  };
+
+  // Handle city change
+  const handleCityChange = (selectedOption) => {
+    setSelectedCity(selectedOption);
+    setFormData(prev => ({
+      ...prev,
+      city: selectedOption?.value || ''
+    }));
+  };
+
+  // Handle gender change
+  const handleGenderChange = (selectedOption) => {
+    setSelectedGender(selectedOption);
+    setFormData(prev => ({
+      ...prev,
+      gender: selectedOption?.value || ''
+    }));
+  };
+
+  // Handle categories change
+  const handleCategoriesChange = (selectedOptions) => {
+    setSelectedCategories(selectedOptions || []);
+    setFormData(prev => ({
+      ...prev,
+      preferred_categories: selectedOptions ? selectedOptions.map(opt => opt.value) : []
+    }));
+  };
+
   useEffect(() => {
     if (isOpen) {
       setFormData({
+        account_type: 'personal',
+        brand_name: '',
         first_name: '',
         last_name: '',
         email: '',
         username: '',
         password: '',
-        password_confirm: ''
+        password_confirm: '',
+        country: '',
+        city: '',
+        gender: '',
+        bio: '',
+        preferred_categories: []
       });
+      setSelectedCountry(null);
+      setSelectedCity(null);
+      setSelectedGender(null);
+      setSelectedCategories([]);
+      setAvailableCities([]);
       setErrors({});
       setSuccessMessage('');
       // honor an initialMode prop so pages can open the modal in signup mode
@@ -77,14 +267,19 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
     const newErrors = {};
     
     if (!isLoginMode) {
-      if (!formData.first_name.trim()) {
-        newErrors.first_name = 'First name is required';
+      if (formData.account_type === 'brand') {
+        if (!formData.brand_name.trim()) {
+          newErrors.brand_name = 'Brand name is required';
+        }
+      } else {
+        if (!formData.first_name.trim()) {
+          newErrors.first_name = 'First name is required';
+        }
+        
+        if (!formData.last_name.trim()) {
+          newErrors.last_name = 'Last name is required';
+        }
       }
-      
-      if (!formData.last_name.trim()) {
-        newErrors.last_name = 'Last name is required';
-      }
-      
       if (!formData.email.trim()) {
         newErrors.email = 'Email is required';
       } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
@@ -317,42 +512,106 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
             {/* Signup fields (hidden by default) */}
             {!isLoginMode && (
               <div id="signupFields">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    {errors.first_name && (
-                      <div id="firstNameError" className="mb-2 text-red-400 text-xs font-semibold">
-                        {errors.first_name}
-                      </div>
-                    )}
-                    <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">First Name</label>
-                    <input
-                      type="text"
-                      name="first_name"
-                      id="firstNameInput"
-                      value={formData.first_name}
-                      onChange={handleChange}
-                      className="w-full bg-gradient-to-b from-gray-800 to-black border border-blue-900/50 rounded-xl py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all"
-                      placeholder="First name"
-                    />
-                  </div>
-                  <div>
-                    {errors.last_name && (
-                      <div id="lastNameError" className="mb-2 text-red-400 text-xs font-semibold">
-                        {errors.last_name}
-                      </div>
-                    )}
-                    <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">Last Name</label>
-                    <input
-                      type="text"
-                      name="last_name"
-                      id="lastNameInput"
-                      value={formData.last_name}
-                      onChange={handleChange}
-                      className="w-full bg-gradient-to-b from-gray-800 to-black border border-blue-900/50 rounded-xl py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all"
-                      placeholder="Last name"
-                    />
+                {/* Account Type Selection */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">Account Type</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      className={`flex flex-col items-center justify-center p-4 rounded-xl transition-all ${
+                        formData.account_type === 'personal'
+                          ? 'bg-blue-600/20 border-2 border-blue-500'
+                          : 'bg-gray-800/50 border border-blue-900/30 hover:bg-blue-900/20'
+                      }`}
+                      onClick={() => {
+                        setFormData(prev => ({
+                          ...prev,
+                          account_type: 'personal',
+                          brand_name: ''
+                        }));
+                      }}
+                    >
+                      <i className="fas fa-user text-2xl mb-2 text-blue-400"></i>
+                      <span className="text-sm font-medium text-white">Personal Account</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`flex flex-col items-center justify-center p-4 rounded-xl transition-all ${
+                        formData.account_type === 'brand'
+                          ? 'bg-blue-600/20 border-2 border-blue-500'
+                          : 'bg-gray-800/50 border border-blue-900/30 hover:bg-blue-900/20'
+                      }`}
+                      onClick={() => {
+                        setFormData(prev => ({
+                          ...prev,
+                          account_type: 'brand',
+                          first_name: '',
+                          last_name: ''
+                        }));
+                      }}
+                    >
+                      <i className="fas fa-building text-2xl mb-2 text-blue-400"></i>
+                      <span className="text-sm font-medium text-white">Brand Account</span>
+                    </button>
                   </div>
                 </div>
+
+                {formData.account_type === 'personal' ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      {errors.first_name && (
+                        <div id="firstNameError" className="mb-2 text-red-400 text-xs font-semibold">
+                          {errors.first_name}
+                        </div>
+                      )}
+                      <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">First Name</label>
+                      <input
+                        type="text"
+                        name="first_name"
+                        id="firstNameInput"
+                        value={formData.first_name}
+                        onChange={handleChange}
+                        className="w-full bg-gradient-to-b from-gray-800 to-black border border-blue-900/50 rounded-xl py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all"
+                        placeholder="First name"
+                      />
+                    </div>
+                    <div>
+                      {errors.last_name && (
+                        <div id="lastNameError" className="mb-2 text-red-400 text-xs font-semibold">
+                          {errors.last_name}
+                        </div>
+                      )}
+                      <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">Last Name</label>
+                      <input
+                        type="text"
+                        name="last_name"
+                        id="lastNameInput"
+                        value={formData.last_name}
+                        onChange={handleChange}
+                        className="w-full bg-gradient-to-b from-gray-800 to-black border border-blue-900/50 rounded-xl py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all"
+                        placeholder="Last name"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    {errors.brand_name && (
+                      <div id="brandNameError" className="mb-2 text-red-400 text-xs font-semibold">
+                        {errors.brand_name}
+                      </div>
+                    )}
+                    <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">Brand Name</label>
+                    <input
+                      type="text"
+                      name="brand_name"
+                      id="brandNameInput"
+                      value={formData.brand_name}
+                      onChange={handleChange}
+                      className="w-full bg-gradient-to-b from-gray-800 to-black border border-blue-900/50 rounded-xl py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all"
+                      placeholder="Enter your brand, business, or organization name"
+                    />
+                  </div>
+                )}
                 
                 <div>
                   {errors.email && (
@@ -369,6 +628,167 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
                     onChange={handleChange}
                     className="w-full bg-gradient-to-b from-gray-800 to-black border border-blue-900/50 rounded-xl py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all"
                     placeholder="your.email@example.com"
+                  />
+                </div>
+
+                {/* Gender Select - Only for personal accounts */}
+                {formData.account_type === 'personal' && (
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">Gender (Optional)</label>
+                    <Select
+                      value={selectedGender}
+                      onChange={handleGenderChange}
+                      options={genderOptions}
+                      styles={customSelectStyles}
+                      isClearable
+                      placeholder="Select your gender"
+                      formatOptionLabel={option => (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl" role="img" aria-label={option.label}>
+                            {option.icon}
+                          </span>
+                          {option.label}
+                        </div>
+                      )}
+                    />
+                  </div>
+                )}
+
+                {/* Bio Input */}
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">
+                    Bio
+                    <span className="text-xs text-gray-500 ml-2 normal-case">Tell us a bit about yourself (Optional)</span>
+                  </label>
+                  <textarea
+                    name="bio"
+                    value={formData.bio}
+                    onChange={handleChange}
+                    placeholder="Share your story interests, what you like to create, or anything about yourself..."
+                    className="w-full bg-gradient-to-b from-gray-800 to-black border border-blue-900/50 rounded-xl py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all resize-none"
+                    rows={3}
+                    maxLength={500}
+                  />
+                  <div className="mt-1 text-xs text-gray-500 flex justify-end">
+                    {formData.bio.length}/500 characters
+                  </div>
+                </div>
+
+                {/* Categories Select */}
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">
+                    Preferred Content Categories (Optional - Max 3)
+                    <span className="text-xs text-gray-500 ml-2 normal-case">Select up to 3 categories you plan to create content in</span>
+                  </label>
+                  <Select
+                    value={selectedCategories}
+                    onChange={handleCategoriesChange}
+                    options={(() => {
+                      const groups = {};
+                      categoryOptions.forEach(option => {
+                        if (!groups[option.group]) {
+                          groups[option.group] = [];
+                        }
+                        groups[option.group].push(option);
+                      });
+                      return Object.entries(groups).map(([group, options]) => ({
+                        label: group,
+                        options: options
+                      }));
+                    })()}
+                    styles={{
+                      ...customSelectStyles,
+                      group: (base) => ({
+                        ...base,
+                        padding: '8px',
+                        '&:not(:last-child)': {
+                          borderBottom: '1px solid rgba(59, 130, 246, 0.2)'
+                        }
+                      }),
+                      groupHeading: (base) => ({
+                        ...base,
+                        color: '#60A5FA',
+                        fontSize: '0.9em',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        marginBottom: '8px',
+                        paddingLeft: '8px',
+                        borderLeft: '2px solid rgba(59, 130, 246, 0.5)'
+                      }),
+                      multiValue: (base) => ({
+                        ...base,
+                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                        borderRadius: '0.5rem',
+                        padding: '2px',
+                        border: '1px solid rgba(59, 130, 246, 0.3)'
+                      }),
+                      multiValueLabel: (base) => ({
+                        ...base,
+                        color: 'white'
+                      }),
+                      multiValueRemove: (base) => ({
+                        ...base,
+                        color: 'rgba(255, 255, 255, 0.6)',
+                        ':hover': {
+                          backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                          color: '#EF4444'
+                        }
+                      })
+                    }}
+                    isMulti
+                    isClearable
+                    placeholder="Select your preferred categories (max 3)"
+                    isOptionDisabled={() => selectedCategories.length >= 3}
+                    formatOptionLabel={option => (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl" role="img" aria-label={option.label}>
+                          {option.icon}
+                        </span>
+                        <span className="flex-1">{option.label}</span>
+                      </div>
+                    )}
+                    noOptionsMessage={() => "No matching categories found"}
+                  />
+                </div>
+
+                {/* Country Select */}
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">Country (Optional)</label>
+                  <Select
+                    value={selectedCountry}
+                    onChange={handleCountryChange}
+                    options={countryOptions}
+                    styles={customSelectStyles}
+                    isClearable
+                    placeholder="Select your country"
+                    formatOptionLabel={country => (
+                      <div className="flex items-center gap-2">
+                        <ReactCountryFlag
+                          countryCode={country.flag}
+                          svg
+                          style={{
+                            width: '1.2em',
+                            height: '1.2em'
+                          }}
+                        />
+                        {country.label}
+                      </div>
+                    )}
+                  />
+                </div>
+
+                {/* City Select */}
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">City (Optional)</label>
+                  <Select
+                    value={selectedCity}
+                    onChange={handleCityChange}
+                    options={availableCities}
+                    styles={customSelectStyles}
+                    isClearable
+                    isDisabled={!selectedCountry}
+                    placeholder={selectedCountry ? "Select your city" : "Please select a country first"}
                   />
                 </div>
               </div>
