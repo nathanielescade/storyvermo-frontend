@@ -628,8 +628,6 @@
         
         .main-content {
             transition: margin-left 0.3s ease;
-            height: 100vh;
-            overflow: hidden;
         }
         
         .sidebar-toggle {
