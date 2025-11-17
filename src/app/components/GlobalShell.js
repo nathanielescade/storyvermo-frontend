@@ -6,6 +6,8 @@ import DimensionNav from './DimensionNav';
 import AuthModal from './AuthModal';
 import StoryFormModal from './StoryFormModal';
 import DiscoverModal from './DiscoverModal';
+import FollowSuggestionsModal from './FollowSuggestionsModal';
+import OnboardingModal from './OnboardingModal';
 import PWAInstallPrompt from './PWAInstallPrompt';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -14,6 +16,9 @@ export default function GlobalShell() {
   const [pendingAction, setPendingAction] = useState(null);
   const [isStoryFormModalOpen, setIsStoryFormModalOpen] = useState(false);
   const [isDiscoverModalOpen, setIsDiscoverModalOpen] = useState(false);
+  const [isFollowModalOpen, setIsFollowModalOpen] = useState(false);
+  const [followModalCategories, setFollowModalCategories] = useState([]);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [hasMounted, setHasMounted] = useState(false);
 
   // Listen for programmatic requests to open auth modal (from any component)
@@ -68,12 +73,18 @@ export default function GlobalShell() {
     setPendingAction(null);
   };
 
-  const handleAuthSuccess = () => {
+  const handleAuthSuccess = (payload = null) => {
     // Broadcast that auth succeeded so other components (pages) can react
     try {
       window.dispatchEvent(new CustomEvent('auth:success', { detail: pendingAction }));
     } catch (e) {
       console.debug('auth:success dispatch failed', e);
+    }
+
+    // If the payload requests follow suggestions, open the onboarding modal first.
+    if (payload && payload.showFollowSuggestions) {
+      setFollowModalCategories(payload.categories || []);
+      setIsOnboardingOpen(true);
     }
 
     // If pendingAction indicates we should open the story form modal, do that here
@@ -102,7 +113,15 @@ export default function GlobalShell() {
       <Header openAuthModal={openAuthModal} />
       <DimensionNav openAuthModal={openAuthModal} openStoryFormModal={openStoryFormModal} openDiscoverModal={openDiscoverModal} />
 
-      <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} onAuthSuccess={handleAuthSuccess} />
+  <AuthModal isOpen={isAuthModalOpen} onClose={closeAuthModal} onAuthSuccess={handleAuthSuccess} />
+
+      <OnboardingModal isOpen={isOnboardingOpen} onClose={() => {
+        setIsOnboardingOpen(false);
+        // After user finishes onboarding, show follow suggestions
+        setIsFollowModalOpen(true);
+      }} />
+
+      <FollowSuggestionsModal isOpen={isFollowModalOpen} onClose={() => setIsFollowModalOpen(false)} categories={followModalCategories} />
 
       {hasMounted && <StoryFormModal isOpen={isStoryFormModalOpen} onClose={closeStoryFormModal} mode="create" />}
 
