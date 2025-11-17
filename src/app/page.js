@@ -31,7 +31,9 @@ export default async function Home({ initialTag = 'for-you' }) {
   // Server-side fetch initial page (cached via next/cache)
   let initial = null;
   try {
-    const params = { page: 1, tag: 'for-you' }; // Always load for-you initially
+    // Use the initialTag passed from tag routes (e.g. /tags/:tag) or fall back
+    // to the default 'for-you' feed when not provided.
+    const params = { page: 1, tag: initialTag || 'for-you' };
     initial = await storiesApi.getPaginatedStories(params);
   } catch (e) {
     console.error('Server fetch for initial stories failed:', e);

@@ -51,10 +51,7 @@ export default function StoryCard({
     const [isViewerOpening, setIsViewerOpening] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
     const [localCommentsCount, setLocalCommentsCount] = useState(story.comments_count || 0);
-    const [touchStart, setTouchStart] = useState(null);
-    const [touchEnd, setTouchEnd] = useState(null);
-    const [isOpening, setIsOpening] = useState(false);
-    const [swipeProgress, setSwipeProgress] = useState(0);
+    // Removed swipe-to-open states (gesture open was causing scroll issues)
     
     // Hologram icon modals
     const [showContributeModal, setShowContributeModal] = useState(false);
@@ -69,6 +66,8 @@ export default function StoryCard({
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [storyDeleted, setStoryDeleted] = useState(false);
+    // If opening the StoryFormModal to edit a single verse, store it here
+    const [editingVerseForModal, setEditingVerseForModal] = useState(null);
     
     // State for current story to handle updates
     const [currentStory, setCurrentStory] = useState(story);
@@ -80,7 +79,7 @@ export default function StoryCard({
     // Check if current user is the owner of the story (robust across different API shapes)
     const isOwner = (() => {
         if (!currentUser || !story) return false;
-
+  
         const cuUsername = currentUser.username || '';
         const cuId = currentUser.id || currentUser.pk || currentUser.user_id || '';
 
@@ -368,55 +367,20 @@ export default function StoryCard({
                     ref={cardRef} 
                     className="scene-card" 
                     style={{ 
-                        transition: isOpening ? 'all 0.5s ease-out' : 'transform 0.1s linear',
-                        transform: `translateX(${swipeProgress}px)`,
+                        transition: 'transform 0.2s ease',
                         perspective: '1000px',
                         transformStyle: 'preserve-3d',
                         backfaceVisibility: 'hidden',
                         position: 'relative',
-                        touchAction: 'pan-x',
+                        // allow normal touch scrolling
+                        touchAction: 'auto',
                         userSelect: 'none',
                         WebkitUserSelect: 'none'
                     }}
                     data-story-id={story.id} 
                     data-creator={getCreatorUsername()} 
                     data-story-slug={story.slug || ''}
-                    onTouchStart={e => {
-                        setTouchStart(e.targetTouches[0].clientX);
-                        setTouchEnd(e.targetTouches[0].clientX);
-                        setIsOpening(false);
-                    }}
-                    onTouchMove={e => {
-                        const currentX = e.targetTouches[0].clientX;
-                        setTouchEnd(currentX);
-                        
-                        const diff = touchStart - currentX;
-                        const progress = Math.min(0, -diff);
-                        setSwipeProgress(progress);
-                        
-                        // Start opening verse viewer when swiped more than 25% of screen width
-                        if (diff > window.innerWidth * 0.25 && !isOpening) {
-                            setIsOpening(true);
-                            handleOpenVerses();
-                        }
-                    }}
-                    onTouchEnd={() => {
-                        if (!touchStart || !touchEnd) return;
-                        
-                        const distance = touchStart - touchEnd;
-                        // More sensitive threshold (30px instead of 50px)
-                        const isLeftSwipe = distance > 30;
-                        
-                        if (isLeftSwipe && !isOpening) {
-                            setIsOpening(true);
-                            handleOpenVerses();
-                        }
-                        
-                        // Reset position with animation
-                        setSwipeProgress(0);
-                        setTouchStart(null);
-                        setTouchEnd(null);
-                    }}
+                    // Removed touch handlers to avoid blocking vertical scroll.
                 >
                     {coverImageUrl ? (
                         <div className="relative w-full h-full">
@@ -441,7 +405,7 @@ export default function StoryCard({
                     {/* Updated hologram with fixed positioning */}
                     <div 
                         ref={hologramRef}
-                        className="fixed-hologram absolute bottom-20 left-[5%] right-[5%] bg-black/60 backdrop-blur-[0.5px] border-2 border-[rgba(80,105,219,0.4)] rounded-2xl p-3 overflow-visible max-md:bottom-[130px] pointer-events-auto"
+                        className="fixed-hologram absolute bottom-20 left-[5%] right-[5%] bg-black/60 backdrop-blur-[0.5px] border-2 border-[rgba(80,105,219,0.4)] rounded-2xl p-3 overflow-visible max-md:bottom-[130px] "
                         style={{
                             position: 'absolute',
                             transform: 'translateZ(0)',
@@ -531,9 +495,18 @@ export default function StoryCard({
                 {/* Modals */}
                 <StoryFormModal
                     isOpen={showStoryFormModal}
-                    onClose={() => setShowStoryFormModal(false)}
+                    onClose={() => { setShowStoryFormModal(false); setEditingVerseForModal(null); }}
                     editingStory={currentStory}
+                    editingVerse={editingVerseForModal}
                     mode="edit"
+                    onUpdateStory={refetchStory}
+                    onUpdateVerse={(updatedVerse) => {
+                        // update verse in local story state for immediate UI reflection
+                        setCurrentStory(prev => ({
+                            ...prev,
+                            verses: prev.verses ? prev.verses.map(v => v.id === updatedVerse.id ? updatedVerse : v) : prev.verses
+                        }));
+                    }}
                 />
                 
                 <CommentModal
@@ -568,13 +541,10 @@ export default function StoryCard({
                     onReady={() => setIsViewerOpening(false)}
                     isAuthenticated={isAuthenticated}
                     openAuthModal={openAuthModal}
-                    onStoryUpdated={refetchStory}
-                    onVerseDeleted={(verseId) => {
-                        // Update the verse count when a verse is deleted
-                        setCurrentStory(prev => ({
-                            ...prev,
-                            verses: prev.verses.filter(v => v.id !== verseId)
-                        }));
+                    onStoryUpdate={refetchStory}
+                    onOpenStoryForm={(verse) => {
+                        setEditingVerseForModal(verse);
+                        setShowStoryFormModal(true);
                     }}
                 />
                 

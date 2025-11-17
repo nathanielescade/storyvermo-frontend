@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { absoluteUrl, versesApi } from '../../../lib/api';
+import { absoluteUrl, versesApi, userApi } from '../../../lib/api';
 import ContributeModal from './storycard/ContributeModal';
 import { useRouter } from 'next/navigation';
 import ShareModal from './ShareModal';
@@ -119,6 +119,10 @@ const VerseViewer = ({
   const [editingVerse, setEditingVerse] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showContributeModal, setShowContributeModal] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(() => {
+    // Prefer story-provided follow flags, fall back to false
+    return story?.isFollowing || story?.is_following || false;
+  });
   
   // Ref for verse options menu
   const verseOptionsRef = useRef(null);
@@ -191,14 +195,13 @@ const VerseViewer = ({
   const [focusMode, setFocusMode] = useState(false);
   const [readingProgress, setReadingProgress] = useState(0);
   const [isTextVisible, setIsTextVisible] = useState(true);
-  const [showScrollHint, setShowScrollHint] = useState(false);
   // Modal state
   // const [showContributeModal, setShowContributeModal] = useState(false);
   
   const verseRefs = useRef([]);
   const containerRef = useRef(null);
   const contentRef = useRef(null);
-  const scrollHintTimeoutRef = useRef(null);
+  
   const momentsContainerRef = useRef(null);
   
   // Touch tracking for moments carousel
@@ -257,6 +260,8 @@ const VerseViewer = ({
     if (maybe.file_url) return absoluteUrl(maybe.file_url);
     return null;
   };
+
+  // (Follow handler implemented inline on avatar button to match CreatorChip behaviour)
 
   const getAuthorInitial = () => {
     const name = getAuthorDisplayName() || getAuthorUsername() || 'P';
@@ -386,7 +391,6 @@ const VerseViewer = ({
       setIsContentExpanded(false);
       setFocusMode(false);
       setIsTextVisible(true);
-      setShowScrollHint(true);
       
       // Pre-fetch metadata for all verses to ensure we have the data
       if (story?.verses) {
@@ -428,16 +432,11 @@ const VerseViewer = ({
         });
       }
       
-      // Set timeout to show scroll hint after 2 seconds
-      scrollHintTimeoutRef.current = setTimeout(() => {
-        setShowScrollHint(false);
-      }, 2000);
+      // (Removed automatic scroll hint teaser)
     }
     
     return () => {
-      if (scrollHintTimeoutRef.current) {
-        clearTimeout(scrollHintTimeoutRef.current);
-      }
+      // cleanup
     };
   }, [isOpen, initialVerseIndex, story]);
 
@@ -547,35 +546,41 @@ const VerseViewer = ({
 
   // Handle scroll events to detect current verse and update metadata (throttled)
   useEffect(() => {
+    // We'll update progress continuously while scrolling and snap after scroll end
+    const scrollEndTimeoutRef = { current: null };
+
     const handleScroll = throttle(() => {
       if (!containerRef.current || !story?.verses) return;
-      
+
       const container = containerRef.current;
       const scrollTop = container.scrollTop;
-      const containerHeight = container.clientHeight;
-      
-      // Calculate which verse is currently in view
-      const verseIndex = Math.round(scrollTop / containerHeight);
-      
-      // Ensure we're within bounds
-      if (verseIndex >= 0 && verseIndex < story.verses.length && verseIndex !== currentVerseIndex) {
+      const containerHeight = container.clientHeight || 1;
+
+      const fractionalIndex = scrollTop / containerHeight; // e.g. 0.0 => first verse, 0.5 => halfway to second
+      const total = story.verses.length || 1;
+
+      // Continuous progress while user scrolls
+      const continuousProgress = ((fractionalIndex + 1) / total) * 100;
+      setReadingProgress(Math.max(0, Math.min(100, continuousProgress)));
+
+      // Determine nearest verse index for state updates
+      const nearestIndex = Math.round(fractionalIndex);
+
+      if (nearestIndex >= 0 && nearestIndex < total && nearestIndex !== currentVerseIndex) {
         setIsTransitioning(true);
-        setCurrentVerseIndex(verseIndex);
-        
-        // Get the new current verse from our latest story ref data
-        const newCurrentVerse = storyRef.current?.verses?.[verseIndex];
+        setCurrentVerseIndex(nearestIndex);
+
+        const newCurrentVerse = storyRef.current?.verses?.[nearestIndex];
         if (newCurrentVerse) {
-          // Always set state from the verse data which includes our metadata
           setIsLiked(newCurrentVerse.is_liked_by_user || newCurrentVerse.user_has_liked || false);
           setIsSaved(newCurrentVerse.is_saved_by_user || newCurrentVerse.user_has_saved || false);
           setLikeCount(newCurrentVerse.likes_count || 0);
           setSaveCount(newCurrentVerse.saves_count || 0);
           setCurrentMomentIndex(0);
-          
-          // Refresh metadata in background to ensure it's up to date
+
+          // Refresh metadata in background
           fetchVerseMetadata(newCurrentVerse).then(metadata => {
-            if (metadata && currentVerseIndex === verseIndex) {
-              // Only update if we're still on the same verse
+            if (metadata && currentVerseIndex === nearestIndex) {
               const updatedVerses = storyRef.current.verses.map(verse => 
                 verse.id === newCurrentVerse.id 
                   ? { 
@@ -586,47 +591,48 @@ const VerseViewer = ({
                     }
                   : verse
               );
-              
-              const updatedStory = {
-                ...storyRef.current,
-                verses: updatedVerses
-              };
-              
-              // Update story ref
+
+              const updatedStory = { ...storyRef.current, verses: updatedVerses };
               storyRef.current = updatedStory;
-              
-              // Update current state if needed
+
               setIsLiked(metadata.is_liked_by_user);
               setLikeCount(metadata.likes_count);
               setIsSaved(metadata.is_saved_by_user);
               setSaveCount(metadata.saves_count);
-              
-              // Call parent update if available
+
               if (typeof onStoryUpdate === 'function') {
                 onStoryUpdate(updatedStory);
               }
             }
-          });
+          }).catch(err => console.warn('Failed to refresh verse metadata:', err));
         }
-        
-        // Snap to the exact position of this verse
-        const targetPosition = verseIndex * containerHeight;
-        setTimeout(() => {
-          smoothScroll(containerRef, targetPosition, 300);
-          setIsTransitioning(false);
-        }, 50);
       }
-      
-      // Update reading progress based on current verse
-      setReadingProgress(((verseIndex + 1) / story.verses.length) * 100);
-    }, 50);
+
+      // Debounce to detect scroll end and snap to nearest verse
+      if (scrollEndTimeoutRef.current) clearTimeout(scrollEndTimeoutRef.current);
+      scrollEndTimeoutRef.current = setTimeout(() => {
+        if (!containerRef.current) return;
+        const c = containerRef.current;
+        const idx = Math.round(c.scrollTop / (c.clientHeight || 1));
+        const targetPosition = idx * c.clientHeight;
+        // Animate snap
+        smoothScroll(c, targetPosition, 300, false);
+        // Finalize progress to snapped value
+        const finalProgress = ((idx + 1) / total) * 100;
+        setReadingProgress(Math.max(0, Math.min(100, finalProgress)));
+        setIsTransitioning(false);
+      }, 120);
+    }, 35);
 
     const containerElement = containerRef.current;
     if (containerElement) {
       containerElement.addEventListener('scroll', handleScroll);
-      return () => containerElement.removeEventListener('scroll', handleScroll);
+      return () => {
+        containerElement.removeEventListener('scroll', handleScroll);
+        if (scrollEndTimeoutRef.current) clearTimeout(scrollEndTimeoutRef.current);
+      };
     }
-  }, [currentVerseIndex, story?.verses]); // Added story.verses as dependency
+  }, [currentVerseIndex, story?.verses, fetchVerseMetadata, onStoryUpdate]); // Added dependencies for metadata refresh
 
   // Handle like action with optimistic UI and proper story state update
   const handleLike = async () => {
@@ -863,29 +869,22 @@ const VerseViewer = ({
         {renderColorfulBubbles()}
       </div>
       
-      {/* Unique reading progress indicator */}
-      <div className="fixed top-0 left-0 right-0 h-1.5 z-50 bg-black/20">
-        <div 
-          className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 transition-all duration-300 ease-out" 
+      {/* Unique reading progress indicator - always visible; high z-index so it's not occluded */}
+      <div className="fixed top-0 left-0 right-0 h-1.5 z-[9999] bg-black/20 pointer-events-none">
+        <div
+          className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 transition-all duration-300 ease-out"
           style={{ width: `${readingProgress}%` }}
         ></div>
       </div>
       
-      {/* Scroll hint indicator - applies to whole verse */}
-      {showScrollHint && story.verses.length > 1 && (
-        <div className="fixed bottom-20 left-0 right-0 flex justify-center z-50 animate-bounce-slow">
-          <div className="bg-black/50 backdrop-blur-lg rounded-full px-4 py-2 text-white text-sm flex items-center gap-2">
-            <i className="fas fa-chevron-down"></i> Scroll down for more verses
-          </div>
-        </div>
-      )}
+      {/* (Removed scroll hint teaser) */}
       
       {/* Fixed Header with glassmorphism */}
       <div className={`fixed top-0 left-0 right-0 z-50 bg-black/30 backdrop-blur-lg p-4 transition-opacity duration-500 ${!focusMode ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
         <div className="flex justify-between items-center">
-          <div className="text-white font-medium flex items-center gap-2">
+          <div className="text-white font-medium flex items-center gap-2 min-w-0">
             <div className={`w-3 h-3 rounded-full bg-${defaultTheme.accent} animate-pulse`}></div>
-            <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent truncate block max-w-[60vw]" title={`${story.title} - Verse ${currentVerseIndex + 1} of ${story.verses.length}`}>
               {story.title} - Verse {currentVerseIndex + 1} of {story.verses.length}
             </span>
           </div>
@@ -1080,6 +1079,36 @@ const VerseViewer = ({
                     )}
                   </div>
                 </a>
+                {/* Follow button overlay on avatar (same style & behavior as CreatorChip) */}
+                {getAuthorUsername() && !isFollowing && String(getUserId(currentVerse?.author || story?.creator || '')) !== String(currentUser?.public_id) && (
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      // Optimistically hide immediately (user asked it should disappear)
+                      setIsFollowing(true);
+                      // Call follow API; revert if it fails
+                      (async () => {
+                        if (!isAuthenticated) {
+                          if (typeof openAuthModal === 'function') openAuthModal('follow', getAuthorUsername());
+                          setIsFollowing(false);
+                          return;
+                        }
+                        try {
+                          await userApi.followUser(getAuthorUsername());
+                        } catch (err) {
+                          console.error('Failed to follow user:', err);
+                          setIsFollowing(false);
+                        }
+                      })();
+                    }}
+                    className="follow-button absolute bottom-0 right-0 bg-transparent border-2 rounded-full w-7 h-7 flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors"
+                    aria-label="Follow"
+                    title="Follow"
+                  >
+                    <i className="fas fa-plus text-white font-extrabold text-xl"></i>
+                  </button>
+                )}
               </div>
 
               <div className="text-white min-w-0 flex items-center gap-3">
@@ -1099,7 +1128,7 @@ const VerseViewer = ({
                     {isContribution ? 'Contributed' : 'Creator'}
                   </div>
                 </div>
-                {currentUser && (currentUser.public_id === getUserId(currentVerse?.author) || currentUser.public_id === getUserId(story?.creator)) && (
+                {currentUser && (String(currentUser.public_id) === String(getUserId(currentVerse?.author)) || String(currentUser.public_id) === String(getUserId(story?.creator))) && (
                   <div className="relative">
                     <button
                       onClick={(e) => {
@@ -1109,22 +1138,21 @@ const VerseViewer = ({
                       }}
                       className="w-8 h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer transition-all duration-200 hover:bg-white/20"
                     >
-                      <i className="fas fa-ellipsis-v text-white"></i>
+                      {/* horizontal ellipsis */}
+                      <i className="fas fa-ellipsis-h text-white">⋯</i>
                     </button>
                     {showVerseOptions && (
                       <div className="absolute left-0 mt-2 w-48 rounded-xl overflow-hidden bg-gray-900/95 backdrop-blur-lg border border-white/10 shadow-xl z-50" ref={verseOptionsRef}>
-                        {currentUser.public_id === getUserId(currentVerse?.author) && (
+                        {(String(currentUser.public_id) === String(getUserId(currentVerse?.author)) || String(currentUser.public_id) === String(getUserId(story?.creator))) && (
                           <>
                             <button
                               onClick={() => {
                                 setShowVerseOptions(false);
-                                if (currentUser.public_id === getUserId(story?.creator)) {
-                                  // Open StoryFormModal for creator
-                                  if (typeof onOpenStoryForm === 'function') {
-                                    onOpenStoryForm(currentVerse);
-                                  }
+                                // Prefer opening the centralized StoryFormModal if parent provided a handler
+                                if (typeof onOpenStoryForm === 'function') {
+                                  onOpenStoryForm(currentVerse);
                                 } else {
-                                  // Open ContributeModal for contributor
+                                  // Fallback for older codepaths: open the contribute modal to edit verse
                                   setEditingVerse(currentVerse);
                                   setShowContributeModal(true);
                                 }
@@ -1356,21 +1384,7 @@ const VerseViewer = ({
           }
         }
         
-        @keyframes bounce-slow {
-          0%, 20%, 50%, 80%, 100% {
-            transform: translateY(0);
-          }
-          40% {
-            transform: translateY(-20px);
-          }
-          60% {
-            transform: translateY(-10px);
-          }
-        }
-        
-        .animate-bounce-slow {
-          animation: bounce-slow 3s infinite;
-        }
+        /* bounce-slow animation removed (scroll teaser) */
       `}</style>
     </div>
   );

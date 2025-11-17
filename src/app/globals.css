@@ -1,18 +1,25 @@
 @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
 @import "tailwindcss";
 
+/* @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@400;500;600;700&display=swap'); */
+/* 2. Theme definitions */
 @theme inline {
+  /* Custom font families */
   --font-orbitron: 'Orbitron', sans-serif;
   --font-rajdhani: 'Rajdhani', sans-serif;
+  
+  /* Custom colors */
   --color-neon-blue: #00d4ff;
   --color-neon-purple: #9d00ff;
   --color-neon-pink: #ff0080;
   --color-dark-blue: #0a0e27;
   --color-deep-blue: #151937;
-  --color-accent-orange: #ff6b35;
-  --accent-orange: var(--color-accent-orange);
+    --color-accent-orange: #ff6b35;
+    /* Backwards-compatible alias used across the codebase */
+    --accent-orange: var(--color-accent-orange);
 }
 
+/* 3. Base styles */
 @layer base {
   * {
     margin: 0;
@@ -21,11 +28,13 @@
   }
   
   body {
+    /* Use system-safe fallbacks if webfonts are unavailable */
     font-family: var(--font-rajdhani), Inter, ui-sans-serif, system-ui, -apple-system,
       'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Apple Color Emoji',
       'Segoe UI Emoji', 'Segoe UI Symbol';
     background-color: var(--color-dark-blue);
-    overflow: auto; /* Remove position: fixed if you want scrolling */
+    overflow: hidden;
+    position: fixed;
     width: 100%;
     height: 100%;
   }
@@ -125,26 +134,20 @@
             z-index: 200;
             display: flex;
             flex-direction: column;
-            transform: translateX(100%) scale(0.8);
-            transform-origin: left center;
-            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            opacity: 0;
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
         }
         
         .verse-viewer.active {
-            transform: translateX(0) scale(1);
-            opacity: 1;
+            transform: translateY(0);
         }
         
         .verse-viewer.swipe-open {
-            transform: translateX(100%) scale(0.8);
-            opacity: 0;
+            transform: translateX(100%);
         }
         
         .verse-viewer.swipe-open.active {
-            transform: translateX(0) scale(1);
-            opacity: 1;
-            transition-timing-function: cubic-bezier(0.18, 0.89, 0.32, 1.28);
+            transform: translateX(0);
         }
         
         .verse-header {
@@ -531,7 +534,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0 20px; 
+            padding: 0 20px;
             border-bottom: 1px solid rgba(0, 212, 255, 0.2);
         }
         
@@ -567,9 +570,9 @@
                 display: flex;
             }
             
-            /* .scene-hologram {
+            .scene-hologram {
                 bottom: 190px !important;
-            } */
+            }
             
             .action-orbital {
                 bottom: 130px !important;
@@ -625,6 +628,8 @@
         
         .main-content {
             transition: margin-left 0.3s ease;
+            height: 100vh;
+            overflow: hidden;
         }
         
         .sidebar-toggle {
@@ -805,9 +810,77 @@
             }
         }
         
-        /* Action buttons moved to Tailwind utility classes in components
-           (replaced .action-buttons-row, .action-button, .action-count, and related helpers)
-           Keeping this note here so the intent is clear. */
+        /* Action buttons row */
+        .action-buttons-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            width: 100%;
+        }
+        
+        .action-button {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+        
+        .action-button:hover {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: var(--neon-blue);
+            transform: scale(1.1);
+        }
+        
+        .action-button.active {
+            /* Slightly stronger border and ring to make active state more visible */
+            background: rgba(255, 107, 53, 0.10);
+            border: 2px solid rgba(255, 107, 53);
+            box-shadow: 0 6px 18px rgba(255, 107, 53, 0.12), 0 0 0 6px rgba(255, 107, 53, 0.04) inset;
+        }
+
+        .action-button.active i {
+            /* Icon becomes accent orange when active */
+            color: var(--accent-orange);
+            font-size: 18px;
+        }
+
+        .action-button i {
+            color: white;
+            font-size: 18px;
+            transition: color 0.18s ease, transform 0.18s ease;
+        }
+
+        /* Utility fallbacks for accent color classes (in case Tailwind isn't generating them) */
+        .text-accent-orange {
+            color: var(--accent-orange) !important;
+        }
+
+        .border-accent-orange {
+            border-color: var(--accent-orange) !important;
+        }
+        
+        .action-count {
+            position: absolute;
+            bottom: -5px;
+            right: -5px;
+            background: var(--accent-orange);
+            color: #fff;
+            font-size: 10px;
+            font-weight: bold;
+            padding: 2px 5px;
+            border-radius: 10px;
+            min-width: 18px;
+            text-align: center;
+            z-index: 1;
+        }
         
         /* Description truncation */
         .scene-description {
@@ -1105,61 +1178,79 @@
             }
         }
         
-        /* Swipe indicator styles removed */
+        /* Swipe indicator for stories */
+        .story-swipe-indicator {
+            position: absolute;
+            top: 50%;
+            right: 10px;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 60px;
+            background: linear-gradient(to bottom, rgba(0, 212, 255, 0.2), rgba(0, 212, 255, 0.8), rgba(0, 212, 255, 0.2));
+            border-radius: 2px;
+            z-index: 5;
+            opacity: 0.7;
+            animation: hop 2s infinite ease-in-out;
+            pointer-events: none;
+        }
+        
+        @keyframes hop {
+            0%, 100% {
+                transform: translateY(-50%) translateX(0);
+            }
+            50% {
+                transform: translateY(-50%) translateX(-5px);
+            }
+        }
         
         /* Adjusted scene hologram position */
-        /* .scene-hologram {
+        .scene-hologram {
             position: absolute;
             bottom: 80px;
             left: 5%;
             right: 5%;
             background: rgba(0, 0, 0, 0.6);
             -webkit-backdrop-filter: blur(0.5px);
-            border: 2px solid rgba(80, 105, 219, 0.4);
+            /* backdrop-filter: blur(1px);  */
+            border: 1px solid rgba(0, 212, 255, 0.3);
             border-radius: 16px;
             padding: 20px;
+            /* z-index: 10; */
             overflow: hidden;
-        } */
+        }
         
         /* Animated bubbles for scene hologram */
         .bubble {
             position: absolute;
             border-radius: 50%;
-            box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
             pointer-events: none;
-            animation-duration: 10s;
-            animation-iteration-count: infinite;
-            animation-timing-function: ease-in-out;
+            opacity: 0.7;
             z-index: 1;
         }
         
         @keyframes bubble-float {
             0% {
-                transform: translate(0, 0) scale(1);
+                transform: translateY(0) translateX(0);
                 opacity: 0.7;
             }
             50% {
-                transform: translate(20px, -20px) scale(1.2);
-                opacity: 0.9;
+                transform: translateY(-20px) translateX(10px);
+                opacity: 1;
             }
             100% {
-                transform: translate(0, 0) scale(1);
-                opacity: 0.7;
+                transform: translateY(-40px) translateX(0);
+                opacity: 0;
             }
         }
         
         @keyframes bubble-float-out {
             0% {
-                transform: translate(0, 0) scale(1);
+                transform: translateY(0) translateX(0);
                 opacity: 0.7;
-            }
-            50% {
-                transform: translate(-20px, -20px) scale(1.2);
-                opacity: 0.9;
             }
             100% {
-                transform: translate(0, 0) scale(1);
-                opacity: 0.7;
+                transform: translateY(-100px) translateX(30px);
+                opacity: 0;
             }
         }
         
@@ -1236,33 +1327,6 @@
             100% { opacity: 0; transform: translateY(-10px); }
         }
         
-        /* Loading Gradient Animation */
-        @keyframes shimmer {
-            0% {
-                background-position: -200% 0;
-            }
-            100% {
-                background-position: 200% 0;
-            }
-        }
-
-        .loading-gradient {
-            background: linear-gradient(
-                90deg,
-                rgba(255, 255, 255, 0.03) 25%,
-                rgba(255, 255, 255, 0.08) 37%,
-                rgba(255, 255, 255, 0.03) 63%
-            );
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite linear;
-            border-radius: inherit;
-            height: 100%;
-            width: 100%;
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
-
         /* Notification Bell Styles */
         .notification-bell {
             position: relative;
@@ -1973,43 +2037,4 @@
         
         .follow-btn.following {
             background: rgba(255, 255, 255, 0.2);
-        }
-        
-        /* Make story / scene cards compact on larger screens (desktop) but
-           only when rendered inside the story detail page (scoped to
-           the `.story-detail` wrapper). This prevents changing the
-           global fullscreen behavior on the homepage/feed. */
-        @media (min-width: 1024px) {
-            .story-detail .image-container,
-            .story-detail .scene-card {
-                height: 420px; /* compact card height for desktop */
-            }
-
-            /* Center the card and give it a subtle elevation so the detail
-               page feels like a compact card while the feed/homepage
-               remains full-bleed. */
-            .story-detail .scene-card {
-                max-width: 900px;
-                margin: 20px auto;
-                border-radius: 12px;
-                box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
-                overflow: hidden;
-            }
-
-            /* Ensure background fills the compact card cleanly only inside
-               the story detail. Do not change global `.scene-bg` so the
-               homepage retains its full-bleed image behavior. */
-            .story-detail .scene-bg {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-                transform: none;
-            }
-
-            /* Slightly reposition the follow button for the smaller card */
-            .story-detail .follow-button {
-                width: 28px;
-                height: 28px;
-                transform: translate(10%, 10%);
-            }
         }
