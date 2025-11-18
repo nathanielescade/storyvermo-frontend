@@ -363,7 +363,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
     setLoading(true);
     
     try {
-  if (isLoginMode) {
+      if (isLoginMode) {
         console.log('Submitting login form with data:', formData);
         const result = await login(formData);
         console.log('Login result:', result);
@@ -390,26 +390,31 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
         } else {
           setErrors({ general: result.error || 'Login failed. Please check your credentials.' });
         }
-  } else {
-  console.log('Submitting registration form with data:', formData);
+      } else {
+        console.log('Submitting registration form with data:', formData);
         // Call register from AuthContext which wraps authApi.register
         const registerResult = await registerUser(formData);
         console.log('Registration result:', registerResult);
 
         if (registerResult && registerResult.success) {
-          // Registration succeeded — most deployments now require email verification.
-          // Open verification modal and preserve credentials so we can auto-login after verification.
-          const attemptedCreds = {
-            username: formData.username || formData.email || '',
-            password: formData.password || ''
-          };
+          // FIXED: Check if there was an email warning
+          if (registerResult.email_warning) {
+            setSuccessMessage('Registration successful but we could not send a verification email. Please request a new verification email.');
+          } else {
+            // Registration succeeded — most deployments now require email verification.
+            // Open verification modal and preserve credentials so we can auto-login after verification.
+            const attemptedCreds = {
+              username: formData.username || formData.email || '',
+              password: formData.password || ''
+            };
 
-          setPendingCreds(attemptedCreds);
-          setPendingEmail(formData.email || '');
-          setShowVerifyModal(true);
+            setPendingCreds(attemptedCreds);
+            setPendingEmail(formData.email || '');
+            setShowVerifyModal(true);
 
-          // hint to the user
-          setSuccessMessage('Registration successful. A verification code was sent to your email. Please verify to finish setup.');
+            // hint to the user
+            setSuccessMessage('Registration successful. A verification code was sent to your email. Please verify to finish setup.');
+          }
 
           // switch to login mode UI so user can still login if desired
           setIsLoginMode(true);
@@ -445,6 +450,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
       setLoading(false);
     }
   };
+
 
   // Helper: normalize and map API error payloads to the `errors` state used by the component
   const parseApiErrors = (payload) => {

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { NEXT_PUBLIC_API_URL } from '../../../lib/api';
+import { apiRequest } from '../../../lib/api';
 
 export default function VerifyEmailClient() {
   const searchParams = useSearchParams();
@@ -23,20 +23,16 @@ export default function VerifyEmailClient() {
 
     const verify = async () => {
       try {
-        const base = NEXT_PUBLIC_API_URL || '';
-        const resp = await fetch(`${base}/auth/verify-email/`, {
+        const data = await apiRequest('/auth/verify-email/', {
           method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token })
+          body: JSON.stringify({ token }),
         });
-        const data = await resp.json();
-        if (resp.ok && data && data.success) {
+        if (data && data.success) {
           setStatus('success');
           setMessage(data.message || 'Email verified successfully. You can now log in.');
         } else {
           setStatus('error');
-          setMessage(data.message || data.detail || 'Verification failed');
+          setMessage(data?.message || 'Verification failed');
         }
       } catch (err) {
         console.error('Verify request failed', err);
@@ -74,20 +70,19 @@ export default function VerifyEmailClient() {
                   setResendLoading(true);
                   setResendMessage(null);
                   try {
-                    const base = NEXT_PUBLIC_API_URL || '';
-                    const resp = await fetch(`${base}/auth/resend-verification/`, {
-                      method: 'POST',
-                      credentials: 'include',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ email: target })
-                    });
-                    const data = await resp.json().catch(() => ({}));
-                    if (resp.status === 429) {
-                      setResendMessage({ type: 'error', text: data.message || 'Please wait before requesting another verification email.' });
-                    } else if (resp.ok) {
-                      setResendMessage({ type: 'success', text: data.message || 'If an account exists, a verification email has been sent.' });
-                    } else {
-                      setResendMessage({ type: 'error', text: data.message || data.detail || 'Failed to resend verification email.' });
+                    try {
+                      const data = await apiRequest('/auth/resend-verification/', {
+                        method: 'POST',
+                        body: JSON.stringify({ email: target }),
+                      });
+                      setResendMessage({ type: 'success', text: data?.message || 'If an account exists, a verification email has been sent.' });
+                    } catch (err) {
+                      if (err && err.status === 429) {
+                        setResendMessage({ type: 'error', text: err.body || 'Please wait before requesting another verification email.' });
+                      } else {
+                        const text = (err && err.body) ? err.body : (err && err.message) ? err.message : 'Failed to resend verification email.';
+                        setResendMessage({ type: 'error', text });
+                      }
                     }
                   } catch (err) {
                     console.error('Resend failed', err);

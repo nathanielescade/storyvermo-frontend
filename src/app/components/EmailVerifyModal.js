@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { NEXT_PUBLIC_API_URL } from '../../../lib/api';
+import { apiRequest } from '../../../lib/api';
 
 const EmailVerifyModal = ({ isOpen, onClose, email = '', onVerified }) => {
   const [token, setToken] = useState('');
@@ -21,24 +21,21 @@ const EmailVerifyModal = ({ isOpen, onClose, email = '', onVerified }) => {
     setLoading(true);
     setMessage(null);
     try {
-      const base = NEXT_PUBLIC_API_URL || '';
-      const resp = await fetch(`${base}/auth/verify-email/`, {
+      const data = await apiRequest('/auth/verify-email/', {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: token.trim(), email: email || undefined })
+        body: JSON.stringify({ token: token.trim(), email: email || undefined }),
       });
 
-      const data = await resp.json();
-      if (resp.ok && data && data.success) {
+      if (data && data.success) {
         setMessage({ type: 'success', text: data.message || 'Email verified successfully.' });
         if (onVerified) onVerified(data);
       } else {
-        setMessage({ type: 'error', text: data.message || data.detail || 'Verification failed' });
+        setMessage({ type: 'error', text: data?.message || 'Verification failed' });
       }
     } catch (err) {
       console.error('Verify request failed', err);
-      setMessage({ type: 'error', text: err.message || 'Verification request failed' });
+      const text = (err && err.body) ? err.body : (err && err.message) ? err.message : 'Verification request failed';
+      setMessage({ type: 'error', text });
     } finally {
       setLoading(false);
     }
@@ -55,22 +52,20 @@ const EmailVerifyModal = ({ isOpen, onClose, email = '', onVerified }) => {
     setResendLoading(true);
     setResendMessage(null);
     try {
-      const base = NEXT_PUBLIC_API_URL || '';
-      const resp = await fetch(`${base}/auth/resend-verification/`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: targetEmail })
-      });
-
-      const data = await resp.json().catch(() => ({}));
-
-      if (resp.status === 429) {
-        setResendMessage({ type: 'error', text: data.message || 'Please wait before requesting another verification email.' });
-      } else if (resp.ok) {
-        setResendMessage({ type: 'success', text: data.message || 'If an account exists, a verification email has been sent.' });
-      } else {
-        setResendMessage({ type: 'error', text: data.message || data.detail || 'Failed to resend verification email.' });
+      try {
+        const data = await apiRequest('/auth/resend-verification/', {
+          method: 'POST',
+          body: JSON.stringify({ email: targetEmail }),
+        });
+        setResendMessage({ type: 'success', text: data?.message || 'If an account exists, a verification email has been sent.' });
+      } catch (err) {
+        // apiRequest throws on non-ok statuses; inspect status via err.status if present
+        if (err && err.status === 429) {
+          setResendMessage({ type: 'error', text: err.body || 'Please wait before requesting another verification email.' });
+        } else {
+          const text = (err && err.body) ? err.body : (err && err.message) ? err.message : 'Failed to resend verification email.';
+          setResendMessage({ type: 'error', text });
+        }
       }
     } catch (err) {
       console.error('Resend request failed', err);
