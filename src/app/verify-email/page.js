@@ -1,3 +1,5 @@
+"use client";
+
 import VerifyEmailClient from './VerifyEmailClient';
 
 export default function Page() {
