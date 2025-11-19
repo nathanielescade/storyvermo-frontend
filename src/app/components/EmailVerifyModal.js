@@ -131,3 +131,4 @@ const EmailVerifyModal = ({ isOpen, onClose, email = '', onVerified }) => {
 };
 
 export default EmailVerifyModal;
+

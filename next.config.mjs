@@ -18,7 +18,7 @@ const nextConfig = {
       // Allow images served from the production API host
       {
         protocol: 'https',
-        hostname: 'api.storyvermo.com',
+        hostname: 'storyvermo.com',
         pathname: '/media/**',
       }
     ],

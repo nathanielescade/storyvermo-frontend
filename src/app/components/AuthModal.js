@@ -460,7 +460,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
     if (typeof source === 'string') {
       setErrors({ general: source });
       return;
-    }
+    }s
 
     if (!source) {
       setErrors({ general: 'Authentication failed' });
