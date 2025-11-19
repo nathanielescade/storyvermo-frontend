@@ -252,12 +252,33 @@ export default function ProfileClient({ username, initialProfile = null }) {
 
       // After successful upload, fetch the updated profile to get the real URL
       const updatedProfile = await userApi.getProfile(username);
+      // Add a cache-busting query param so browsers and CDNs will fetch the
+      // newest image instead of serving a cached copy. This ensures the
+      // profile/cover updates are visible immediately after upload without
+      // requiring a hard refresh.
+      const appendCacheBuster = (u) => {
+        try {
+          if (!u || typeof u !== 'string') return u;
+          const ts = Date.now();
+          return u.includes('?') ? `${u}&v=${ts}` : `${u}?v=${ts}`;
+        } catch (e) {
+          return u;
+        }
+      };
       // Recompute full name for the updated profile too
       const uFirst = updatedProfile.first_name || updatedProfile.creator_first_name || updatedProfile.given_name || '';
       const uLast = updatedProfile.last_name || updatedProfile.creator_last_name || updatedProfile.family_name || '';
       const uExplicit = updatedProfile.get_full_name || updatedProfile.full_name || updatedProfile.name || updatedProfile.display_name || '';
       const uCombined = `${uFirst} ${uLast}`.trim();
       const uFullName = (uExplicit && uExplicit.trim()) || (uCombined && uCombined) || updatedProfile.username || '';
+
+      // Inject cache-busted URLs into the updated profile before setting state
+      if (updatedProfile.profile_image_url) {
+        updatedProfile.profile_image_url = appendCacheBuster(updatedProfile.profile_image_url);
+      }
+      if (updatedProfile.cover_image_url) {
+        updatedProfile.cover_image_url = appendCacheBuster(updatedProfile.cover_image_url);
+      }
 
       setUser(prev => ({
         ...prev,
