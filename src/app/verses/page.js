@@ -14,7 +14,7 @@ export default async function VersesPage() {
   let verses = [];
   let error = null;
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/verses/`, {
+  const res = await fetch(absoluteUrl('/api/verses/'), {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include'

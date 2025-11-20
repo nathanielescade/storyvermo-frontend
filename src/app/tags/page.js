@@ -35,7 +35,7 @@ export default async function TagsPage() {
   
   try {
     // Try to fetch tags but handle any errors gracefully
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tags/trending/`, {
+  const response = await fetch(absoluteUrl('/api/tags/trending/'), {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -48,7 +48,7 @@ export default async function TagsPage() {
       
       // If no trending tags, try recent tags
       if (!Array.isArray(tags) || tags.length === 0) {
-        const recentResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tags/recent/`, {
+  const recentResponse = await fetch(absoluteUrl('/api/tags/recent/'), {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',

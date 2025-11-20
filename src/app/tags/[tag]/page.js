@@ -23,7 +23,7 @@ const description = `Discover creative stories and verses inspired by ${prettyTa
 
   // Try to enrich metadata from the API but fall back to defaults on any error.
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tags/${encodeURIComponent(tagSlug)}/seo/`, {
+  const response = await fetch(absoluteUrl(`/api/tags/${encodeURIComponent(tagSlug)}/seo/`), {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
