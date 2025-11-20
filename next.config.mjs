@@ -16,7 +16,7 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'www.storyvermo.com',
+        hostname: 'api.storyvermo.com',
         pathname: '/media/**',
       },
     ],
