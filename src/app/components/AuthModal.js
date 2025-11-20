@@ -6,7 +6,6 @@ import { useAuth } from '../../../contexts/AuthContext';
 import Select from 'react-select';
 import ReactCountryFlag from 'react-country-flag';
 import { Country, City } from 'country-state-city';
-import EmailVerifyModal from './EmailVerifyModal';
 
 const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) => {
   const { login, refreshAuth, register: registerUser } = useAuth();
@@ -44,9 +43,9 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
     
     // Arts & Creativity
     { value: 'visual_arts', label: 'Visual Arts', icon: '🎨', group: 'Arts & Creativity' },
-    { value: 'photography', label: 'Photography', icon: '�', group: 'Arts & Creativity' },
+    { value: 'photography', label: 'Photography', icon: '📷', group: 'Arts & Creativity' },
     { value: 'illustration', label: 'Illustration & Comics', icon: '✏️', group: 'Arts & Creativity' },
-    { value: 'fashion', label: 'Fashion & Style', icon: '�', group: 'Arts & Creativity' },
+    { value: 'fashion', label: 'Fashion & Style', icon: '👗', group: 'Arts & Creativity' },
     
     // Entertainment & Pop Culture
     { value: 'movies', label: 'Movies & Film', icon: '🎬', group: 'Entertainment' },
@@ -65,8 +64,8 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
     { value: 'travel', label: 'Travel & Adventure', icon: '✈️', group: 'Lifestyle' },
     
     // Food & Culture
-    { value: 'food', label: 'Food & Cooking', icon: '�', group: 'Food & Culture' },
-    { value: 'drinks', label: 'Drinks & Mixology', icon: '�', group: 'Food & Culture' },
+    { value: 'food', label: 'Food & Cooking', icon: '🍔', group: 'Food & Culture' },
+    { value: 'drinks', label: 'Drinks & Mixology', icon: '🍹', group: 'Food & Culture' },
     { value: 'culture', label: 'Cultural Stories', icon: '🌏', group: 'Food & Culture' },
     
     // Sports & Activities
@@ -76,7 +75,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
     
     // Business & Professional
     { value: 'startup', label: 'Startups & Business', icon: '💼', group: 'Business' },
-    { value: 'finance', label: 'Finance & Investing', icon: '�', group: 'Business' },
+    { value: 'finance', label: 'Finance & Investing', icon: '💰', group: 'Business' },
     { value: 'career', label: 'Career & Growth', icon: '🎯', group: 'Business' },
     
     // Social Causes & Community
@@ -94,14 +93,10 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [signupStep, setSignupStep] = useState(1); // 1 = basic info, 2 = profile details
-  const [showVerifyModal, setShowVerifyModal] = useState(false);
-  const [pendingCreds, setPendingCreds] = useState(null);
-  const [pendingEmail, setPendingEmail] = useState('');
   
   const router = useRouter();
   const formRef = useRef(null);
 
-  // Reset form when switching modes
   // Custom styles for react-select
   const customSelectStyles = {
     control: (base, state) => ({
@@ -397,26 +392,10 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
         console.log('Registration result:', registerResult);
 
         if (registerResult && registerResult.success) {
-          // FIXED: Check if there was an email warning
-          if (registerResult.email_warning) {
-            setSuccessMessage('Registration successful but we could not send a verification email. Please request a new verification email.');
-          } else {
-            // Registration succeeded — most deployments now require email verification.
-            // Open verification modal and preserve credentials so we can auto-login after verification.
-            const attemptedCreds = {
-              username: formData.username || formData.email || '',
-              password: formData.password || ''
-            };
-
-            setPendingCreds(attemptedCreds);
-            setPendingEmail(formData.email || '');
-            setShowVerifyModal(true);
-
-            // hint to the user
-            setSuccessMessage('Registration successful. A verification code was sent to your email. Please verify to finish setup.');
-          }
-
-          // switch to login mode UI so user can still login if desired
+          // Registration succeeded - no email verification needed
+          setSuccessMessage('Registration successful! You can now log in with your credentials.');
+          
+          // switch to login mode UI so user can login
           setIsLoginMode(true);
           setFormData(prev => ({ ...prev, password: '', password_confirm: '' }));
           return;
@@ -451,7 +430,6 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
     }
   };
 
-
   // Helper: normalize and map API error payloads to the `errors` state used by the component
   const parseApiErrors = (payload) => {
     // payload may be Error, object, or have a .details/.raw property
@@ -460,7 +438,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
     if (typeof source === 'string') {
       setErrors({ general: source });
       return;
-    }s
+    }
 
     if (!source) {
       setErrors({ general: 'Authentication failed' });
@@ -1026,36 +1004,6 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-70"></div>
         <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-70"></div>
       </div>
-
-      {/* Email verification modal shown after signup */}
-      <EmailVerifyModal
-        isOpen={showVerifyModal}
-        email={pendingEmail}
-        onClose={() => setShowVerifyModal(false)}
-        onVerified={async (data) => {
-          // Try auto-login with saved credentials
-          if (pendingCreds && pendingCreds.username && pendingCreds.password) {
-            try {
-              const res = await login(pendingCreds);
-              if (res && res.success) {
-                setShowVerifyModal(false);
-                setPendingCreds(null);
-                setPendingEmail('');
-                setSuccessMessage('Email verified and logged in.');
-                onClose();
-                if (onAuthSuccess) onAuthSuccess({ showFollowSuggestions: true, categories: formData.preferred_categories || [] });
-                return;
-              }
-            } catch (e) {
-              console.warn('Auto-login after verification failed', e);
-            }
-          }
-
-          // If auto-login failed, just close modal and prompt user to login
-          setShowVerifyModal(false);
-          setSuccessMessage(data && data.message ? data.message : 'Email verified. Please log in.');
-        }}
-      />
     </div>
   );
 };
