@@ -15,9 +15,18 @@ export default function VerifyEmailPage() {
   const [success, setSuccess] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState('');
+  const [mounted, setMounted] = useState(false);
   const inputRefs = useRef([]);
 
+  // Fix: Set mounted state to avoid hydration issues
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    // Fix: Only run redirects after component has mounted
+    if (!mounted) return;
+
     // Redirect if not logged in and no user ID for verification
     if (!user && !userIdForVerification) {
       router.push('/');
@@ -28,7 +37,7 @@ export default function VerifyEmailPage() {
     if (user && user.email_verified) {
       router.push('/');
     }
-  }, [user, userIdForVerification, router]);
+  }, [user, userIdForVerification, router, mounted]);
 
   const handleInputChange = (index, value) => {
     // Only allow numbers
@@ -154,6 +163,21 @@ export default function VerifyEmailPage() {
       setResendLoading(false);
     }
   };
+
+  // Fix: Prevent rendering until component has mounted to avoid hydration issues
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
+        <div className="max-w-md w-full">
+          <div className="bg-gradient-to-br from-gray-800 to-black border border-blue-500/30 rounded-2xl p-8 shadow-2xl">
+            <div className="flex justify-center">
+              <div className="w-16 h-16 border-t-2 border-blue-500 border-solid rounded-full animate-spin"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // If we don't have user info but have a user ID in localStorage, try to use that
   const displayEmail = user?.email || 'your email address';
