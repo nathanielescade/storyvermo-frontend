@@ -100,6 +100,9 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [emailVerified, setEmailVerified] = useState(false);
+  const [emailVerificationRequired, setEmailVerificationRequired] = useState(false);
+  const [userIdForVerification, setUserIdForVerification] = useState(null);
 
   // Check authentication status on initial load
   useEffect(() => {
@@ -118,17 +121,23 @@ export function AuthProvider({ children }) {
         if (user) {
           setCurrentUser(user);
           setIsAuthenticated(true);
+          setEmailVerified(user.email_verified || false);
+          
           if (typeof window !== 'undefined') {
             localStorage.setItem('currentUser', JSON.stringify(user));
             localStorage.setItem('isAuthenticated', 'true');
+            localStorage.setItem('emailVerified', String(user.email_verified || false));
           }
           console.log('User authenticated:', user.username || user.id);
         } else {
           setCurrentUser(null);
           setIsAuthenticated(false);
+          setEmailVerified(false);
+          
           if (typeof window !== 'undefined') {
             localStorage.removeItem('currentUser');
             localStorage.removeItem('isAuthenticated');
+            localStorage.removeItem('emailVerified');
           }
           console.log('User not authenticated');
         }
@@ -137,9 +146,12 @@ export function AuthProvider({ children }) {
         if (mounted) {
           setCurrentUser(null);
           setIsAuthenticated(false);
+          setEmailVerified(false);
+          
           if (typeof window !== 'undefined') {
             localStorage.removeItem('currentUser');
             localStorage.removeItem('isAuthenticated');
+            localStorage.removeItem('emailVerified');
           }
         }
       } finally {
@@ -163,6 +175,19 @@ export function AuthProvider({ children }) {
       const response = await authApi.login(credentials);
       console.log('Login response:', response);
 
+      // Check if login requires email verification
+      if (response && response.email_verification_required) {
+        setEmailVerificationRequired(true);
+        setUserIdForVerification(response.user_id);
+        
+        return { 
+          success: false, 
+          email_verification_required: true,
+          user_id: response.user_id,
+          error: response.errors?.non_field_errors || 'Please verify your email before logging in.'
+        };
+      }
+
       // Check if login was successful
       if (response && (response.success || response.user)) {
         const user = normalizeUserFromResponse(response);
@@ -170,10 +195,15 @@ export function AuthProvider({ children }) {
         if (user) {
           setCurrentUser(user);
           setIsAuthenticated(true);
+          setEmailVerified(user.email_verified || false);
+          setEmailVerificationRequired(false);
+          
           if (typeof window !== 'undefined') {
             localStorage.setItem('currentUser', JSON.stringify(user));
             localStorage.setItem('isAuthenticated', 'true');
+            localStorage.setItem('emailVerified', String(user.email_verified || false));
           }
+          
           console.log('Login successful:', user.username || user.id);
           
           // Small delay to ensure cookies are set
@@ -234,17 +264,36 @@ export function AuthProvider({ children }) {
       const response = await authApi.register(userData);
       console.log('Registration response:', response);
       
-      // Check if registration was successful
+      // Check if registration was successful but requires email verification
+      if (response && (response.email_verification_required || response.user_id)) {
+        // Don't set user as authenticated yet
+        setEmailVerificationRequired(true);
+        setUserIdForVerification(response.user_id);
+        
+        return { 
+          success: true, 
+          email_verification_required: true,
+          user_id: response.user_id,
+          message: response.message || 'Registration successful. Please check your email.'
+        };
+      }
+      
+      // Handle regular registration success (if any)
       if (response && (response.success || response.user)) {
         const user = normalizeUserFromResponse(response);
         
         if (user) {
           setCurrentUser(user);
           setIsAuthenticated(true);
+          setEmailVerified(user.email_verified || false);
+          setEmailVerificationRequired(false);
+          
           if (typeof window !== 'undefined') {
             localStorage.setItem('currentUser', JSON.stringify(user));
             localStorage.setItem('isAuthenticated', 'true');
+            localStorage.setItem('emailVerified', String(user.email_verified || false));
           }
+          
           console.log('Registration and auto-login successful:', user.username || user.id);
           
           // Small delay to ensure cookies are set
@@ -291,16 +340,87 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Verify email function
+  const verifyEmail = async (verificationData) => {
+    try {
+      const response = await authApi.verifyEmail(verificationData);
+      
+      if (response && response.success) {
+        const user = normalizeUserFromResponse(response);
+        
+        if (user) {
+          setCurrentUser(user);
+          setIsAuthenticated(true);
+          setEmailVerified(true);
+          setEmailVerificationRequired(false);
+          
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('currentUser', JSON.stringify(user));
+            localStorage.setItem('isAuthenticated', 'true');
+            localStorage.setItem('emailVerified', 'true');
+          }
+          
+          console.log('Email verification successful:', user.username || user.id);
+          
+          return { success: true, user };
+        }
+      }
+      
+      return { 
+        success: false, 
+        error: response.error || 'Verification failed. Please try again.'
+      };
+    } catch (error) {
+      console.error('Email verification error:', error);
+      
+      return { 
+        success: false, 
+        error: error.message || 'Verification failed. Please try again.'
+      };
+    }
+  };
+
+  // Resend verification code function
+  const resendVerificationCode = async (userData) => {
+    try {
+      const response = await authApi.resendVerificationCode(userData);
+      
+      if (response && response.message) {
+        return { 
+          success: true, 
+          message: response.message
+        };
+      }
+      
+      return { 
+        success: false, 
+        error: response.error || 'Failed to resend verification code.'
+      };
+    } catch (error) {
+      console.error('Resend verification code error:', error);
+      
+      return { 
+        success: false, 
+        error: error.message || 'Failed to resend verification code.'
+      };
+    }
+  };
+
   // Logout function
   const logout = async () => {
     try {
       await authApi.logout();
       setCurrentUser(null);
       setIsAuthenticated(false);
+      setEmailVerified(false);
+      setEmailVerificationRequired(false);
+      
       if (typeof window !== 'undefined') {
         localStorage.removeItem('currentUser');
         localStorage.removeItem('isAuthenticated');
+        localStorage.removeItem('emailVerified');
       }
+      
       console.log('Logout successful');
       
       // Redirect to home page
@@ -312,9 +432,13 @@ export function AuthProvider({ children }) {
       // Clear local state even if API call fails
       setCurrentUser(null);
       setIsAuthenticated(false);
+      setEmailVerified(false);
+      setEmailVerificationRequired(false);
+      
       if (typeof window !== 'undefined') {
         localStorage.removeItem('currentUser');
         localStorage.removeItem('isAuthenticated');
+        localStorage.removeItem('emailVerified');
       }
     }
   };
@@ -331,30 +455,42 @@ export function AuthProvider({ children }) {
       if (user) {
         setCurrentUser(user);
         setIsAuthenticated(true);
+        setEmailVerified(user.email_verified || false);
+        
         if (typeof window !== 'undefined') {
           localStorage.setItem('currentUser', JSON.stringify(user));
           localStorage.setItem('isAuthenticated', 'true');
+          localStorage.setItem('emailVerified', String(user.email_verified || false));
         }
+        
         console.log('Auth refresh successful:', user.username || user.id);
         return true;
       }
       
       setCurrentUser(null);
       setIsAuthenticated(false);
+      setEmailVerified(false);
+      
       if (typeof window !== 'undefined') {
         localStorage.removeItem('currentUser');
         localStorage.removeItem('isAuthenticated');
+        localStorage.removeItem('emailVerified');
       }
+      
       console.log('Not authenticated after refresh');
       return false;
     } catch (error) {
       console.error('Auth refresh error:', error);
       setCurrentUser(null);
       setIsAuthenticated(false);
+      setEmailVerified(false);
+      
       if (typeof window !== 'undefined') {
         localStorage.removeItem('currentUser');
         localStorage.removeItem('isAuthenticated');
+        localStorage.removeItem('emailVerified');
       }
+      
       return false;
     }
   };
@@ -363,10 +499,15 @@ export function AuthProvider({ children }) {
     currentUser,
     isAuthenticated,
     loading,
+    emailVerified,
+    emailVerificationRequired,
+    userIdForVerification,
     login,
     register,
     logout,
-    refreshAuth
+    refreshAuth,
+    verifyEmail,
+    resendVerificationCode
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
