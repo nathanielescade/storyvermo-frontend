@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
 import { authApi } from '../../../lib/api';
 
-export default function VerifyEmailPage() {
+// Separate component that uses useSearchParams
+function VerifyEmailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, userIdForVerification, verifyEmail, resendVerificationCode, refreshAuth } = useAuth();
@@ -15,13 +16,9 @@ export default function VerifyEmailPage() {
   const [success, setSuccess] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState('');
-  const [isClient, setIsClient] = useState(false);
   const inputRefs = useRef([]);
 
   useEffect(() => {
-    // Set isClient to true when component mounts on client
-    setIsClient(true);
-    
     // Redirect if not logged in and no user ID for verification
     if (!user && !userIdForVerification) {
       router.push('/');
@@ -92,13 +89,9 @@ export default function VerifyEmailPage() {
     setError('');
 
     try {
-      // Get user ID from context or localStorage
-      let userId = user?.id || userIdForVerification;
-      
-      // Only access localStorage on client side
-      if (!userId && isClient) {
-        userId = localStorage.getItem('userIdForVerification');
-      }
+      // Get user ID from context or localStorage (client-side only)
+      const userId = user?.id || userIdForVerification || 
+        (typeof window !== 'undefined' ? localStorage.getItem('userIdForVerification') : null);
       
       if (!userId) {
         setError('User information not found. Please try registering again.');
@@ -138,13 +131,9 @@ export default function VerifyEmailPage() {
     setError('');
 
     try {
-      // Get user ID from context or localStorage
-      let userId = user?.id || userIdForVerification;
-      
-      // Only access localStorage on client side
-      if (!userId && isClient) {
-        userId = localStorage.getItem('userIdForVerification');
-      }
+      // Get user ID from context or localStorage (client-side only)
+      const userId = user?.id || userIdForVerification || 
+        (typeof window !== 'undefined' ? localStorage.getItem('userIdForVerification') : null);
       
       if (!userId) {
         setError('User information not found. Please try registering again.');
@@ -170,30 +159,7 @@ export default function VerifyEmailPage() {
   };
 
   // If we don't have user info but have a user ID in localStorage, try to use that
-  const displayEmail = user?.email || (isClient ? localStorage.getItem('userEmailForVerification') : null) || 'your email address';
-
-  // Don't render anything on the server to avoid hydration issues
-  if (!isClient) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
-        <div className="max-w-md w-full">
-          <div className="bg-gradient-to-br from-gray-800 to-black border border-blue-500/30 rounded-2xl p-8 shadow-2xl">
-            <div className="flex justify-center mb-6">
-              <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
-                <i className="fas fa-envelope text-white text-3xl"></i>
-              </div>
-            </div>
-            <h1 className="text-3xl font-bold text-center bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent mb-2">
-              Verify Your Email
-            </h1>
-            <p className="text-gray-400 text-center mb-8">
-              Loading verification page...
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const displayEmail = user?.email || 'your email address';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center p-4">
@@ -322,5 +288,18 @@ export default function VerifyEmailPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Main component with Suspense boundary
+export default function VerifyEmailPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-900 flex items-center justify-center">
+        <div className="text-white">Loading...</div>
+      </div>
+    }>
+      <VerifyEmailContent />
+    </Suspense>
   );
 }
