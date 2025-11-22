@@ -1,5 +1,3 @@
-import { getPaginatedStories, getTrendingTags } from "../../../lib/api.server";
-
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://storyvermo.com';
 
 function formatDate(d) {

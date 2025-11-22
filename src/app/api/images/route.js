@@ -2,8 +2,6 @@
 // This is a route handler that proxies image uploads to the backend
 // It prevents exposing the backend API URL to the client
 
-import { NEXT_PUBLIC_API_URL } from '../../../lib/api.server';
-
 export async function POST(request) {
   try {
     // Read the form data from the client request
