@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '../../../contexts/AuthContext';
-import { storiesApi, NEXT_PUBLIC_API_URL, versesApi, momentsApi } from '../../../lib/api';
+import { storiesApi, versesApi, momentsApi } from '../../../lib/api';
 
 // Default tags as fallback
 const DEFAULT_TAGS = ['Fantasy', 'Adventure', 'Mystery', 'Romance', 'Sci-Fi', 
@@ -426,8 +426,8 @@ const StoryFormModal = ({
     setTagsError(null);
     
     try {
-      // Try to fetch popular tags from API
-      const response = await fetch(`${NEXT_PUBLIC_API_URL}/api/tags/popular/`);
+      // Try to fetch popular tags from API via route handler (don't expose backend URL)
+      const response = await fetch(`/api/tags/popular/`);
       if (response.ok) {
         const data = await response.json();
         // Sort by usage count (most popular first)
@@ -755,7 +755,7 @@ const proceedWithPublish = async () => {
         }
       }
       
-      const res = await fetch(`${NEXT_PUBLIC_API_URL}/api/images/`, {
+      const res = await fetch(`/api/images/`, {
         method: 'POST',
         credentials: 'include',
         headers: headers,
