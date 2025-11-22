@@ -1,4 +1,4 @@
-// useMain.js
+// useMain.js - FIXED VERSION with smooth pagination
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { storiesApi, userApi } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,14 +22,12 @@ export default function useMain(initialState = null) {
     // Initialize the app with stories
     useEffect(() => {
         const initializeApp = async () => {
-            // Skip if we have initial state
             if (initialState) return;
             
             try {
                 setLoading(true);
                 let initialTag = 'for-you';
                 
-                // Extract tag from URL if present
                 if (typeof window !== 'undefined') {
                     const match = window.location.pathname.match(/^\/tags\/([^\/]+)\/?$/);
                     if (match && match[1]) {
@@ -42,17 +40,14 @@ export default function useMain(initialState = null) {
                 }
 
                 setCurrentTag(initialTag);
-
-                // Build params based on initialTag
                 const params = { page: 1 };
                 if (initialTag !== 'for-you') params.tag = initialTag;
 
-                // Get initial stories
                 const initialStories = await storiesApi.getPaginatedStories(params);
                 setStories(initialStories.results || []);
                 setHasNext(initialStories.next !== null);
                 
-                // Prefetch next page immediately for seamless experience
+                // 🔥 FIX: Immediately prefetch next page
                 if (initialStories.next !== null && !isPrefetchingRef.current) {
                     const nextParams = { page: 2 };
                     if (initialTag !== 'for-you') nextParams.tag = initialTag;
@@ -99,7 +94,6 @@ export default function useMain(initialState = null) {
             const result = await storiesApi.getPaginatedStories(params);
             let fetched = result.results || [];
             
-            // Shuffle for-you feed on force refresh
             if (force && tag === 'for-you' && fetched.length > 1) {
                 for (let i = fetched.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
@@ -143,7 +137,7 @@ export default function useMain(initialState = null) {
         }
     }, [currentTag]);
     
-    // Handle infinite scroll with prefetching
+    // 🔥 OPTIMIZED: Handle infinite scroll with INSTANT rendering
     const handleFetchMore = useCallback(async () => {
         if (isFetching || !hasNext) return;
         
@@ -152,29 +146,58 @@ export default function useMain(initialState = null) {
         
         try {
             const nextPage = page + 1;
+            
+            // 🔥 KEY FIX: Use prefetched stories IMMEDIATELY
+            if (prefetchedStories && prefetchedStories.length > 0) {
+                // Remove duplicates
+                const existingIds = new Set(stories.map(s => s.id));
+                const filteredStories = prefetchedStories.filter(s => !existingIds.has(s.id));
+                
+                // ✅ ADD STORIES INSTANTLY - no waiting!
+                if (filteredStories.length > 0) {
+                    setStories(prev => [...prev, ...filteredStories]);
+                    setPage(nextPage);
+                }
+                
+                // Clear prefetched cache
+                setPrefetchedStories(null);
+                
+                // Start prefetching NEXT page in background
+                if (!isPrefetchingRef.current) {
+                    const params = { page: nextPage + 1 };
+                    if (currentTag !== 'for-you') params.tag = currentTag;
+                    
+                    isPrefetchingRef.current = true;
+                    storiesApi.getPaginatedStories(params)
+                        .then(result => {
+                            if (result.results && result.results.length > 0) {
+                                setPrefetchedStories(result.results);
+                                setHasNext(result.next !== null);
+                            } else {
+                                setHasNext(false);
+                            }
+                        })
+                        .catch(err => {
+                            console.warn('Failed to prefetch next page', err);
+                            setHasNext(false);
+                        })
+                        .finally(() => {
+                            isPrefetchingRef.current = false;
+                        });
+                }
+                
+                setIsFetching(false);
+                return;
+            }
+            
+            // 🔥 FALLBACK: If no prefetched data, fetch now
             const params = { page: nextPage };
             if (currentTag !== 'for-you') params.tag = currentTag;
             
-            let result;
-            let newStories;
+            const result = await storiesApi.getPaginatedStories(params);
+            const newStories = result.results || [];
             
-            // Use prefetched stories if available
-            if (prefetchedStories && prefetchedStories.length > 0) {
-                newStories = prefetchedStories;
-                setPrefetchedStories(null);
-                
-                try {
-                    result = await storiesApi.getPaginatedStories(params);
-                } catch (err) {
-                    console.warn('Failed to get pagination info:', err);
-                    result = { next: true };
-                }
-            } else {
-                result = await storiesApi.getPaginatedStories(params);
-                newStories = result.results || [];
-            }
-            
-            // Remove duplicates before adding new stories
+            // Remove duplicates
             const existingIds = new Set(stories.map(s => s.id));
             const filteredStories = newStories.filter(s => !existingIds.has(s.id));
             
@@ -183,11 +206,10 @@ export default function useMain(initialState = null) {
                 setPage(nextPage);
             }
             
-            // Determine if there are more pages
             const hasMorePages = result.next !== null && result.next !== undefined;
             setHasNext(hasMorePages);
             
-            // Prefetch next page if available
+            // Start prefetching next page
             if (hasMorePages && !isPrefetchingRef.current) {
                 const nextParams = { page: nextPage + 1 };
                 if (currentTag !== 'for-you') nextParams.tag = currentTag;
