@@ -1,7 +1,6 @@
 // src/app/tags/page.js
 import Link from 'next/link';
 import { absoluteUrl } from '../../../lib/api';
-import { getTrendingTags } from '../../../lib/api.server';
 
 export async function generateMetadata() {
   const title = 'Tags — StoryVermo';
@@ -36,11 +35,33 @@ export default async function TagsPage() {
   
   try {
     // Try to fetch tags but handle any errors gracefully
-    tags = await getTrendingTags();
+  const response = await fetch(absoluteUrl('/api/tags/trending/'), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    });
     
-    // If no trending tags, return empty array (fallback handled by getTrendingTags)
-    if (!Array.isArray(tags) || tags.length === 0) {
-      tags = [];
+    if (response.ok) {
+      tags = await response.json();
+      
+      // If no trending tags, try recent tags
+      if (!Array.isArray(tags) || tags.length === 0) {
+  const recentResponse = await fetch(absoluteUrl('/api/tags/recent/'), {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        });
+        
+        if (recentResponse.ok) {
+          tags = await recentResponse.json();
+        }
+      }
+    } else {
+      error = `Failed to fetch tags: ${response.status}`;
     }
   } catch (e) {
     console.warn('[tags page] failed to fetch tags', e);

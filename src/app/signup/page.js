@@ -3,7 +3,7 @@ import SignupPageClient from './SignupPageClient';
 
 export async function generateMetadata() {
   const title = 'Sign up — StoryVermo';
-  const description = 'Create your StoryVermo account to share your stories, discover new voices, and connect with creative minds.';
+const description = 'Create your StoryVermo account to share your stories, discover new voices, and connect with creative minds.';
 
   const url = absoluteUrl('/signup/');
 
@@ -22,3 +22,4 @@ export default function SignupPage() {
     </div>
   );
 }
+
