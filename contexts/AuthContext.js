@@ -45,6 +45,10 @@ export function AuthProvider({ children }) {
 
   // Parse API error payloads (DRF, Django or custom) into structured format
   const parseApiErrors = (payload) => {
+    // If an Error was passed directly, surface its message
+    if (payload instanceof Error) {
+      return { general: payload.message || 'An error occurred' };
+    }
     const errors = {};
     const source = payload || {};
 
@@ -100,9 +104,6 @@ export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [emailVerified, setEmailVerified] = useState(false);
-  const [emailVerificationRequired, setEmailVerificationRequired] = useState(false);
-  const [userIdForVerification, setUserIdForVerification] = useState(null);
 
   // Check authentication status on initial load
   useEffect(() => {
@@ -121,23 +122,19 @@ export function AuthProvider({ children }) {
         if (user) {
           setCurrentUser(user);
           setIsAuthenticated(true);
-          setEmailVerified(user.email_verified || false);
           
           if (typeof window !== 'undefined') {
             localStorage.setItem('currentUser', JSON.stringify(user));
             localStorage.setItem('isAuthenticated', 'true');
-            localStorage.setItem('emailVerified', String(user.email_verified || false));
           }
           console.log('User authenticated:', user.username || user.id);
         } else {
           setCurrentUser(null);
           setIsAuthenticated(false);
-          setEmailVerified(false);
           
           if (typeof window !== 'undefined') {
             localStorage.removeItem('currentUser');
             localStorage.removeItem('isAuthenticated');
-            localStorage.removeItem('emailVerified');
           }
           console.log('User not authenticated');
         }
@@ -146,12 +143,10 @@ export function AuthProvider({ children }) {
         if (mounted) {
           setCurrentUser(null);
           setIsAuthenticated(false);
-          setEmailVerified(false);
           
           if (typeof window !== 'undefined') {
             localStorage.removeItem('currentUser');
             localStorage.removeItem('isAuthenticated');
-            localStorage.removeItem('emailVerified');
           }
         }
       } finally {
@@ -175,19 +170,6 @@ export function AuthProvider({ children }) {
       const response = await authApi.login(credentials);
       console.log('Login response:', response);
 
-      // Check if login requires email verification
-      if (response && response.email_verification_required) {
-        setEmailVerificationRequired(true);
-        setUserIdForVerification(response.user_id);
-        
-        return { 
-          success: false, 
-          email_verification_required: true,
-          user_id: response.user_id,
-          error: response.errors?.non_field_errors || 'Please verify your email before logging in.'
-        };
-      }
-
       // Check if login was successful
       if (response && (response.success || response.user)) {
         const user = normalizeUserFromResponse(response);
@@ -195,13 +177,10 @@ export function AuthProvider({ children }) {
         if (user) {
           setCurrentUser(user);
           setIsAuthenticated(true);
-          setEmailVerified(user.email_verified || false);
-          setEmailVerificationRequired(false);
           
           if (typeof window !== 'undefined') {
             localStorage.setItem('currentUser', JSON.stringify(user));
             localStorage.setItem('isAuthenticated', 'true');
-            localStorage.setItem('emailVerified', String(user.email_verified || false));
           }
           
           console.log('Login successful:', user.username || user.id);
@@ -264,34 +243,17 @@ export function AuthProvider({ children }) {
       const response = await authApi.register(userData);
       console.log('Registration response:', response);
       
-      // Check if registration was successful but requires email verification
-      if (response && (response.email_verification_required || response.user_id)) {
-        // Don't set user as authenticated yet
-        setEmailVerificationRequired(true);
-        setUserIdForVerification(response.user_id);
-        
-        return { 
-          success: true, 
-          email_verification_required: true,
-          user_id: response.user_id,
-          message: response.message || 'Registration successful. Please check your email.'
-        };
-      }
-      
-      // Handle regular registration success (if any)
+      // Handle registration success
       if (response && (response.success || response.user)) {
         const user = normalizeUserFromResponse(response);
         
         if (user) {
           setCurrentUser(user);
           setIsAuthenticated(true);
-          setEmailVerified(user.email_verified || false);
-          setEmailVerificationRequired(false);
           
           if (typeof window !== 'undefined') {
             localStorage.setItem('currentUser', JSON.stringify(user));
             localStorage.setItem('isAuthenticated', 'true');
-            localStorage.setItem('emailVerified', String(user.email_verified || false));
           }
           
           console.log('Registration and auto-login successful:', user.username || user.id);
@@ -302,10 +264,68 @@ export function AuthProvider({ children }) {
           return { success: true, user };
         }
       }
+
+      // Some backends return a success message without a user or explicit
+      // `success` boolean (e.g. { message: 'Registration successful.' }).
+      // Treat those as success and attempt to auto-login by probing the
+      // auth check endpoint. If that returns a user, set authenticated
+      // state so the UI can proceed directly to onboarding/follow-suggestions.
+      if (response && !response.user && !response.success) {
+        const msg = (response.message || response.detail || '').toString();
+        if (/success|successful|created|ok/i.test(msg)) {
+          console.log('Registration response indicates success (message):', msg);
+
+          // Try to refresh auth to obtain the new user session/profile
+          try {
+            const check = await authApi.checkAuth();
+            const user = normalizeUserFromResponse(check);
+            if (user) {
+              setCurrentUser(user);
+              setIsAuthenticated(true);
+
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('currentUser', JSON.stringify(user));
+                localStorage.setItem('isAuthenticated', 'true');
+              }
+
+              console.log('Auto-login after registration successful:', user.username || user.id);
+              return { success: true, user };
+            }
+          } catch (e) {
+            console.warn('Auto-login after registration failed:', e);
+          }
+
+          // If auto-login didn't work, still return a success marker so the
+          // UI can show the success state and prompt the user to log in.
+          return { success: true, message: msg };
+        }
+      }
       
-      // Parse validation errors
-      const errors = parseApiErrors(response);
-      console.error('Registration failed with errors:', errors);
+      // Parse validation errors. Be defensive: some backends return an empty
+      // object or a non-standard shape on validation failure. Handle Error
+      // instances and empty responses so the UI receives a predictable shape.
+      let errors;
+      try {
+        if (!response || (typeof response === 'object' && Object.keys(response).length === 0)) {
+          console.error('Registration failed - empty/invalid response:', response);
+          errors = { general: (response && response.message) || 'Registration failed' };
+        } else if (response instanceof Error) {
+          errors = { general: response.message || 'Registration failed' };
+        } else {
+          errors = parseApiErrors(response);
+        }
+      } catch (parseErr) {
+        console.error('Error while parsing registration response:', parseErr, 'response:', response);
+        errors = { general: 'Registration failed' };
+      }
+
+      // Log a snapshot (stringified) as well as the object to avoid empty
+      // console prints caused by later mutation/refs in some browsers.
+      try {
+        console.error('Registration failed with errors (snapshot):', JSON.stringify(errors));
+      } catch (e) {
+        console.error('Registration failed with errors:', errors);
+      }
       
       return { 
         success: false, 
@@ -340,85 +360,16 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Verify email function
-  const verifyEmail = async (verificationData) => {
-    try {
-      const response = await authApi.verifyEmail(verificationData);
-      
-      if (response && response.success) {
-        const user = normalizeUserFromResponse(response);
-        
-        if (user) {
-          setCurrentUser(user);
-          setIsAuthenticated(true);
-          setEmailVerified(true);
-          setEmailVerificationRequired(false);
-          
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('currentUser', JSON.stringify(user));
-            localStorage.setItem('isAuthenticated', 'true');
-            localStorage.setItem('emailVerified', 'true');
-          }
-          
-          console.log('Email verification successful:', user.username || user.id);
-          
-          return { success: true, user };
-        }
-      }
-      
-      return { 
-        success: false, 
-        error: response.error || 'Verification failed. Please try again.'
-      };
-    } catch (error) {
-      console.error('Email verification error:', error);
-      
-      return { 
-        success: false, 
-        error: error.message || 'Verification failed. Please try again.'
-      };
-    }
-  };
-
-  // Resend verification code function
-  const resendVerificationCode = async (userData) => {
-    try {
-      const response = await authApi.resendVerificationCode(userData);
-      
-      if (response && response.message) {
-        return { 
-          success: true, 
-          message: response.message
-        };
-      }
-      
-      return { 
-        success: false, 
-        error: response.error || 'Failed to resend verification code.'
-      };
-    } catch (error) {
-      console.error('Resend verification code error:', error);
-      
-      return { 
-        success: false, 
-        error: error.message || 'Failed to resend verification code.'
-      };
-    }
-  };
-
   // Logout function
   const logout = async () => {
     try {
       await authApi.logout();
       setCurrentUser(null);
       setIsAuthenticated(false);
-      setEmailVerified(false);
-      setEmailVerificationRequired(false);
       
       if (typeof window !== 'undefined') {
         localStorage.removeItem('currentUser');
         localStorage.removeItem('isAuthenticated');
-        localStorage.removeItem('emailVerified');
       }
       
       console.log('Logout successful');
@@ -432,13 +383,10 @@ export function AuthProvider({ children }) {
       // Clear local state even if API call fails
       setCurrentUser(null);
       setIsAuthenticated(false);
-      setEmailVerified(false);
-      setEmailVerificationRequired(false);
       
       if (typeof window !== 'undefined') {
         localStorage.removeItem('currentUser');
         localStorage.removeItem('isAuthenticated');
-        localStorage.removeItem('emailVerified');
       }
     }
   };
@@ -455,12 +403,10 @@ export function AuthProvider({ children }) {
       if (user) {
         setCurrentUser(user);
         setIsAuthenticated(true);
-        setEmailVerified(user.email_verified || false);
         
         if (typeof window !== 'undefined') {
           localStorage.setItem('currentUser', JSON.stringify(user));
           localStorage.setItem('isAuthenticated', 'true');
-          localStorage.setItem('emailVerified', String(user.email_verified || false));
         }
         
         console.log('Auth refresh successful:', user.username || user.id);
@@ -469,12 +415,10 @@ export function AuthProvider({ children }) {
       
       setCurrentUser(null);
       setIsAuthenticated(false);
-      setEmailVerified(false);
       
       if (typeof window !== 'undefined') {
         localStorage.removeItem('currentUser');
         localStorage.removeItem('isAuthenticated');
-        localStorage.removeItem('emailVerified');
       }
       
       console.log('Not authenticated after refresh');
@@ -483,12 +427,10 @@ export function AuthProvider({ children }) {
       console.error('Auth refresh error:', error);
       setCurrentUser(null);
       setIsAuthenticated(false);
-      setEmailVerified(false);
       
       if (typeof window !== 'undefined') {
         localStorage.removeItem('currentUser');
         localStorage.removeItem('isAuthenticated');
-        localStorage.removeItem('emailVerified');
       }
       
       return false;
@@ -499,15 +441,10 @@ export function AuthProvider({ children }) {
     currentUser,
     isAuthenticated,
     loading,
-    emailVerified,
-    emailVerificationRequired,
-    userIdForVerification,
     login,
     register,
     logout,
-    refreshAuth,
-    verifyEmail,
-    resendVerificationCode
+    refreshAuth
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

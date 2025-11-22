@@ -5,7 +5,6 @@ import { AuthProvider } from '../../contexts/AuthContext';
 import Sidebar from './components/Sidebar';
 import CommentModal from './components/CommentModal';
 import GlobalShell from './components/GlobalShell';
-import EmailVerificationBanner from './components/EmailVerificationBanner';
 
 export default function RootLayout({ children }) {
   return (
@@ -102,7 +101,6 @@ export default function RootLayout({ children }) {
           
           {/* Main Content */}
 
-          <EmailVerificationBanner />
 
           <main className="main-content">
             {children}

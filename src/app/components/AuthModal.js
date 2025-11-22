@@ -8,7 +8,7 @@ import ReactCountryFlag from 'react-country-flag';
 import { Country, City } from 'country-state-city';
 
 const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) => {
-  const { login, register: registerUser, emailVerificationRequired, userIdForVerification } = useAuth();
+  const { login, register: registerUser } = useAuth();
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -429,17 +429,6 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
           return;
         }
 
-        // Handle email verification required
-        if (result && result.email_verification_required) {
-          setSuccessMessage('Please verify your email before logging in.');
-          // You could also redirect to verification page here
-          setTimeout(() => {
-            onClose();
-            router.push('/verify-email');
-          }, 1500);
-          return;
-        }
-
         // Prefer structured errors returned by the auth context
         if (result && result.errors && Object.keys(result.errors).length > 0) {
           // AuthContext returns errors keyed by field or `general`
@@ -461,23 +450,24 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
         const registerResult = await registerUser(formData);
         console.log('Registration result:', registerResult);
 
-        if (registerResult && registerResult.email_verification_required) {
-          // Registration succeeded but email verification is required
-          setSuccessMessage('Registration successful! Please check your email for verification code.');
-          
-          // Redirect to verification page after a short delay
-          setTimeout(() => {
-            onClose();
-            router.push('/verify-email');
-          }, 1500);
-          return;
-        }
-
         if (registerResult && registerResult.success) {
-          // Registration succeeded without email verification (fallback)
-          setSuccessMessage('Registration successful. You can now log in with your credentials.');
-          
-          // switch to login mode UI so user can login
+          // Registration succeeded. If the auth context returned a user (auto-login),
+          // close the modal and trigger the global onAuthSuccess flow which will
+          // open onboarding -> follow suggestions. If not auto-logged-in, fall
+          // back to showing the success message and switching to login mode.
+          if (registerResult.user) {
+            // notify parent/global shell that auth succeeded and we want follow suggestions
+            try {
+              onClose();
+              if (onAuthSuccess) onAuthSuccess({ showFollowSuggestions: true, categories: formData.preferred_categories || [] });
+            } catch (e) {
+              console.error('Error during post-registration success flow:', e);
+            }
+            return;
+          }
+
+          // Not auto-logged-in: show success text and switch to login so user can sign in
+          setSuccessMessage('Registration successful! You can now log in with your credentials.');
           setIsLoginMode(true);
           setFormData(prev => ({ ...prev, password: '', password_confirm: '' }));
           return;
