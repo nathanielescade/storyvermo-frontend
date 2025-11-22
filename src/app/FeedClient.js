@@ -22,15 +22,51 @@ export default function FeedClient({ initialState }) {
     handleOpenStoryVerses,
     isAuthenticated,
     refreshAuth,
-    error
+    error,
+    prefetchNext
   } = useMain(initialState);
 
   const { currentUser } = useAuth();
   const feedRef = useRef(null);
+  const sentinelRef = useRef(null);
+  const observerRef = useRef(null);
 
 
-  // Note: infinite scroll/preloading removed. Loading more is now manual via
-  // the "Load more" button which calls `handleFetchMore`.
+  // Prefetch sentinel: prefetch next page when user approaches the end of
+  // the visible feed, but do NOT auto-append. This keeps the UI responsive
+  // while removing automatic infinite scroll behavior.
+  useEffect(() => {
+    if (!hasNext || isFetching) return;
+    const root = feedRef.current;
+    if (!root || !sentinelRef.current) return;
+
+    // Avoid creating multiple observers
+    if (observerRef.current) observerRef.current.disconnect();
+
+    const io = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) {
+        try {
+          prefetchNext();
+        } catch (e) {
+          console.warn('Prefetch next failed:', e);
+        }
+      }
+    }, {
+      root: root,
+      // Larger rootMargin warms earlier so images can be loaded before user
+      // reaches the end of the current list.
+      rootMargin: '800px',
+      threshold: 0.1
+    });
+
+    observerRef.current = io;
+    io.observe(sentinelRef.current);
+
+    return () => {
+      try { io.disconnect(); } catch (e) { /* ignore */ }
+      observerRef.current = null;
+    };
+  }, [hasNext, isFetching, prefetchNext]);
 
   // NOTE: previous buffering logic (storiesBuffer) was removed because buffered
   // stories were never rendered/merged into main `stories`. This avoids
@@ -143,20 +179,25 @@ export default function FeedClient({ initialState }) {
         ) : (
           <>
             {stories.map((story, index) => (
-              <StoryCard 
-                key={getStoryKey(story, index)} 
-                story={story} 
-                index={index} 
-                viewType="feed"
-                onLikeToggle={handleLikeToggle}
-                onSaveToggle={handleSaveToggle}
-                onFollowUser={handleFollowUser}
-                onOpenStoryVerses={handleOpenStoryVerses}
-                currentTag={currentTag}
-                onTagSelect={handleTagOptionClick}
-                isAuthenticated={isAuthenticated}
-                openAuthModal={(type = null, data = null) => window.dispatchEvent(new CustomEvent('auth:open', { detail: { type, data } }))}
-              />
+              <div key={getStoryKey(story, index)}>
+                {/* Insert prefetch sentinel a few items before the end to warm next page early */}
+                {index === Math.max(0, stories.length - 5) && (
+                  <div ref={sentinelRef} style={{ height: '1px', width: '100%' }} aria-hidden />
+                )}
+                <StoryCard 
+                  story={story} 
+                  index={index} 
+                  viewType="feed"
+                  onLikeToggle={handleLikeToggle}
+                  onSaveToggle={handleSaveToggle}
+                  onFollowUser={handleFollowUser}
+                  onOpenStoryVerses={handleOpenStoryVerses}
+                  currentTag={currentTag}
+                  onTagSelect={handleTagOptionClick}
+                  isAuthenticated={isAuthenticated}
+                  openAuthModal={(type = null, data = null) => window.dispatchEvent(new CustomEvent('auth:open', { detail: { type, data } }))}
+                />
+              </div>
             ))}
             
             {/* Manual load-more control (infinite scroll removed) */}
@@ -180,6 +221,8 @@ export default function FeedClient({ initialState }) {
             </button>
           </div>
         )}
+        {/* Sentinel element observed for warming the next page (prefetch only) */}
+        <div ref={sentinelRef} style={{ height: '1px', width: '100%' }} aria-hidden />
         
         {/* End of feed indicator */}
         {!hasNext && stories.length > 0 && (

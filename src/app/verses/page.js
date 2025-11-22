@@ -1,6 +1,7 @@
 // src/app/verses/page.js
 import Link from 'next/link';
 import { absoluteUrl } from '../../../lib/api';
+import { getVerses } from '../../../lib/api.server';
 
 export async function generateMetadata() {
   const title = 'Verses — StoryVermo';
@@ -14,16 +15,7 @@ export default async function VersesPage() {
   let verses = [];
   let error = null;
   try {
-  const res = await fetch(absoluteUrl('/api/verses/'), {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include'
-    });
-    if (res.ok) {
-      verses = await res.json();
-    } else {
-      error = `Failed to fetch verses: ${res.status}`;
-    }
+    verses = await getVerses();
   } catch (e) {
     console.warn('[verses page] failed to fetch verses', e);
     error = e.message;

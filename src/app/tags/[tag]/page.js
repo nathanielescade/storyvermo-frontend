@@ -1,6 +1,7 @@
 // src/app/tags/[tag]/page.js
 import Home from '../../page';
 import { absoluteUrl } from '../../../../lib/api';
+import { getTagSEO } from '../../../../lib/api.server';
 
 // Provide SEO metadata for the /tags/[tag] page so crawlers see useful content.
 export async function generateMetadata({ params }) {
@@ -23,16 +24,9 @@ const description = `Discover creative stories and verses inspired by ${prettyTa
 
   // Try to enrich metadata from the API but fall back to defaults on any error.
   try {
-  const response = await fetch(absoluteUrl(`/api/tags/${encodeURIComponent(tagSlug)}/seo/`), {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-    });
+    const seo = await getTagSEO(tagSlug);
     
-    if (response.ok) {
-      const seo = await response.json();
+    if (seo) {
       const apiTagName = seo?.tag?.name;
       const apiDescription = seo?.tag?.description;
       if (apiTagName) {
