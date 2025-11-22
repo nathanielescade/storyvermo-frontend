@@ -27,83 +27,10 @@ export default function FeedClient({ initialState }) {
 
   const { currentUser } = useAuth();
   const feedRef = useRef(null);
-  const sentinelRef = useRef(null);
-  const preloadTimeoutRef = useRef(null);
-  const [preloadTriggered, setPreloadTriggered] = useState(false);
 
 
-  // safeFetchMore prevents duplicate fetches when aggressive preloading fires rapidly.
-  // It short-circuits if a fetch is already in progress or a recent preload was triggered.
-  const safeFetchMore = useCallback(async () => {
-    if (isFetching || preloadTriggered) return null;
-
-    try {
-      setPreloadTriggered(true);
-      // Clear any existing timeout before setting a new one
-      if (preloadTimeoutRef.current) {
-        clearTimeout(preloadTimeoutRef.current);
-      }
-
-      const result = await handleFetchMore();
-
-      // Keep the preload lock for a short period to avoid duplicate calls
-      preloadTimeoutRef.current = setTimeout(() => {
-        setPreloadTriggered(false);
-        preloadTimeoutRef.current = null;
-      }, 1000);
-
-      return result;
-    } catch (e) {
-      // Ensure we release the lock on error
-      if (preloadTimeoutRef.current) {
-        clearTimeout(preloadTimeoutRef.current);
-        preloadTimeoutRef.current = null;
-      }
-      setPreloadTriggered(false);
-      throw e;
-    }
-  }, [isFetching, preloadTriggered, handleFetchMore]);
-
-  // Aggressive preloading strategy
-  useEffect(() => {
-    if (!hasNext || isFetching || preloadTriggered) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !preloadTriggered) {
-          // Trigger preload much earlier - when user is 70% through current content
-          // Use safeFetchMore to avoid race conditions when user scrolls very fast.
-          safeFetchMore();
-        }
-      },
-      {
-        root: feedRef.current,
-        rootMargin: '1000px', // Very aggressive - load 1000px before reaching bottom
-        threshold: 0.01
-      }
-    );
-
-    const node = sentinelRef.current;
-    if (node) {
-      observer.observe(node);
-    }
-
-    return () => {
-      if (node) {
-        observer.unobserve(node);
-      }
-    };
-  }, [hasNext, isFetching, preloadTriggered, safeFetchMore, stories.length]);
-
-  // cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (preloadTimeoutRef.current) {
-        clearTimeout(preloadTimeoutRef.current);
-        preloadTimeoutRef.current = null;
-      }
-    };
-  }, []);
+  // Note: infinite scroll/preloading removed. Loading more is now manual via
+  // the "Load more" button which calls `handleFetchMore`.
 
   // NOTE: previous buffering logic (storiesBuffer) was removed because buffered
   // stories were never rendered/merged into main `stories`. This avoids
@@ -232,8 +159,7 @@ export default function FeedClient({ initialState }) {
               />
             ))}
             
-            {/* Invisible sentinel for triggering preload */}
-            <div ref={sentinelRef} style={{ height: '1px', width: '100%' }}></div>
+            {/* Manual load-more control (infinite scroll removed) */}
           </>
         )}
 
@@ -241,6 +167,17 @@ export default function FeedClient({ initialState }) {
         {isFetching && (
           <div className="flex justify-center items-center h-8 my-2">
             <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-accent-orange opacity-70"></div>
+          </div>
+        )}
+        {/* Load more button to explicitly fetch the next page */}
+        {hasNext && !isFetching && stories.length > 0 && (
+          <div className="flex justify-center py-4">
+            <button
+              onClick={() => handleFetchMore()}
+              className="px-4 py-2 bg-accent-orange text-white rounded-lg hover:bg-accent-orange/90"
+            >
+              Load more
+            </button>
           </div>
         )}
         
@@ -257,7 +194,7 @@ export default function FeedClient({ initialState }) {
             <p className="text-red-500 mb-2">{error}</p>
             <button 
               onClick={() => {
-                safeFetchMore();
+                handleFetchMore();
               }}
               className="px-3 py-1 bg-accent-orange text-white text-sm rounded hover:bg-accent-orange/90"
             >

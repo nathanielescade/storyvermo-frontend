@@ -67,28 +67,9 @@ export function SearchClient() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  // Infinite scroll removed: we no longer observe the last item to auto-increment pages.
+  // A manual "Load more" button is provided to fetch additional pages.
   const observer = useRef();
-  const lastElementRef = useRef();
-
-  // Intersection Observer callback
-  const lastItemRef = useCallback(node => {
-    if (results.loading || loadingMore) return;
-    
-    if (observer.current) {
-      observer.current.disconnect();
-    }
-
-    observer.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore) {
-        setPage(prevPage => prevPage + 1);
-      }
-    });
-
-    if (node) {
-      observer.current.observe(node);
-      lastElementRef.current = node;
-    }
-  }, [results.loading, loadingMore, hasMore]);
   
   // New state for story feed modal
   const [storyFeedModal, setStoryFeedModal] = useState({ visible: false, initialIndex: 0 });
@@ -377,7 +358,6 @@ export function SearchClient() {
                   results.stories.map((story, index) => (
                     <div 
                       key={story.id || story.slug}
-                      ref={index === results.stories.length - 1 ? lastItemRef : null}
                       onClick={(e) => handleStoryClick(e, index)}
                       className="cursor-pointer group"
                     >
@@ -425,6 +405,17 @@ export function SearchClient() {
                         <StorySkeleton key={`loading-more-${i}`} />
                       ))}
                     </div>
+                  </div>
+                )}
+                {/* Manual load more control (infinite scroll removed) */}
+                {hasMore && !loadingMore && (
+                  <div className="col-span-full text-center mt-6">
+                    <button
+                      onClick={() => setPage(prev => prev + 1)}
+                      className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:opacity-90"
+                    >
+                      Load more
+                    </button>
                   </div>
                 )}
               </div>
@@ -547,11 +538,10 @@ export function SearchClient() {
                 [...Array(6)].map((_, i) => (
                   <CreatorSkeleton key={`skeleton-${i}`} />
                 ))
-              ) : results.creators.length > 0 ? (
+                ) : results.creators.length > 0 ? (
                 results.creators.map((creator, index) => (
                   <div
                     key={creator.id || creator.username}
-                    ref={index === results.creators.length - 1 ? lastItemRef : null}
                     className="flex items-center p-4 bg-slate-900/60 rounded-2xl border border-cyan-500/20 hover:border-cyan-500/40 transition-all duration-300 cursor-pointer group"
                     onClick={() => router.push(`/${creator.username}`)}
                   >

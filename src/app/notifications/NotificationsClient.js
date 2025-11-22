@@ -16,29 +16,12 @@ export function NotificationsClient() {
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const observer = useRef();
-  const lastNotificationElementRef = useRef();
+  // IntersectionObserver-based infinite loading removed. Use manual pagination.
   const { currentUser, isAuthenticated } = useAuth();
   const router = useRouter();
 
-  // Intersection Observer callback
-  const lastNotificationRef = useCallback(node => {
-    if (loading || loadingMore) return;
-    
-    if (observer.current) {
-      observer.current.disconnect();
-    }
-
-    observer.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore) {
-        setPage(prevPage => prevPage + 1);
-      }
-    }, { threshold: 0.5 });
-
-    if (node) {
-      observer.current.observe(node);
-      lastNotificationElementRef.current = node;
-    }
-  }, [loading, loadingMore, hasMore]);
+  // manual pagination uses the `page` state; a "Load more" button will
+  // increment the page instead of observing elements.
 
   // Effect for initial load
   useEffect(() => {
@@ -357,7 +340,6 @@ export function NotificationsClient() {
             {notifications.map((notification, index) => (
               <div 
                 key={notification.id}
-                ref={index === notifications.length - 1 ? lastNotificationRef : null}
                 onClick={() => handleNotificationClick(notification)}
                 className={`p-4 rounded-2xl cursor-pointer transition-all hover:bg-slate-800/50 flex items-start gap-3 ${
                   !notification.is_read ? 'bg-slate-900/60 border-l-4 border-cyan-500' : 'bg-slate-900/60 backdrop-blur-sm'
@@ -436,6 +418,17 @@ export function NotificationsClient() {
                 {[...Array(3)].map((_, i) => (
                   <NotificationSkeleton key={`loading-more-${i}`} />
                 ))}
+              </div>
+            )}
+            {/* Manual load more control (infinite scroll removed) */}
+            {hasMore && !loadingMore && (
+              <div className="text-center mt-4">
+                <button
+                  onClick={() => setPage(prev => prev + 1)}
+                  className="px-4 py-2 bg-cyan-500 text-white rounded-lg hover:opacity-90"
+                >
+                  Load more
+                </button>
               </div>
             )}
           </div>
