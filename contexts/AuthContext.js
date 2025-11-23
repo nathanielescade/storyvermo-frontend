@@ -100,24 +100,73 @@ export function AuthProvider({ children }) {
     return errors;
   };
 
-  // Initialize state with safe defaults that match server and client
-  const [currentUser, setCurrentUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
+  // Initialize state instantly from localStorage for fast hydration
+  const [currentUser, setCurrentUser] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const saved = localStorage.getItem('currentUser');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+  
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('isAuthenticated') === 'true';
+  });
+  
+  const [loading, setLoading] = useState(false);
 
-  // Check authentication status on initial load
+  // Silently verify auth in background with timeout (non-blocking)
   useEffect(() => {
     let mounted = true;
+    let timeoutId;
+    let abortController;
     
-    const checkAuth = async () => {
+    const verifyAuthInBackground = async () => {
       try {
-        setLoading(true);
-        const response = await authApi.checkAuth();
-        console.log('Auth check response:', response);
+        // Create abort controller for fetch timeout
+        abortController = new AbortController();
+        
+        // Set a 3-second timeout for auth check
+        timeoutId = setTimeout(() => {
+          console.warn('Auth verification timeout - keeping cached state');
+          abortController.abort();
+        }, 3000);
+        
+        // Make the request with abort signal
+        const url = `${authApi.checkAuth.toString().includes('apiRequest') ? '' : ''}`;
+        const response = await fetch(`${typeof window !== 'undefined' ? '' : ''}${process.env.NEXT_PUBLIC_API_URL || 'https://api.storyvermo.com'}/auth/check/`, {
+          credentials: 'include',
+          headers: { 'Accept': 'application/json' },
+          signal: abortController.signal,
+          redirect: 'manual'
+        });
+        
+        if (!mounted) return;
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) {
+          console.debug('Auth check returned non-ok status:', response.status);
+          if (mounted) {
+            setCurrentUser(null);
+            setIsAuthenticated(false);
+            
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('currentUser');
+              localStorage.removeItem('isAuthenticated');
+            }
+          }
+          return;
+        }
+        
+        const data = await response.json();
+        console.log('Auth verification response:', data);
         
         if (!mounted) return;
         
-        const user = normalizeUserFromResponse(response);
+        const user = normalizeUserFromResponse(data);
         
         if (user) {
           setCurrentUser(user);
@@ -127,7 +176,7 @@ export function AuthProvider({ children }) {
             localStorage.setItem('currentUser', JSON.stringify(user));
             localStorage.setItem('isAuthenticated', 'true');
           }
-          console.log('User authenticated:', user.username || user.id);
+          console.log('User verified:', user.username || user.id);
         } else {
           setCurrentUser(null);
           setIsAuthenticated(false);
@@ -139,7 +188,15 @@ export function AuthProvider({ children }) {
           console.log('User not authenticated');
         }
       } catch (error) {
-        console.error('Auth check error:', error);
+        clearTimeout(timeoutId);
+        
+        // If it's an abort (timeout), keep cached state
+        if (error.name === 'AbortError') {
+          console.warn('Auth verification timed out - keeping cached state');
+          return;
+        }
+        
+        console.error('Auth verification error:', error);
         if (mounted) {
           setCurrentUser(null);
           setIsAuthenticated(false);
@@ -149,17 +206,16 @@ export function AuthProvider({ children }) {
             localStorage.removeItem('isAuthenticated');
           }
         }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
       }
     };
 
-    checkAuth();
+    // Verify auth silently in background - doesn't block rendering
+    verifyAuthInBackground();
     
     return () => {
       mounted = false;
+      clearTimeout(timeoutId);
+      if (abortController) abortController.abort();
     };
   }, []);
 

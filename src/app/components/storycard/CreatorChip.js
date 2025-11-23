@@ -218,7 +218,7 @@ const CreatorChip = ({
                             className="follow-button absolute bottom-0 right-0 bg-transparent border-2 rounded-full w-8 h-8 flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors"
                             onClick={handleFollowClick}
                         >
-                            <i className="fas fa-plus text-white font-extrabold text-xl"></i>
+                            <i className="fas fa-plus text-white font-extrabold text-4xl"></i>
                         </button>
                     )}
                 </div>

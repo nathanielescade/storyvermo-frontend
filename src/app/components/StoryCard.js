@@ -1,6 +1,6 @@
 "use client";
 // StoryCard.js
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import Image from 'next/image';
 import { formatNumber, formatTimeAgo, createBubbles } from '../../../lib/utils';
@@ -76,6 +76,19 @@ export default function StoryCard({
     const hologramRef = useRef(null);
     const dropdownRef = useRef(null);
 
+    // Function to refetch story data - MUST be before first useEffect that calls it
+    const refetchStory = useCallback(async () => {
+        try {
+            const fullStory = await storiesApi.getStoryBySlug(story.slug);
+            setCurrentStory(fullStory);
+            setIsLiked(fullStory.is_liked_by_user || false);
+            setIsSaved(fullStory.is_saved_by_user || false);
+            setIsFollowing(fullStory.isFollowing || fullStory.is_following || false);
+        } catch (error) {
+            console.error('Error refetching story:', error);
+        }
+    }, [story.slug]);
+
     // Check if current user is the owner of the story (robust across different API shapes)
     const isOwner = (() => {
         if (!currentUser || !story) return false;
@@ -114,7 +127,9 @@ export default function StoryCard({
         // Always update state based on the latest props
         setIsLiked(story.is_liked_by_user ?? false);
         setIsSaved(story.is_saved_by_user ?? false);
-        setIsFollowing(story.isFollowing || story.is_following || false);
+        const followingValue = story.isFollowing || story.is_following || false;
+        console.log(`[StoryCard ${story.id}] story updated, setting isFollowing to:`, followingValue, { story });
+        setIsFollowing(followingValue);
         setLocalCommentsCount(story.comments_count || 0);
         setCurrentStory(story);
 
@@ -143,7 +158,7 @@ export default function StoryCard({
                 existingBubbles.forEach(bubble => bubble.remove());
             }
         };
-    }, [story]);
+    }, [story, refetchStory]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -160,19 +175,6 @@ export default function StoryCard({
         };
     }, []);
 
-    // Function to refetch story data
-    const refetchStory = async () => {
-        try {
-            const fullStory = await storiesApi.getStoryBySlug(story.slug);
-            setCurrentStory(fullStory);
-            setIsLiked(fullStory.is_liked_by_user || false);
-            setIsSaved(fullStory.is_saved_by_user || false);
-            setIsFollowing(fullStory.isFollowing || fullStory.is_following || false);
-        } catch (error) {
-            console.error('Error refetching story:', error);
-        }
-    };
-
     // StoryCard.js - handleFollow function
     const handleFollow = async (event, username) => {
         event.stopPropagation();
@@ -187,10 +189,12 @@ export default function StoryCard({
             // API twice (some parents already call userApi.followUser).
             if (typeof onFollowUser === 'function') {
                 // Let parent perform the follow/unfollow action and update global state.
+                // The parent will update the stories array, which will trigger this component's
+                // useEffect to update isFollowing from the new story prop.
+                // DO NOT do an optimistic update here - wait for the parent to update the story prop.
                 await onFollowUser(username);
-                // Optimistically toggle local state to reflect expected change. Parent
-                // will update authoritative state eventually.
-                setIsFollowing(prev => !prev);
+                // Parent's handleFollowUser will update stories, which triggers our useEffect([story])
+                // which will call setIsFollowing with the correct value from story.is_following
                 return;
             }
 

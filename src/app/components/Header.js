@@ -19,7 +19,7 @@ const Header = ({ openAuthModal }) => {
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [recentSearches, setRecentSearches] = useState([]);
-  const [hasMounted, setHasMounted] = useState(false); // Track if component has mounted
+  const [mounted, setMounted] = useState(false);
   
   // New state for auto-suggest functionality
   const [results, setResults] = useState({
@@ -40,11 +40,12 @@ const Header = ({ openAuthModal }) => {
   const mobileSearchBarRef = useRef(null);
   const router = useRouter();
 
-  // Set hasMounted to true when component mounts
+  // Load recent searches from localStorage on mount
   useEffect(() => {
-    setHasMounted(true);
+    // Mark component as mounted to prevent hydration mismatches
+    setMounted(true);
     
-    // Load recent searches from localStorage only on client side
+    // Load recent searches from localStorage
     const savedSearches = localStorage.getItem('recentSearches');
     if (savedSearches) {
       setRecentSearches(JSON.parse(savedSearches));
@@ -86,11 +87,11 @@ const Header = ({ openAuthModal }) => {
 
   // Auto-focus desktop search when page loads
   useEffect(() => {
-    if (hasMounted && desktopSearchInputRef.current) {
+    if (desktopSearchInputRef.current) {
       // You can uncomment this if you want the search to be focused on page load
       // desktopSearchInputRef.current.focus();
     }
-  }, [hasMounted]);
+  }, []);
 
   // Auto-focus mobile search when it's opened
   useEffect(() => {
@@ -213,7 +214,7 @@ const Header = ({ openAuthModal }) => {
     }
   };
 
-  // Debounced search function (useMemo to keep same instance while router is stable)
+  // Debounced search function (useMemo to keep same instance)
   const debouncedSearch = useMemo(() => debounce(async (searchQuery) => {
     if (!searchQuery.trim()) {
       setResults(prev => ({ ...prev, stories: [], verses: [], creators: [], loading: false }));
@@ -243,7 +244,7 @@ const Header = ({ openAuthModal }) => {
       console.error('Search error:', error);
       setResults(prev => ({ ...prev, loading: false }));
     }
-  }, 120), [router]);
+  }, 120), []);
 
   // Navigate when selecting a suggestion
   const navigateToSuggestion = (sugg) => {
@@ -503,9 +504,9 @@ const Header = ({ openAuthModal }) => {
           </div>
         </form>
         
-        {/* Notification Bell - Only render on client or when authenticated */}
-        {hasMounted && isAuthenticated ? (
-          <div className="notification-bell-wrapper relative" style={{ position: 'relative', display: 'inline-block' }}>
+        {/* Notification Bell - Render with hydration safety */}
+        {mounted && isAuthenticated ? (
+          <div className="notification-bell-wrapper relative" style={{ position: 'relative', display: 'inline-block' }} suppressHydrationWarning>
             <div style={{ position: 'relative' }}>
               <button 
                 className="notification-button w-10 h-10 rounded-full bg-gradient-to-r from-neon-blue to-neon-purple flex items-center justify-center shadow-[0_0_15px_rgba(0,212,255,0.7)] transition-transform hover:scale-105" 
@@ -629,8 +630,8 @@ const Header = ({ openAuthModal }) => {
         </button>
         
         {/* User menu or login button */}
-        <div className="relative" id="userMenuContainer" ref={userMenuRef}>
-          {hasMounted && isAuthenticated && currentUser ? (
+        <div className="relative" id="userMenuContainer" ref={userMenuRef} suppressHydrationWarning>
+          {mounted && isAuthenticated && currentUser ? (
             <>
               <button 
                 className="w-10 h-10 rounded-full bg-gradient-to-r from-accent-orange to-neon-pink flex items-center justify-center text-white font-bold text-lg shadow-[0_0_15px_rgba(255,107,53,0.7)] transition-transform hover:scale-105 overflow-hidden"
@@ -678,7 +679,7 @@ const Header = ({ openAuthModal }) => {
                 </button>
               </div>
             </>
-          ) : hasMounted ? (
+          ) : mounted && isAuthenticated === false ? (
             // Login button when not authenticated
             <button 
               id="loginBtn"
