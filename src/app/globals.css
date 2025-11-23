@@ -1272,7 +1272,7 @@
         }
         
         /* Follow button styles */
-        .follow-button {
+        /* .follow-button {
             position: absolute;
             bottom: 0;
             right: 0;
@@ -1303,7 +1303,7 @@
         .follow-button i {
             color: white;
             font-size: 10px;
-        }
+        } */
         
         /* Floating comment styles */
         .floating-comment {

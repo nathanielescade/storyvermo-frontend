@@ -86,7 +86,7 @@ const TitleSection = ({
                 <a href={`/stories/${story.slug}/`} className="block">
                     <h2 
                         ref={titleRef}
-                        className={`scene-title text-3xl font-bold mb-2.5 hover:underline flex items-center flex-wrap ${
+                        className={`scene-title text-3xl font-bold mb-0 hover:underline flex items-center flex-wrap ${
                             titleExpanded ? '' : 'line-clamp-2'
                         }`}
                         id={`title-${index}`}
@@ -117,7 +117,7 @@ const TitleSection = ({
                             toggleTitle();
                         }}
                     >
-                        {titleExpanded ? 'Read less' : '...'}
+                        {titleExpanded ? 'Read less' : ''}
                     </span>
                 )}
             </div>
