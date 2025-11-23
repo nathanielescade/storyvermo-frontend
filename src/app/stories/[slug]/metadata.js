@@ -1,5 +1,5 @@
 // app/stories/[slug]/metadata.js
-import { storiesApi, absoluteUrl } from '../../../../lib/api';
+import { storiesApi, absoluteUrl, siteUrl } from '../../../../lib/api';
 
 // Helper to resolve a moment image URL on the server side (handles common shapes)
 function resolveMomentImageUrl(moment) {
@@ -126,7 +126,7 @@ export async function generateMetadata({ params, searchParams }) {
             title: finalTitle,
             description: verseDescription,
             type: 'article',
-            url: `${'https://storyvermo.com'}/stories/${encodeURIComponent(story.slug || '')}?verse=${encodeURIComponent(verseId)}`,
+            url: siteUrl(`/stories/${encodeURIComponent(story.slug || '')}?verse=${encodeURIComponent(verseId)}`),
             authors: readableVerseAuthor ? [readableVerseAuthor] : undefined,
             tags: tagList,
             images: verseImage ? [{ url: verseImage, alt: verseTitle || story.title }] : undefined,

@@ -1,6 +1,6 @@
 // src/app/tags/[tag]/page.js
 import Home from '../../page';
-import { absoluteUrl } from '../../../../lib/api';
+import { absoluteUrl, siteUrl } from '../../../../lib/api';
 
 // Provide SEO metadata for the /tags/[tag] page so crawlers see useful content.
 export async function generateMetadata({ params }) {
@@ -19,7 +19,7 @@ export async function generateMetadata({ params }) {
   const title = `${prettyTag ? prettyTag.charAt(0).toUpperCase() + prettyTag.slice(1) : 'Tags'} — StoryVermo`;
 const description = `Discover creative stories and verses inspired by ${prettyTag} on StoryVermo.`;
 
-  const url = absoluteUrl(`/tags/${encodeURIComponent(tagSlug)}/`);
+  const url = siteUrl(`/tags/${encodeURIComponent(tagSlug)}/`);
 
   // Try to enrich metadata from the API but fall back to defaults on any error.
   try {

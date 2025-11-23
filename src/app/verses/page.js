@@ -1,12 +1,12 @@
 // src/app/verses/page.js
 import Link from 'next/link';
-import { absoluteUrl } from '../../../lib/api';
+import { absoluteUrl, siteUrl } from '../../../lib/api';
 
 export async function generateMetadata() {
   const title = 'Verses — StoryVermo';
   const description = 'Explore the latest verses from storytellers on StoryVermo — short, powerful moments captured within stories.';
 
-  const url = absoluteUrl('/verses/');
+  const url = siteUrl('/verses/');
   return { title, description, alternates: { canonical: url } };
 }
 

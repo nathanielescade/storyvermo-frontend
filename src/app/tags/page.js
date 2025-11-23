@@ -1,13 +1,13 @@
 // src/app/tags/page.js
 import Link from 'next/link';
-import { absoluteUrl } from '../../../lib/api';
+import { absoluteUrl, siteUrl } from '../../../lib/api';
 
 export async function generateMetadata() {
   const title = 'Tags — StoryVermo';
   const description = 'Browse tags to explore creative journeys, trending ideas, and unique stories from StoryVermo creators.';
 
-  const url = absoluteUrl('/tags/');
-  const defaultImage = absoluteUrl('/og-tags.png');
+  const url = siteUrl('/tags/');
+  const defaultImage = siteUrl('/og-tags.png');
 
   return {
     title,
@@ -119,11 +119,11 @@ export default async function TagsPage() {
         "@type": "ItemList",
         name: "Tags",
         description: "List of tags on StoryVermo",
-        url: absoluteUrl('/tags/'),
+        url: siteUrl('/tags/'),
         itemListElement: (Array.isArray(tags) ? tags : []).map((t, i) => ({
           "@type": "ListItem",
           position: i + 1,
-          url: absoluteUrl(`/tags/${encodeURIComponent(t?.slug || (t?.name || '').toLowerCase().replace(/\s+/g, '-'))}/`),
+          url: siteUrl(`/tags/${encodeURIComponent(t?.slug || (t?.name || '').toLowerCase().replace(/\s+/g, '-'))}/`),
           name: t?.name || t
         }))
       }) }} />

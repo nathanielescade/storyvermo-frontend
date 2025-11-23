@@ -1,11 +1,11 @@
-import { absoluteUrl } from '../../../lib/api';
+import { absoluteUrl, siteUrl } from '../../../lib/api';
 import LoginPageClient from './LoginPageClient';
 
 export async function generateMetadata() {
   const title = 'Login — StoryVermo';
 const description = 'Log in to StoryVermo and dive into a world of creative stories, shared moments, and vibrant communities.';
 
-  const url = absoluteUrl('/login/');
+  const url = siteUrl('/login/');
 
   return {
     title,
