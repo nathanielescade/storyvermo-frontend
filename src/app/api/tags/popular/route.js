@@ -4,8 +4,18 @@
 
 export async function GET(request) {
   try {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    
+    if (!apiUrl) {
+      console.error('NEXT_PUBLIC_API_URL is not defined');
+      return Response.json(
+        { error: 'API configuration error' },
+        { status: 500 }
+      );
+    }
+
     // Proxy the request to the backend API
-    const response = await fetch(`${NEXT_PUBLIC_API_URL}/api/tags/popular/`, {
+    const response = await fetch(`${apiUrl}/api/tags/popular/`, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',

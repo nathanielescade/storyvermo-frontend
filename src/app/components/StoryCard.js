@@ -409,7 +409,7 @@ export default function StoryCard({
                     {/* Updated hologram with fixed positioning */}
                     <div 
                         ref={hologramRef}
-                        className="fixed-hologram absolute bottom-36 left-[5%] right-[5%] bg-black/60 backdrop-blur-[0.5px] border-2 border-[rgba(80,105,219,0.4)] rounded-2xl p-3 overflow-visible  "
+                        className="fixed-hologram absolute bottom-36 md:bottom-0 left-[5%] right-[5%] bg-black/60 backdrop-blur-[0.5px] border-2 border-[rgba(80,105,219,0.4)] rounded-2xl p-3 overflow-visible  "
                         style={{
                             position: 'absolute',
                             transform: 'translateZ(0)',

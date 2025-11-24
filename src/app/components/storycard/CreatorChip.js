@@ -1,5 +1,5 @@
-// CreatorChip.js - Enhanced with loading state animation
-import React from 'react';
+// CreatorChip.js - Enhanced with loading state animation and tooltip
+import React, { useState, useEffect } from 'react';
 import { formatTimeAgo } from '../../../../lib/utils';
 import { useAuth } from '../../../../contexts/AuthContext';
 
@@ -16,13 +16,41 @@ const CreatorChip = ({
     getCreatorInitial 
 }) => {
     const { currentUser } = useAuth();
+    const [showTooltip, setShowTooltip] = useState(false);
     const creatorUsername = getCreatorUsername();
     const isSelf = !!(currentUser && currentUser.username && currentUser.username === creatorUsername);
+    
+    // Check if user has seen the tooltip before
+    useEffect(() => {
+        const hasSeenTooltip = localStorage.getItem('hasSeenVersesButtonTooltip');
+        if (!hasSeenTooltip) {
+            // Show tooltip after a brief delay
+            const timer = setTimeout(() => {
+                setShowTooltip(true);
+                // Auto-hide after 4 seconds
+                const hideTimer = setTimeout(() => {
+                    setShowTooltip(false);
+                    localStorage.setItem('hasSeenVersesButtonTooltip', 'true');
+                }, 4000);
+                return () => clearTimeout(hideTimer);
+            }, 500);
+            return () => clearTimeout(timer);
+        }
+    }, []);
     
     const handleFollowClick = async (e) => {
         e.preventDefault();
         e.stopPropagation();
         await handleFollow(e, creatorUsername);
+    };
+    
+    const handleVersesClick = () => {
+        // Dismiss tooltip when button is clicked
+        if (showTooltip) {
+            setShowTooltip(false);
+            localStorage.setItem('hasSeenVersesButtonTooltip', 'true');
+        }
+        handleOpenVerses();
     };
     
     return (
@@ -38,7 +66,7 @@ const CreatorChip = ({
                         background-size: 400% 400%;
                         background-position: 0% 50%;
                     }
-                    20% { 
+                    20% {    
                         background: linear-gradient(135deg, #5b9cf6, #ff6bb3, #f97316);
                         background-size: 400% 400%;
                         background-position: 50% 50%;
@@ -117,6 +145,22 @@ const CreatorChip = ({
                         background-size: 400% 400%;
                         background-position: 0% 50%;
                     }
+                }
+                
+                @keyframes tooltipFadeIn {
+                    from {
+                        opacity: 0;
+                        transform: translateY(-5px);
+                    }
+                    to {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                }
+                
+                @keyframes tooltipBounce {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-3px); }
                 }
                 
                 .animate-rotate { 
@@ -199,6 +243,42 @@ const CreatorChip = ({
                 .verses-btn-container:hover .verses-bg {
                     animation: gradientSwirl 5s ease-in-out infinite;
                 }
+                
+                /* Tooltip Styles */
+                .verses-tooltip {
+                    position: absolute;
+                    bottom: calc(100% + 8px);
+                    left: 50%;
+                    transform: translateX(-50%);
+                    background: rgba(0, 0, 0, 0.9);
+                    color: white;
+                    padding: 6px 12px;
+                    border-radius: 8px;
+                    font-size: 11px;
+                    white-space: nowrap;
+                    pointer-events: none;
+                    z-index: 1000;
+                    animation: tooltipFadeIn 0.3s ease-out, tooltipBounce 2s ease-in-out infinite 0.5s;
+                    backdrop-filter: blur(10px);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+                }
+                
+                .verses-tooltip::after {
+                    content: '';
+                    position: absolute;
+                    top: 100%;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    border: 5px solid transparent;
+                    border-top-color: rgba(0, 0, 0, 0.9);
+                }
+                
+                .verses-tooltip-icon {
+                    display: inline-block;
+                    margin-right: 4px;
+                    font-size: 12px;
+                }
             `}</style>
             
             <div className="creator-chip flex items-center gap-3 bg-white/10 py-1 px-1 rounded-full border border-white/20 max-w-full overflow-hidden">
@@ -236,12 +316,20 @@ const CreatorChip = ({
                     )}
                 </div>
 
-                <div className="flex items-center gap-2 pl-2 pr-1"> {/* Added left padding and adjusted right padding */}
+                <div className="flex items-center gap-2 pl-2 pr-1">
                     <div className="relative" style={{ display: 'inline-block' }}>
+                        {/* Tooltip */}
+                        {showTooltip && (
+                            <div className="verses-tooltip">
+                                <span className="verses-tooltip-icon">👆</span>
+                                Click to view verses
+                            </div>
+                        )}
+                        
                         <div className={`verses-btn-container ${isViewerOpening ? 'loading' : ''}`}>
                             <button 
                                 className="verses-btn relative py-4 px-3 rounded-full font-bold text-base cursor-pointer transition-all hover:scale-105 uppercase tracking-widest flex items-center gap-2 flex-shrink-0 overflow-hidden shadow-lg hover:shadow-2xl"
-                                onClick={handleOpenVerses}
+                                onClick={handleVersesClick}
                                 aria-busy={isViewerOpening}
                                 disabled={isViewerOpening}
                             >

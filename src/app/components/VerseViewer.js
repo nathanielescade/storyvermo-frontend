@@ -195,6 +195,7 @@ const VerseViewer = ({
   const [focusMode, setFocusMode] = useState(false);
   const [readingProgress, setReadingProgress] = useState(0);
   const [isTextVisible, setIsTextVisible] = useState(true);
+  const [showScrollHint, setShowScrollHint] = useState(false);
   // Modal state
   // const [showContributeModal, setShowContributeModal] = useState(false);
   
@@ -383,6 +384,50 @@ const VerseViewer = ({
       return null;
     }
   };
+
+  // Show scroll hint after 1 second if there are more verses below current verse, then hide after 3 seconds of showing
+  useEffect(() => {
+    if (!isOpen || !story?.verses || story.verses.length <= 1) {
+      setShowScrollHint(false);
+      return;
+    }
+
+    // Don't show hint on the last verse
+    if (currentVerseIndex >= story.verses.length - 1) {
+      setShowScrollHint(false);
+      return;
+    }
+
+    // Show hint after 1 second
+    const showTimer = setTimeout(() => {
+      setShowScrollHint(true);
+    }, 1000);
+
+    // Hide hint after showing for 3 seconds (total 4 seconds)
+    const hideTimer = setTimeout(() => {
+      setShowScrollHint(false);
+    }, 4000);
+
+    return () => {
+      clearTimeout(showTimer);
+      clearTimeout(hideTimer);
+    };
+  }, [isOpen, story?.verses, currentVerseIndex]);
+
+  // Hide scroll hint when user scrolls
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollHint(false);
+    };
+
+    const containerElement = containerRef.current;
+    if (containerElement && isOpen) {
+      containerElement.addEventListener('scroll', handleScroll);
+      return () => {
+        containerElement.removeEventListener('scroll', handleScroll);
+      };
+    }
+  }, [isOpen]);
 
   // Reset state when modal opens
   useEffect(() => {
@@ -877,7 +922,14 @@ const VerseViewer = ({
         ></div>
       </div>
       
-      {/* (Removed scroll hint teaser) */}
+      {/* Scroll hint teaser - shows colorful animated down arrow when there are more verses */}
+      {showScrollHint && story?.verses && story.verses.length > 1 && (
+        <div className="fixed bottom-32 left-0 right-0 flex justify-center z-50 pointer-events-none">
+          <div className="animate-bounce">
+            <i className="fas fa-chevron-down text-4xl bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent animate-pulse"></i>
+          </div>
+        </div>
+      )}
       
       {/* Fixed Header with glassmorphism */}
       <div className={`fixed top-0 left-0 right-0 z-50 bg-black/30 backdrop-blur-lg p-4 transition-opacity duration-500 ${!focusMode ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
@@ -1128,62 +1180,70 @@ const VerseViewer = ({
                     {isContribution ? 'Contributed' : 'Creator'}
                   </div>
                 </div>
-                {currentUser && (String(currentUser.public_id) === String(getUserId(currentVerse?.author)) || String(currentUser.public_id) === String(getUserId(story?.creator))) && (
-                  <div className="relative">
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setShowVerseOptions(!showVerseOptions);
-                      }}
-                      className="w-8 h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer transition-all duration-200 hover:bg-white/20"
-                    >
-                      {/* horizontal ellipsis */}
-                      <i className="fas fa-ellipsis-h text-white">⋯</i>
-                    </button>
-                    {showVerseOptions && (
-                      <div className="absolute left-0 mt-2 w-48 rounded-xl overflow-hidden bg-gray-900/95 backdrop-blur-lg border border-white/10 shadow-xl z-50" ref={verseOptionsRef}>
-                        {(String(currentUser.public_id) === String(getUserId(currentVerse?.author)) || String(currentUser.public_id) === String(getUserId(story?.creator))) && (
-                          <>
-                            <button
-                              onClick={() => {
-                                setShowVerseOptions(false);
-                                // Prefer opening the centralized StoryFormModal if parent provided a handler
-                                if (typeof onOpenStoryForm === 'function') {
-                                  onOpenStoryForm(currentVerse);
-                                } else {
-                                  // Fallback for older codepaths: open the contribute modal to edit verse
-                                  setEditingVerse(currentVerse);
-                                  setShowContributeModal(true);
-                                }
-                              }}
-                              className="w-full px-4 py-2 text-left text-sm text-white hover:bg-cyan-500/20 flex items-center gap-2"
-                            >
-                              <i className="fas fa-edit text-cyan-400"></i>
-                              Edit Verse
-                            </button>
-                            <button
-                              onClick={() => {
-                                setShowVerseOptions(false);
-                                setShowDeleteModal(true);
-                              }}
-                              className="w-full px-4 py-2 text-left text-sm text-white hover:bg-red-500/20 flex items-center gap-2"
-                            >
-                              <i className="fas fa-trash-alt text-red-400"></i>
-                              Delete Verse
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
             
             {/* Vertical buttons container */}
             <div className="absolute bottom-4 right-4 flex flex-col items-center gap-6 z-50">
-              {/* Like Button (at top) */}
+              {/* Ellipsis Menu Button (at very top) - for verse creators and contributors */}
+              {isAuthenticated && currentUser && (String(currentUser?.public_id || currentUser?.id) === String(getUserId(currentVerse?.author)) || String(currentUser?.public_id || currentUser?.id) === String(getUserId(story?.creator))) && (
+                <div className="relative">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowVerseOptions(!showVerseOptions);
+                    }}
+                    className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer transition-all duration-200 ease-in-out relative border border-white/20 hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110"
+                    title="Options"
+                  >
+                    <i className="fas fa-ellipsis-v text-[18px] text-white"></i>
+                  </button>
+                  {showVerseOptions && (
+                    <div className="absolute right-0 bottom-full mb-2 w-48 rounded-xl overflow-hidden bg-gray-900/95 backdrop-blur-lg border border-white/10 shadow-xl z-50" ref={verseOptionsRef}>
+                      <button
+                        onClick={() => {
+                          setShowVerseOptions(false);
+                          // Check if user is the verse author (contributor) or story creator
+                          const isVerseAuthor = String(currentUser?.public_id || currentUser?.id) === String(getUserId(currentVerse?.author));
+                          const isStoryCreator = String(currentUser?.public_id || currentUser?.id) === String(getUserId(story?.creator));
+                          
+                          // Contributors (verse authors) should only edit via ContributeModal
+                          // Story creators can use StoryFormModal if available
+                          if (isVerseAuthor && !isStoryCreator) {
+                            // This is a contributor, open ContributeModal only
+                            setEditingVerse(currentVerse);
+                            setShowContributeModal(true);
+                          } else if (isStoryCreator && typeof onOpenStoryForm === 'function') {
+                            // Story creator - use the StoryFormModal
+                            onOpenStoryForm(currentVerse);
+                          } else {
+                            // Fallback: open the contribute modal to edit verse
+                            setEditingVerse(currentVerse);
+                            setShowContributeModal(true);
+                          }
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-white hover:bg-cyan-500/20 flex items-center gap-2 border-b border-white/10"
+                      >
+                        <i className="fas fa-edit text-cyan-400"></i>
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowVerseOptions(false);
+                          setShowDeleteModal(true);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-white hover:bg-red-500/20 flex items-center gap-2"
+                      >
+                        <i className="fas fa-trash-alt text-red-400"></i>
+                        Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Like Button (below ellipsis) */}
               <div className="flex flex-col items-center">
                 <button 
                   className={`w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer transition-all duration-200 ease-in-out relative ${isLiked ? 'bg-accent-orange/10 border-2 border-accent-orange' : 'border border-white/20'} hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110`}

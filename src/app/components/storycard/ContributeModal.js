@@ -119,17 +119,14 @@ const ContributeModal = ({
                     content: verseContent
                 };
                 
-                // Handle images
-                const newImageIds = [];
-                const existingMomentIds = [];
+                // Handle images - collect ALL image IDs (existing + new)
+                const allImageIds = [];
                 
                 // Process images
                 for (const image of verseImages) {
-                    if (image.existing) {
-                        // Keep existing moments
-                        if (image.moment_id) {
-                            existingMomentIds.push(image.moment_id);
-                        }
+                    if (image.existing && image.public_id) {
+                        // Include existing image IDs
+                        allImageIds.push(image.public_id);
                     } else if (image.file) {
                         // Upload new images
                         const formData = new FormData();
@@ -141,38 +138,18 @@ const ContributeModal = ({
                         
                         const imageResponse = await imagesApi.uploadImage(formData);
                         if (imageResponse && imageResponse.public_id) {
-                            newImageIds.push(imageResponse.public_id);
+                            allImageIds.push(imageResponse.public_id);
                         }
                     }
                 }
                 
-                // Add new image IDs to update data
-                if (newImageIds.length > 0) {
-                    updateData.image_ids = newImageIds;
+                // Send ALL image IDs (backend will manage moments)
+                if (allImageIds.length > 0) {
+                    updateData.image_ids = allImageIds;
                 }
                 
                 // Update the verse
                 verseResponse = await versesApi.updateVerse(editingVerse.slug, updateData);
-                
-                // Create moments for new images
-                if (newImageIds.length > 0) {
-                    for (let i = 0; i < newImageIds.length; i++) {
-                        await momentsApi.createMoment({
-                            verse: verseResponse.public_id || verseResponse.id,
-                            image_id: newImageIds[i],
-                            order: (existingMomentIds.length + i + 1)
-                        });
-                    }
-                }
-                
-                // Remove moments that were deleted
-                if (editingVerse.moments && editingVerse.moments.length > 0) {
-                    for (const moment of editingVerse.moments) {
-                        if (!existingMomentIds.includes(moment.public_id)) {
-                            await momentsApi.deleteMoment(moment.public_id);
-                        }
-                    }
-                }
             } else {
                 // Create new verse
                 // First upload all images to get their IDs
