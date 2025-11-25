@@ -271,6 +271,18 @@ export default function StoryCard({
 
     // Helper functions
     const getCreatorDisplayName = () => {
+        // Check if account is brand type and has brand_name
+        if (story && story.creator_account_type === 'brand' && story.creator_brand_name) {
+            return story.creator_brand_name;
+        }
+
+        // Check if creator object has account_type and brand_name
+        if (story && typeof story.creator === 'object' && story.creator) {
+            if (story.creator.account_type === 'brand' && story.creator.brand_name) {
+                return story.creator.brand_name;
+            }
+        }
+
         // Prefer serializer-provided consolidated/full name fields
         if (story && story.creator_full_name) return story.creator_full_name;
         if (story && (story.creator_first_name || story.creator_last_name)) {

@@ -129,13 +129,25 @@ export default async function VersesPage() {
                       <div className="absolute left-3 bottom-3 flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-gray-700/50 shadow-lg">
                         <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-xs font-bold text-white shadow-lg">
                           {(() => {
-                            const name = v.author?.username || v.author_name || '';
-                            if (!name) return 'U';
-                            return name.split(' ').map(s => s[0]?.toUpperCase()).slice(0,2).join('');
+                            const author = v.author;
+                            let displayName = v.author_name || '';
+                            if (author) {
+                              displayName = author.account_type === 'brand' && author.brand_name 
+                                ? author.brand_name 
+                                : author.username || author.author_name || '';
+                            }
+                            if (!displayName) return 'U';
+                            return displayName.split(' ').map(s => s[0]?.toUpperCase()).slice(0,2).join('');
                           })()}
                         </div>
                         <div className="text-xs text-white/90 font-medium">
-                          {v.author?.username || v.author_name || 'Unknown'}
+                          {(() => {
+                            const author = v.author;
+                            if (author && author.account_type === 'brand' && author.brand_name) {
+                              return author.brand_name;
+                            }
+                            return author?.username || v.author_name || 'Unknown';
+                          })()}
                         </div>
                       </div>
 

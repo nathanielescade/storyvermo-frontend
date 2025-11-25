@@ -242,6 +242,11 @@ const VerseViewer = ({
     const a = getAuthor();
     if (!a) return 'Poster Name';
 
+    // Check if account is brand type and has brand_name
+    if (a.account_type === 'brand' && a.brand_name) {
+      return a.brand_name;
+    }
+
     const full = a.get_full_name || a.full_name || a.display_name || a.name;
     if (full) return full;
 

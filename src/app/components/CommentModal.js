@@ -36,6 +36,15 @@ const CommentModal = ({
   // Get current user and auth helpers from AuthContext
   const { currentUser, isAuthenticated, refreshAuth } = useAuth();
 
+  // Helper function to get display name based on account type
+  const getDisplayName = (user) => {
+    if (!user) return 'Unknown';
+    if (user.account_type === 'brand' && user.brand_name) {
+      return user.brand_name;
+    }
+    return user.username || 'Unknown';
+  };
+
   // Check if mobile
   useEffect(() => {
     const checkMobile = () => {
@@ -208,7 +217,7 @@ const CommentModal = ({
   const handleReplyClick = (comment) => {
     console.log('Replying to comment:', comment);
     setReplyingTo(comment);
-    setReplyContent(`@${comment.author.username} `);
+    setReplyContent(`@${getDisplayName(comment.author)} `);
     
     // Focus on the reply input immediately
     setTimeout(() => {
@@ -536,11 +545,11 @@ const CommentModal = ({
         <div className="p-6 border-b border-cyan-500/20 bg-black/30 relative z-10">
           <div className="flex items-start space-x-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-white font-bold">
-              {post.creator?.username?.charAt(0).toUpperCase() || 'U'}
+              {getDisplayName(post.creator)?.charAt(0).toUpperCase() || 'U'}
             </div>
             <div>
               <h3 className="font-bold text-white">{post.title}</h3>
-              <p className="text-gray-400 text-sm">{post.creator?.username}</p>
+              <p className="text-gray-400 text-sm">{getDisplayName(post.creator)}</p>
             </div>
           </div>
         </div>
@@ -569,11 +578,11 @@ const CommentModal = ({
                 <div className="relative bg-gradient-to-b from-gray-800/50 to-black/50 rounded-xl p-4 border border-cyan-500/20 backdrop-blur-sm">
                   <div className="flex space-x-3">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-white font-bold flex-shrink-0">
-                      {comment.author?.username?.charAt(0).toUpperCase() || 'U'}
+                      {getDisplayName(comment.author)?.charAt(0).toUpperCase() || 'U'}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center space-x-2">
-                        <span className="font-bold text-white">{comment.author?.username}</span>
+                        <span className="font-bold text-white">{getDisplayName(comment.author)}</span>
                         <span className="text-gray-500 text-sm">{formatTimeAgo(comment.created_at)}</span>
                         {comment.reply_count > 0 && (
                           <span className="bg-cyan-500/20 text-cyan-400 text-xs px-2 py-1 rounded-full">
@@ -669,11 +678,11 @@ const CommentModal = ({
                             >
                               <div className="flex space-x-3">
                                 <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                                  {reply.author?.username?.charAt(0).toUpperCase() || 'U'}
+                                  {getDisplayName(reply.author)?.charAt(0).toUpperCase() || 'U'}
                                 </div>
                                 <div className="flex-1">
                                   <div className="flex items-center space-x-2">
-                                    <span className="font-bold text-white">{reply.author?.username}</span>
+                                    <span className="font-bold text-white">{getDisplayName(reply.author)}</span>
                                     <span className="text-gray-500 text-sm">{formatTimeAgo(reply.created_at)}</span>
                                   </div>
                                   <p className="text-gray-200 mt-1">{reply.content}</p>

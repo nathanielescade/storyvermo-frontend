@@ -103,6 +103,17 @@ export default function ProfileClient({ username, initialProfile = null }) {
     }
   };
 
+  // Helper function to get display name based on account type
+  const getDisplayName = (user) => {
+    if (!user) return 'Unknown';
+    // Check if account is brand type and has brand_name
+    if (user.account_type === 'brand' && user.brand_name) {
+      return user.brand_name;
+    }
+    // Fallback to full name or username
+    return user.get_full_name || user.full_name || user.username || 'Unknown';
+  };
+
   // Fetch current user's following list
   const fetchCurrentUserFollowing = useCallback(async () => {
     if (!isAuthenticated || !currentUser?.username) return;
@@ -455,9 +466,9 @@ export default function ProfileClient({ username, initialProfile = null }) {
             {currentUser?.username === username && (
               <button 
                 onClick={triggerProfileImageUpload}
-                className="absolute bottom-0 right-0 w-10 h-10 rounded-full bg-slate-900/60 flex items-center justify-center text-cyan-500 cursor-pointer hover:bg-cyan-500/20 transition-colors border border-cyan-500/30"
+                className="absolute bottom-1 right-1 w-12 h-12 rounded-full bg-slate-900/80 flex items-center justify-center text-cyan-500 cursor-pointer hover:bg-cyan-500/40 transition-colors border border-cyan-500/50 shadow-lg"
               >
-                <i className="fas fa-camera"></i>
+                <i className="fas fa-camera text-lg"></i>
                 <input 
                   ref={profileFileInputRef}
                   type="file" 
@@ -475,7 +486,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
           
           {/* Profile Details - Aligned with middle of profile picture */}
           <div className="flex-1 text-left min-w-0">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-1 text-white break-words pr-4">{user.get_full_name || user.username}</h1>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-1 text-white break-words pr-4">{getDisplayName(user)}</h1>
             <p className="text-sm sm:text-base text-gray-400 mb-2 break-words">@{user.username}</p>
             {user.bio && (
               <p className="mb-4 max-w-2xl text-gray-300 text-sm sm:text-base">{user.bio}</p>
@@ -514,33 +525,39 @@ export default function ProfileClient({ username, initialProfile = null }) {
           </div>
         </div>
 
-        {/* Weekly Leaderboard Section */}
+        {/* Weekly Leaderboard Section - HIDDEN but kept for future use */}
         {user.is_finalized && (
-          <WeeklyWinnersBanner 
-            winners={user.leaderboard_top?.slice(0, 3) || []} 
-            isFinalized={user.is_finalized}
-          />
+          <div style={{ display: 'none' }} className="hidden-weekly-banner">
+            <WeeklyWinnersBanner 
+              winners={user.leaderboard_top?.slice(0, 3) || []} 
+              isFinalized={user.is_finalized}
+            />
+          </div>
         )}
 
-        {/* User Rank Card - Show for current user */}
+        {/* User Rank Card - HIDDEN but kept for future use */}
         {currentUser?.username === username && user.rank && (
-          <UserRankCard
-            rank={user.rank}
-            weeklyScore={user.weekly_score || 0}
-            lifetimeScore={user.lifetime_score || 0}
-            weekNumber={user.week_number || 1}
-            year={user.year || new Date().getFullYear()}
-            totalUsers={user.leaderboard_top?.length || 0}
-          />
+          <div style={{ display: 'none' }} className="hidden-user-rank">
+            <UserRankCard
+              rank={user.rank}
+              weeklyScore={user.weekly_score || 0}
+              lifetimeScore={user.lifetime_score || 0}
+              weekNumber={user.week_number || 1}
+              year={user.year || new Date().getFullYear()}
+              totalUsers={user.leaderboard_top?.length || 0}
+            />
+          </div>
         )}
 
-        {/* Weekly Progress Bar */}
+        {/* Weekly Progress Bar - HIDDEN but kept for future use */}
         {currentUser?.username === username && (
-          <WeeklyProgressBar
-            weekNumber={user.week_number || 1}
-            year={user.year || new Date().getFullYear()}
-            isFinalized={user.is_finalized}
-          />
+          <div style={{ display: 'none' }} className="hidden-weekly-progress">
+            <WeeklyProgressBar
+              weekNumber={user.week_number || 1}
+              year={user.year || new Date().getFullYear()}
+              isFinalized={user.is_finalized}
+            />
+          </div>
         )}
 
         {/* Badges Section */}
@@ -734,12 +751,26 @@ export default function ProfileClient({ username, initialProfile = null }) {
                         <div className="absolute left-3 bottom-3 flex items-center gap-2 bg-black/40 backdrop-blur-sm px-2 py-1 rounded-full">
                           <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-semibold text-white">
                             {(() => {
-                              const name = verse.author?.username || verse.author_name || '';
-                              if (!name) return 'U';
-                              return name.split(' ').map(s => s[0]?.toUpperCase()).slice(0,2).join('');
+                              const author = verse.author;
+                              let displayName = verse.author_name || '';
+                              if (author) {
+                                displayName = author.account_type === 'brand' && author.brand_name 
+                                  ? author.brand_name 
+                                  : author.username || author.author_name || '';
+                              }
+                              if (!displayName) return 'U';
+                              return displayName.split(' ').map(s => s[0]?.toUpperCase()).slice(0,2).join('');
                             })()}
                           </div>
-                          <div className="text-xs text-white/90">{verse.author?.username || verse.author_name || 'Unknown'}</div>
+                          <div className="text-xs text-white/90">
+                            {(() => {
+                              const author = verse.author;
+                              if (author && author.account_type === 'brand' && author.brand_name) {
+                                return author.brand_name;
+                              }
+                              return author?.username || verse.author_name || 'Unknown';
+                            })()}
+                          </div>
                         </div>
 
                         <div className="absolute right-3 bottom-3 flex items-center gap-3">
@@ -998,7 +1029,9 @@ export default function ProfileClient({ username, initialProfile = null }) {
                 {(followersModal.type === 'followers' ? followers : following).map((user, i) => {
                   const profileImageUrl = getImageUrl(user.profile_image_url);
                   const isCurrentUserFollowing = currentUserFollowing.includes(user.username);
-                  const displayName = user.first_name && user.last_name 
+                  const displayName = user.account_type === 'brand' && user.brand_name
+                    ? user.brand_name
+                    : user.first_name && user.last_name 
                     ? `${user.first_name} ${user.last_name}`
                     : user.first_name || user.last_name || user.username;
                   

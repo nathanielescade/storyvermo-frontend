@@ -486,12 +486,26 @@ export function SearchClient() {
                           <div className="absolute left-3 bottom-3 flex items-center gap-2 bg-black/40 backdrop-blur-sm px-2 py-1 rounded-full">
                             <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center text-xs font-semibold text-white">
                               {(() => {
-                                const name = verse.author?.username || verse.author_name || '';
-                                if (!name) return 'U';
-                                return name.split(' ').map(s => s[0]?.toUpperCase()).slice(0,2).join('');
+                                const author = verse.author;
+                                let displayName = verse.author_name || '';
+                                if (author) {
+                                  displayName = author.account_type === 'brand' && author.brand_name 
+                                    ? author.brand_name 
+                                    : author.username || author.author_name || '';
+                                }
+                                if (!displayName) return 'U';
+                                return displayName.split(' ').map(s => s[0]?.toUpperCase()).slice(0,2).join('');
                               })()}
                             </div>
-                            <div className="text-xs text-white/90">{verse.author?.username || verse.author_name || 'Unknown'}</div>
+                            <div className="text-xs text-white/90">
+                              {(() => {
+                                const author = verse.author;
+                                if (author && author.account_type === 'brand' && author.brand_name) {
+                                  return author.brand_name;
+                                }
+                                return author?.username || verse.author_name || 'Unknown';
+                              })()}
+                            </div>
                           </div>
 
                           <div className="absolute right-3 bottom-3 flex items-center gap-3">
@@ -554,12 +568,21 @@ export function SearchClient() {
                       ) : (
                         <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center border-2 border-cyan-500/30">
                           <span className="text-2xl font-bold text-cyan-500">
-                            {creator.username[0].toUpperCase()}
+                            {(() => {
+                              const displayName = creator.account_type === 'brand' && creator.brand_name
+                                ? creator.brand_name
+                                : creator.username;
+                              return displayName[0].toUpperCase();
+                            })()}
                           </span>
                         </div>
                       )}
                       <div className="ml-4 flex-1">
-                        <h3 className="font-semibold text-white group-hover:text-cyan-300 transition-colors">{creator.username}</h3>
+                        <h3 className="font-semibold text-white group-hover:text-cyan-300 transition-colors">
+                          {creator.account_type === 'brand' && creator.brand_name
+                            ? creator.brand_name
+                            : creator.username}
+                        </h3>
                         <p className="text-sm text-slate-400">{creator.followers_count || 0} followers</p>
                         <button
                           onClick={(e) => {

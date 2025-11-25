@@ -36,6 +36,15 @@ export function NotificationsClient() {
   } = useGuestNotifications();
   const router = useRouter();
 
+  // Helper function to get display name based on account type
+  const getDisplayName = (user) => {
+    if (!user) return 'Unknown';
+    if (user.account_type === 'brand' && user.brand_name) {
+      return user.brand_name;
+    }
+    return user.username || 'Unknown';
+  };
+
   const fetchNotifications = useCallback(async (pageNumber = 1, isLoadingMore = false) => {
     if (!isAuthenticated || !currentUser) {
       setError({ type: 'auth', message: 'Please log in to view notifications' });
@@ -109,14 +118,18 @@ export function NotificationsClient() {
     } else if (!loading) {
       setError({ type: 'auth', message: 'Please log in to view notifications' });
     }
-  }, [isAuthenticated, currentUser, fetchNotifications, loading]);
+    // Only depend on authentication state, not the callback itself
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, currentUser]);
 
   // Effect for loading more when page changes
   useEffect(() => {
     if (page > 1) {
       fetchNotifications(page, true);
     }
-  }, [page, fetchNotifications]);
+    // Only depend on page changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page]);
 
   const handleNotificationClick = async (notification) => {
     // Mark as read and update UI optimistically
@@ -470,76 +483,80 @@ export function NotificationsClient() {
                 <div
                   key={notification.id}
                   onClick={() => handleNotificationClick(notification)}
-                  className={`p-4 rounded-2xl cursor-pointer transition-all hover:bg-slate-800/50 flex items-start gap-3 ${
+                  className={`p-4 rounded-2xl cursor-pointer transition-all hover:bg-slate-800/50 flex flex-col gap-3 ${
                     !notification.is_read ? 'bg-slate-900/60 border-l-4 border-cyan-500' : 'bg-slate-900/60 backdrop-blur-sm'
                   }`}
                 >
-                  {/* Notification Icon */}
-                  {getNotificationIcon(notification)}
+                  {/* Time - Top Right */}
+                  <div className="flex justify-end">
+                    <span className="text-sm text-gray-400 whitespace-nowrap">
+                      {notification.time_ago}
+                    </span>
+                  </div>
                   
-                  {/* Notification Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start">
-                      <h3 className="text-lg font-bold text-white">
+                  {/* Main Content Row */}
+                  <div className="flex items-start gap-3">
+                    {/* Notification Icon */}
+                    {getNotificationIcon(notification)}
+                    
+                    {/* Notification Content - Full Width */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-bold text-white break-words">
                         {notification.message || notification.title}
                       </h3>
-                      <span className="text-sm text-gray-400 ml-2 whitespace-nowrap">
-                        {notification.time_ago}
-                      </span>
+                      
+                      {/* Sender Info */}
+                      {notification.sender && (
+                        <div className="flex items-center mt-3">
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-white font-bold mr-3 shrink-0">
+                            {getDisplayName(notification.sender).charAt(0).toUpperCase()}
+                          </div>
+                          <span className="text-gray-400 break-words">From: {getDisplayName(notification.sender)}</span>
+                        </div>
+                      )}
+                      
+                      {/* Content Preview */}
+                      {(notification.story || notification.verse) && (
+                        <div className="flex gap-3 mt-3 md:flex-row flex-col">
+                          <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0">
+                            {notification.story?.cover_image ? (
+                              <Image 
+                                src={notification.story.cover_image.file_url} 
+                                alt={notification.story.title} 
+                                width={64} 
+                                height={64} 
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full bg-gradient-to-r from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-white">
+                                📖
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-white break-words">
+                              {notification.verse ? notification.verse.title : notification.story.title}
+                            </h4>
+                            <p className="text-sm text-gray-400 line-clamp-2 break-words">
+                              {notification.verse 
+                                ? (notification.verse.description || "A verse in this story")
+                                : (notification.story?.description || notification.story?.summary || `A story by ${getDisplayName(notification.story?.creator) || "Unknown"}`)
+                              }
+                            </p>
+                            {notification.verse && (
+                              <p className="text-xs text-gray-500 mt-1">From story: {notification.verse.story_title}</p>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                     
-                    {/* Sender Info */}
-                    {notification.sender && (
-                      <div className="flex items-center mt-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-white font-bold mr-3">
-                          {notification.sender.username.charAt(0).toUpperCase()}
-                        </div>
-                        <span className="text-gray-400">From: {notification.sender.username}</span>
-                      </div>
-                    )}
-                    
-                    {/* Content Preview */}
-                    {(notification.story || notification.verse) && (
-                      <div className="flex gap-3 mt-3 md:flex-row flex-col">
-                        <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0">
-                          {notification.story?.cover_image ? (
-                            <Image 
-                              src={notification.story.cover_image.file_url} 
-                              alt={notification.story.title} 
-                              width={64} 
-                              height={64} 
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full bg-gradient-to-r from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-white">
-                              📖
-                            </div>
-                          )}
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-white">
-                            {notification.verse ? notification.verse.title : notification.story.title}
-                          </h4>
-                          <p className="text-sm text-gray-400 line-clamp-2">
-                            {notification.verse 
-                              ? (notification.verse.description || "A verse in this story")
-                              : (notification.story?.description || notification.story?.summary || `A story by ${notification.story?.creator?.username || "Unknown"}`)
-                            }
-                          </p>
-                          {notification.verse && (
-                            <p className="text-xs text-gray-500 mt-1">From story: {notification.verse.story_title}</p>
-                          )}
-                        </div>
+                    {!notification.is_read && (
+                      <div className="shrink-0">
+                        <div className="w-3 h-3 rounded-full bg-cyan-500"></div>
                       </div>
                     )}
                   </div>
-                  
-                  {/* Unread Indicator */}
-                  {!notification.is_read && (
-                    <div className="ml-2 mt-1">
-                      <div className="w-3 h-3 rounded-full bg-cyan-500"></div>
-                    </div>
-                  )}
                 </div>
               );
             })}

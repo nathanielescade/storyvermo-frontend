@@ -84,7 +84,7 @@ export default function WeeklyWinnersBanner({ winners = [], isFinalized = false 
         <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 mb-2">
           🏆 Weekly Winners
         </h2>
-        <p className="text-xs text-gray-400">This Week's Top Performers</p>
+        <p className="text-xs text-gray-400">This Week&apos;s Top Performers</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
