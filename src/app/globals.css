@@ -1271,8 +1271,8 @@
             background: rgba(255, 255, 255, 0.1);
         }
         
-        /* Follow button styles */
-        /* .follow-button {
+        /* Follow button styles
+        .follow-button {
             position: absolute;
             bottom: 0;
             right: 0;
@@ -1303,8 +1303,9 @@
         .follow-button i {
             color: white;
             font-size: 10px;
-        } */
+        }
         
+
         /* Floating comment styles */
         .floating-comment {
             position: absolute;

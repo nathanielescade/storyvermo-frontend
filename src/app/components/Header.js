@@ -52,12 +52,9 @@ const Header = ({ openAuthModal }) => {
           <SearchBar />
         </div>
         
-        {/* Notification Bell */}
-        {mounted && isAuthenticated ? (
+        {/* Notification Bell - visible to all users (authenticated and guests) */}
+        {mounted && (
           <NotificationBell />
-        ) : (
-          // Placeholder div to maintain layout consistency
-          <div className="w-10 h-10"></div>
         )}
         
         {/* Search icon for mobile */}

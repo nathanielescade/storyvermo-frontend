@@ -6,6 +6,9 @@ import Link from 'next/link';
 import { userApi, storiesApi, absoluteUrl } from '../../../lib/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import StoryCard from '../components/StoryCard';
+import WeeklyWinnersBanner from '../components/WeeklyWinnersBanner';
+import UserRankCard from '../components/UserRankCard';
+import WeeklyProgressBar from '../components/WeeklyProgressBar';
 
 // SmartImg: choose native <img> for blob/data URLs (object URLs / previews)
 // and use next/image for regular remote URLs. This avoids next/image errors
@@ -131,6 +134,12 @@ export default function ProfileClient({ username, initialProfile = null }) {
         ...response,
         get_full_name: fullName,
       };
+      
+      // Log leaderboard data for debugging
+      console.log('Leaderboard Top:', response.leaderboard_top);
+      console.log('Leaderboard Top Length:', response.leaderboard_top?.length);
+      console.log('User Rank:', response.rank);
+      
       setUser(userData);
 
       // Handle stories data - it should now be included in the response
@@ -505,6 +514,35 @@ export default function ProfileClient({ username, initialProfile = null }) {
           </div>
         </div>
 
+        {/* Weekly Leaderboard Section */}
+        {user.is_finalized && (
+          <WeeklyWinnersBanner 
+            winners={user.leaderboard_top?.slice(0, 3) || []} 
+            isFinalized={user.is_finalized}
+          />
+        )}
+
+        {/* User Rank Card - Show for current user */}
+        {currentUser?.username === username && user.rank && (
+          <UserRankCard
+            rank={user.rank}
+            weeklyScore={user.weekly_score || 0}
+            lifetimeScore={user.lifetime_score || 0}
+            weekNumber={user.week_number || 1}
+            year={user.year || new Date().getFullYear()}
+            totalUsers={user.leaderboard_top?.length || 0}
+          />
+        )}
+
+        {/* Weekly Progress Bar */}
+        {currentUser?.username === username && (
+          <WeeklyProgressBar
+            weekNumber={user.week_number || 1}
+            year={user.year || new Date().getFullYear()}
+            isFinalized={user.is_finalized}
+          />
+        )}
+
         {/* Badges Section */}
         {user.badges && user.badges.length > 0 && (
           <div className="mb-6">
@@ -579,11 +617,20 @@ export default function ProfileClient({ username, initialProfile = null }) {
               <i className="fas fa-align-left mr-2"></i>Verses
             </button>
             <button 
-              onClick={() => setActiveTab('saved')}
-              className={`pb-2 px-1 ${activeTab === 'saved' ? 'text-cyan-500 border-b-2 border-cyan-500' : 'text-gray-400'}`}
+              onClick={() => setActiveTab('contributions')}
+              className={`pb-2 px-1 ${activeTab === 'contributions' ? 'text-cyan-500 border-b-2 border-cyan-500' : 'text-gray-400'}`}
             >
-              <i className="fas fa-bookmark mr-2"></i>Saved
+              <i className="fas fa-handshake mr-2"></i>Contributions
             </button>
+            {/* Only show Saved tab if viewing current user's profile */}
+            {currentUser?.username === username && (
+              <button 
+                onClick={() => setActiveTab('saved')}
+                className={`pb-2 px-1 ${activeTab === 'saved' ? 'text-cyan-500 border-b-2 border-cyan-500' : 'text-gray-400'}`}
+              >
+                <i className="fas fa-bookmark mr-2"></i>Saved
+              </button>
+            )}
           </div>
         </div>
 
@@ -724,6 +771,112 @@ export default function ProfileClient({ username, initialProfile = null }) {
                   <p className="text-gray-400">Start contributing to stories!</p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Contributions Tab - Show verses this user has contributed to (verses by this user in other people's stories) */}
+          {activeTab === 'contributions' && (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {(() => {
+                // Filter verses to show only contributions (verses where author is current user but story creator is not)
+                const contributedVerses = verses.filter(verse => {
+                  // Get story creator ID from the backend field (story_creator_id or story_data.creator_id)
+                  const storyCreatorId = verse.story_creator_id || (verse.story_data?.creator_id);
+                  
+                  // Get current user ID
+                  const currentUserId = user?.id || user?.public_id;
+                  
+                  // Keep only if story creator is different from the profile user
+                  // (meaning this verse was contributed to someone else's story)
+                  if (!storyCreatorId || !currentUserId) return false;
+                  
+                  return String(storyCreatorId) !== String(currentUserId);
+                });
+
+                return contributedVerses.length > 0 ? (
+                  contributedVerses.map((verse, i) => {
+                    const id = verse.id || verse.public_id || verse.slug || '';
+                    const storyObj = verse.story || {};
+                    const storySlug = (typeof storyObj === 'string' ? storyObj : (storyObj.slug || storyObj.story_slug)) || verse.story_slug || '';
+                    const storyTitle = (typeof storyObj === 'object' && storyObj) ? (storyObj.title || storyObj.story_title) : (verse.story_title || 'Story');
+                    const excerpt = verse.content ? String(verse.content).slice(0, 120) : '';
+
+                    const getFirstMomentImage = (v) => {
+                      if (!v) return null;
+                      const moments = v.moments || v.images || [];
+                      const first = Array.isArray(moments) && moments.length > 0 ? moments[0] : null;
+                      if (!first) return null;
+                      if (typeof first === 'string') return absoluteUrl(first);
+                      if (first.file_url) return absoluteUrl(first.file_url);
+                      if (first.url) return absoluteUrl(first.url);
+                      if (first.image) {
+                        if (typeof first.image === 'string') return absoluteUrl(first.image);
+                        if (first.image.file_url) return absoluteUrl(first.image.file_url);
+                        if (first.image.url) return absoluteUrl(first.image.url);
+                      }
+                      return null;
+                    };
+
+                    const thumb = getFirstMomentImage(verse);
+                    const momentsCount = Array.isArray(verse.moments) ? verse.moments.length : (Array.isArray(verse.images) ? verse.images.length : 0);
+                    const likes = verse.likes_count || verse.like_count || verse.likes || 0;
+                    const saves = verse.saves_count || verse.save_count || verse.saves || 0;
+                    const rawTitle = (verse.title && String(verse.title).trim()) || (excerpt ? `${excerpt}...` : 'Untitled Verse');
+                    const displayTitle = rawTitle.length > 80 ? `${rawTitle.slice(0,80).trim()}...` : rawTitle;
+                    const displayStoryTitle = (storyTitle && String(storyTitle).trim()) || 'Story';
+                    const href = storySlug ? `/stories/${encodeURIComponent(storySlug)}/?verse=${encodeURIComponent(id)}` : '#';
+
+                    return (
+                      <Link
+                        key={verse.public_id || verse.slug || i}
+                        href={href}
+                        className="block bg-slate-900/50 rounded-2xl overflow-hidden transform transition-all duration-200 hover:scale-105 hover:shadow-xl"
+                      >
+                        <div className="relative w-full h-48 bg-gray-800">
+                          {thumb ? (
+                            <img src={thumb} alt={verse.title || 'Verse image'} className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center text-white/20">
+                              <i className="fas fa-book-open text-4xl"></i>
+                            </div>
+                          )}
+                          {momentsCount > 1 && (
+                            <div className="absolute top-2 right-2 bg-cyan-500/80 px-2 py-1 rounded-lg text-xs text-white font-semibold">
+                              {momentsCount} images
+                            </div>
+                          )}
+                          <div className="absolute bottom-0 left-0 right-0 flex gap-2 bg-gradient-to-t from-black/60 to-transparent p-2">
+                            <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded-lg text-xs text-orange-300">
+                              <i className="fas fa-heart"></i>
+                              <span className="ml-1 text-white text-sm">{likes}</span>
+                            </div>
+                            <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded-lg text-xs text-yellow-300">
+                              <i className="fas fa-bookmark"></i>
+                              <span className="ml-1 text-white text-sm">{saves}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-4">
+                          <div className="text-sm text-gray-400 mb-1">{displayStoryTitle}</div>
+                          <div className="text-white font-semibold mb-1 text-lg leading-tight">{displayTitle}</div>
+                          <div className="text-xs text-orange-400 mb-2">
+                            <i className="fas fa-handshake mr-1"></i>Contributed to <span className="text-indigo-300">{displayStoryTitle}</span>
+                          </div>
+                        </div>
+                      </Link>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-12">
+                    <div className="text-5xl mb-4 text-cyan-500/50">
+                      <i className="fas fa-handshake"></i>
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2 text-white">No contributions yet</h3>
+                    <p className="text-gray-400">Start contributing verses to stories!</p>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -957,39 +1110,68 @@ export default function ProfileClient({ username, initialProfile = null }) {
         {leaderboardModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
             <div className="bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 rounded-3xl border border-cyan-500/40 shadow-2xl p-6 flex flex-col items-center w-full max-w-md mx-4">
-              <h2 className="text-xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500">Leaderboard</h2>
-              <div className="flex flex-col gap-2 w-full max-h-80 overflow-y-auto custom-scrollbar">
-                {user.leaderboard_top?.map((entry, index) => {
-                  const profileImageUrl = getImageUrl(entry.profile_image_url);
-                  return (
-                    <Link 
-                      key={index} 
-                      href={`/${entry.username}`}
-                      className="flex items-center gap-3 py-2 px-3 rounded-2xl bg-slate-900/60 hover:bg-slate-800/60 transition-colors border border-cyan-500/20"
-                    >
-                      <span className="font-bold text-white">#{entry.rank}</span>
-                      {profileImageUrl ? (
-                        <SmartImg
-                          src={absoluteUrl(profileImageUrl)}
-                          alt={entry.username}
-                          width={32}
-                          height={32}
-                          className="rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-white">
-                          {getInitial(entry?.username, '')}
+              <h2 className="text-xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500">🏆 Leaderboard</h2>
+              <div className="text-xs text-gray-500 mb-3">Top {user.leaderboard_top?.length || 0} Users</div>
+              {user.leaderboard_top && user.leaderboard_top.length > 0 ? (
+                <div className="flex flex-col gap-2 w-full max-h-96 overflow-y-auto custom-scrollbar">
+                  {user.leaderboard_top.map((entry, index) => {
+                    const profileImageUrl = getImageUrl(entry.profile_image_url);
+                    const isCurrentUser = currentUser?.username === entry.username;
+                    const score = entry.finalized_score || entry.weekly_score || entry.total_engagement || 0;
+                    return (
+                      <Link 
+                        key={`${entry.username}-${entry.rank}-${index}`}
+                        href={`/${entry.username}`}
+                        className={`flex items-center gap-3 py-3 px-4 rounded-2xl transition-colors border ${
+                          isCurrentUser
+                            ? 'bg-cyan-500/20 border-cyan-500/60 ring-1 ring-cyan-500/40'
+                            : 'bg-slate-900/60 hover:bg-slate-800/60 border-cyan-500/20'
+                        }`}
+                      >
+                        <div className="flex items-center justify-center w-8">
+                          {entry.rank === 1 && <span className="text-2xl">🥇</span>}
+                          {entry.rank === 2 && <span className="text-2xl">🥈</span>}
+                          {entry.rank === 3 && <span className="text-2xl">🥉</span>}
+                          {entry.rank > 3 && <span className="font-bold text-white">#{entry.rank}</span>}
                         </div>
-                      )}
-                      <span className="font-bold text-white">{entry.username}</span>
-                      <span className="text-xs text-gray-400">Engagement: {entry.total_engagement}</span>
-                    </Link>
-                  );
-                })}
-              </div>
+                        {profileImageUrl ? (
+                          <SmartImg
+                            src={absoluteUrl(profileImageUrl)}
+                            alt={entry.username}
+                            width={32}
+                            height={32}
+                            className="rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-white text-xs font-bold">
+                            {getInitial(entry?.username, '')}
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <span className="font-bold text-white truncate block">{entry.username}</span>
+                          <span className="text-xs text-gray-400">
+                            {entry.display_name && entry.display_name !== entry.username ? entry.display_name : ''}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs text-cyan-400 font-semibold block">⚡ {score}</span>
+                          {entry.lifetime_score && (
+                            <span className="text-xs text-purple-400">✨ {entry.lifetime_score}</span>
+                          )}
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-400">
+                  <p className="mb-2">No leaderboard data available yet</p>
+                  <p className="text-xs">Users will appear as they gain engagement</p>
+                </div>
+              )}
               <button 
                 onClick={() => setLeaderboardModal(false)}
-                className="mt-4 px-8 py-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-medium"
+                className="mt-4 px-8 py-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-medium hover:from-cyan-400 hover:to-blue-400 transition-all"
               >
                 Close
               </button>

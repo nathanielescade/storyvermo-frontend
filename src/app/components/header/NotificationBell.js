@@ -3,6 +3,16 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { notificationsApi } from '../../../../lib/api';
+import { useGuestNotifications } from '../../../../hooks/useGuestNotifications';
+import {
+  isLeaderboardNotification,
+  isAchievementNotification,
+  isInactivityNotification,
+  formatNotificationDisplay,
+  getNotificationRoute,
+  getNotificationTypeConfig
+} from '../../../../lib/leaderboardNotifications';
+import LeaderboardNotificationDisplay from '../LeaderboardNotificationDisplay';
 
 const NotificationBell = () => {
   const router = useRouter();
@@ -11,6 +21,15 @@ const NotificationBell = () => {
   const [notificationsPreview, setNotificationsPreview] = useState([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const notificationRef = useRef(null);
+  
+  // Get guest notifications (will be null for authenticated users)
+  const {
+    notification: guestNotification,
+    isAuthenticated,
+    dismissNotification: dismissGuestNotification,
+    trackNotificationShown,
+    trackCTAClicked
+  } = useGuestNotifications();
 
   // Fetch unread count on mount and subscribe to updates
   useEffect(() => {
@@ -46,6 +65,11 @@ const NotificationBell = () => {
           }
         }
 
+        // Add guest notification count if not authenticated and guest notification exists
+        if (guestNotification && !isAuthenticated && guestNotification.dismiss_count > 0) {
+          count += 1;
+        }
+
         if (mounted) setUnreadCount(count);
       } catch (err) {
         console.debug('Failed to fetch notification count', err);
@@ -67,7 +91,7 @@ const NotificationBell = () => {
       clearInterval(intervalId);
       window.removeEventListener('notifications:count:update', handleCountUpdate);
     };
-  }, []);
+  }, [guestNotification, isAuthenticated]);
 
   useEffect(() => {
     if (!showNotifications) return;
@@ -77,17 +101,33 @@ const NotificationBell = () => {
       try {
         const data = await notificationsApi.getNotifications();
         const list = data?.notifications ?? data?.results ?? (Array.isArray(data) ? data : []);
-        if (mounted) {
-          setNotificationsPreview(list);
-          setPreviewLoading(false);
+        
+        // If guest user and has guest notification, prepend it to the list
+        if (!isAuthenticated && guestNotification) {
+          const combined = [guestNotification, ...list];
+          if (mounted) {
+            setNotificationsPreview(combined);
+            setPreviewLoading(false);
+          }
+        } else {
+          if (mounted) {
+            setNotificationsPreview(list);
+            setPreviewLoading(false);
+          }
         }
       } catch (err) {
         console.debug('Failed to fetch preview notifications', err);
-        if (mounted) setPreviewLoading(false);
+        if (mounted) {
+          // Show guest notification even if API fails
+          if (!isAuthenticated && guestNotification) {
+            setNotificationsPreview([guestNotification]);
+          }
+          setPreviewLoading(false);
+        }
       }
     })();
     return () => { mounted = false; };
-  }, [showNotifications]);
+  }, [showNotifications, guestNotification, isAuthenticated]);
 
   const markAsRead = async (id) => {
     try {
@@ -156,41 +196,126 @@ const NotificationBell = () => {
             ) : notificationsPreview.length === 0 ? (
               <div className="text-center py-4 text-gray-400">No notifications yet</div>
             ) : (
-              notificationsPreview.slice(0,5).map(n => (
-                <div key={n.id} className={`p-2 rounded-md ${!n.is_read ? 'bg-black/20' : ''}`} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', cursor: 'pointer' }} onClick={async (e) => {
-                  e.stopPropagation();
-                  if (!n.is_read) await markAsRead(n.id);
-                  
-                  // Navigate based on notification type and content
-                  if (n.verse && n.story) {
-                    router.push(`/stories/${n.story.slug}/?verse=${n.verse.slug}`);
-                  } else if (n.verse) {
-                    router.push(`/stories/${n.verse.story_slug}/?verse=${n.verse.slug}`);
-                  } else if (n.story) {
-                    router.push(`/stories/${n.story.slug}`);
-                  } else if (n.type === 'LIKE' || n.type === 'RECOMMEND' || n.notification_type === 'LIKE' || n.notification_type === 'RECOMMEND') {
-                    if (n.verse_slug) {
-                      router.push(`/stories/${n.story_slug}/?verse=${n.verse_slug}`);
-                    } else if (n.story_slug) {
-                      router.push(`/stories/${n.story_slug}`);
-                    } else {
-                      router.push('/notifications');
-                    }
-                  } else if (n.sender) {
-                    router.push(`/${n.sender.username}`);
-                  } else {
-                    router.push('/notifications');
-                  }
-                }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 999, background: 'linear-gradient(90deg,#ff6b35,#8a4fff)', display: 'flex', alignItems: 'center', justifyItems: 'center', color: '#fff', fontWeight: 700, flexShrink: 0 }}>
-                    {n.sender?.username ? n.sender.username.charAt(0).toUpperCase() : ''}
+              notificationsPreview.slice(0,5).map(n => {
+                // Check if this is a guest notification
+                if (n.type && n.type.startsWith('GUEST_')) {
+                  return (
+                    <div
+                      key={n.id || 'guest-notif'}
+                      className="px-2 py-2 rounded cursor-pointer transition-all mb-1 hover:bg-slate-700/40 bg-slate-800/30 border border-slate-700/40 border-l-2 border-l-amber-400"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        trackCTAClicked(n);
+                        if (n.cta_url) {
+                          setShowNotifications(false);
+                          router.push(n.cta_url);
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        {/* Icon */}
+                        <span className="text-base shrink-0">{n.emoji || '🎉'}</span>
+
+                        {/* Title - single line */}
+                        <span className="text-sm font-medium text-white truncate flex-1">{n.title}</span>
+
+                        {/* Dismiss option for guest notifications */}
+                        {n.dismiss_count > 0 && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              dismissGuestNotification(n.id);
+                              setNotificationsPreview(prev => prev.filter(x => x.id !== n.id));
+                            }}
+                            className="text-gray-400 hover:text-white px-1 shrink-0"
+                            aria-label="Dismiss"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Check if this is a leaderboard or achievement notification
+                if (isLeaderboardNotification(n) || isAchievementNotification(n)) {
+                  return (
+                    <div key={n.id} onClick={(e) => e.stopPropagation()}>
+                      <LeaderboardNotificationDisplay
+                        notification={n}
+                        onMarkAsRead={markAsRead}
+                        onNavigate={(path) => {
+                          setShowNotifications(false);
+                          router.push(path);
+                        }}
+                      />
+                    </div>
+                  );
+                }
+
+                // Handle inactivity notifications specially
+                if (isInactivityNotification(n)) {
+                  return (
+                    <div
+                      key={n.id}
+                      className="px-2 py-2 rounded cursor-pointer transition-all mb-1 hover:bg-slate-700/40 bg-slate-800/30 border border-slate-700/40"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!n.is_read) await markAsRead(n.id);
+                        setShowNotifications(false);
+                        router.push('/');
+                      }}
+                    >
+                      <div className="flex items-center gap-2">
+                        {/* Icon */}
+                        <span className="text-base shrink-0">{getNotificationTypeConfig(n.notification_type).icon}</span>
+
+                        {/* Title - single line */}
+                        <span className="text-sm font-medium text-white truncate flex-1">{n.title}</span>
+
+                        {/* Unread Indicator */}
+                        {!n.is_read && (
+                          <div className="shrink-0 w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                        )}
+                      </div>
+                    </div>
+                  );
+                }
+
+                // Format and display all other notification types
+                const displayData = formatNotificationDisplay(n);
+                if (!displayData) return null;
+
+                return (
+                  <div
+                    key={n.id}
+                    className="px-2 py-2 rounded cursor-pointer transition-all mb-1 hover:bg-slate-700/40 bg-slate-800/30 border border-slate-700/40"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      if (!n.is_read) await markAsRead(n.id);
+                      
+                      // Navigate to appropriate location
+                      const route = getNotificationRoute(n);
+                      setShowNotifications(false);
+                      router.push(route);
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      {/* Icon */}
+                      <span className="text-base shrink-0">{displayData.icon}</span>
+
+                      {/* Title - single line */}
+                      <span className="text-sm font-medium text-white truncate flex-1">{displayData.title}</span>
+
+                      {/* Unread Indicator */}
+                      {!n.is_read && (
+                        <div className="shrink-0 w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                      )}
+                    </div>
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: '#e6f7ff', fontSize: '0.95rem' }}>{n.message || n.title}</div>
-                    <div style={{ color: '#9bdff8', fontSize: '0.8rem', marginTop: 6 }}>{n.time_ago}</div>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
           <div className="notification-footer" style={{ padding: '12px', borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', flex: 'none' }}>
