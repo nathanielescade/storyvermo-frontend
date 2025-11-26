@@ -33,34 +33,35 @@ export default async function VersesPage() {
   return (
     <div className="min-h-screen pt-24 pb-12 bg-black">
       <div className="px-4 md:px-6 lg:px-8">
+        {/* Header outside bordered div */}
+        <header className="mb-8 relative z-10">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 flex items-center justify-center shadow-lg shadow-cyan-500/40 border border-cyan-500/30">
+              <i className="fas fa-book-open text-cyan-400 text-xl"></i>
+            </div>
+            <h1 className="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-500">
+              Verses
+            </h1>
+          </div>
+          <p className="text-sm md:text-base text-gray-300 mt-3 ml-15">
+            Browse verses from stories. Click a verse to open its story and jump to that verse.
+          </p>
+          {error && (
+            <div className="mt-4 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-xl">
+              <p className="text-sm text-red-400 flex items-center gap-2">
+                <i className="fas fa-exclamation-circle"></i>
+                Unable to load verses: {error}
+              </p>
+            </div>
+          )}
+        </header>
+
         <div className="w-full rounded-3xl bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 p-6 md:p-8 shadow-2xl border border-cyan-500/20 relative overflow-hidden">
           {/* Animated border effects */}
           <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
             <div className="absolute inset-0 rounded-3xl border-2 border-cyan-500/30 animate-pulse"></div>
             <div className="absolute inset-0 rounded-3xl border-2 border-purple-500/20 animate-pulse" style={{ animationDelay: '0.5s' }}></div>
           </div>
-
-          <header className="mb-8 relative z-10">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 flex items-center justify-center shadow-lg shadow-cyan-500/40 border border-cyan-500/30">
-                <i className="fas fa-book-open text-cyan-400 text-xl"></i>
-              </div>
-              <h1 className="text-4xl md:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-500">
-                Verses
-              </h1>
-            </div>
-            <p className="text-sm md:text-base text-gray-300 mt-3 ml-15">
-              Browse verses from stories. Click a verse to open its story and jump to that verse.
-            </p>
-            {error && (
-              <div className="mt-4 px-4 py-3 bg-red-500/10 border border-red-500/30 rounded-xl">
-                <p className="text-sm text-red-400 flex items-center gap-2">
-                  <i className="fas fa-exclamation-circle"></i>
-                  Unable to load verses: {error}
-                </p>
-              </div>
-            )}
-          </header>
 
           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 relative z-10">
             {Array.isArray(verses) && verses.length > 0 ? (

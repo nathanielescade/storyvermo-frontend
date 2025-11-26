@@ -1,6 +1,7 @@
 // RecommendModal.js
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
+import { absoluteUrl } from '../../../../lib/api';
 import { userApi, storyApi, storiesApi } from '../../../../lib/api';
 
 const RecommendModal = ({ 
@@ -84,7 +85,7 @@ const RecommendModal = ({
     if (!showRecommendModal) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-lg z-[600] flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-lg z-9999 flex items-center justify-center">
             <div className="w-full max-w-5xl max-h-[95vh] bg-linear-to-br from-gray-950 via-slate-950 to-indigo-950 rounded-3xl border border-cyan-500/40 shadow-2xl overflow-visible transform scale-100 transition-all duration-500 relative flex flex-col">
                 <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
                     <div className="absolute inset-0 rounded-3xl border-2 border-cyan-500/30 animate-pulse"></div>
@@ -187,9 +188,17 @@ const RecommendModal = ({
                                                             className="w-5 h-5 text-cyan-500 rounded focus:ring-cyan-500 focus:ring-2"
                                                         />
                                                         <label htmlFor={`user-${user.id}`} className="flex items-center gap-3 cursor-pointer flex-1">
-                                                            {user.profile_picture ? (
+                                                            {user.profile_image_url ? (
                                                                 <Image 
-                                                                    src={user.profile_picture}
+                                                                    src={absoluteUrl(user.profile_image_url)}
+                                                                    alt={user.name || user.username}
+                                                                    width={40}
+                                                                    height={40}
+                                                                    className="w-10 h-10 rounded-full object-cover"
+                                                                />
+                                                            ) : user.profile_picture ? (
+                                                                <Image 
+                                                                    src={absoluteUrl(user.profile_picture)}
                                                                     alt={user.name || user.username}
                                                                     width={40}
                                                                     height={40}
@@ -227,7 +236,7 @@ const RecommendModal = ({
                     </div>
                 </div>
                 
-                <div className="relative z-10 bg-linear-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md border-t border-gray-800/50 px-8 py-6" style={{ position: 'sticky', bottom: '0', zIndex: '20' }}>
+                <div className="relative z-10 bg-linear-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md border-t border-gray-800/50 px-3 py-6" style={{ position: 'sticky', bottom: '0', zIndex: '20' }}>
                     <div className="flex justify-between">
                         <button 
                             onClick={() => {

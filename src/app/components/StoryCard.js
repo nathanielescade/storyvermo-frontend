@@ -613,10 +613,32 @@ export default function StoryCard({
                     handleFollow={handleFollow}
                     handleEditStory={() => setShowStoryFormModal(true)}
                     handleDeleteStory={() => setShowDeleteModal(true)}
-                    handleCopyLink={() => {
+                    handleCopyLink={async () => {
                         const storyUrl = `${window.location.origin}/stories/${story.slug}/`;
-                        navigator.clipboard.writeText(storyUrl);
-                        alert('Link copied to clipboard!');
+                        try {
+                            if (navigator.clipboard) {
+                                await navigator.clipboard.writeText(storyUrl);
+                                alert('Link copied to clipboard!');
+                            } else {
+                                // Fallback for older browsers
+                                const textArea = document.createElement('textarea');
+                                textArea.value = storyUrl;
+                                document.body.appendChild(textArea);
+                                textArea.focus();
+                                textArea.select();
+                                try {
+                                    document.execCommand('copy');
+                                    alert('Link copied to clipboard!');
+                                } catch (err) {
+                                    console.error('Fallback: Oops, unable to copy', err);
+                                    alert('Unable to copy link. Please copy manually.');
+                                }
+                                document.body.removeChild(textArea);
+                            }
+                        } catch (error) {
+                            console.error('Error copying to clipboard:', error);
+                            alert('Failed to copy link. Please try again.');
+                        }
                     }}
                     handleReportStory={() => alert('Report functionality would open here')}
                     handleShareStory={() => setShowShareModal(true)}

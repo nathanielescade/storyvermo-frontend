@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { absoluteUrl } from '../../../lib/api';
+// Remove incorrect SmartImg import
 import { searchApi, userApi } from '../../../lib/api';
 
 const DiscoverModal = ({ isOpen, onClose }) => {
@@ -109,7 +111,7 @@ const DiscoverModal = ({ isOpen, onClose }) => {
   // Navigate to user profile
   const navigateToProfile = (username) => {
     try {
-      router.push(`/user/${username}/`);
+      router.push(`/${username}`);
       onClose(); // Close modal after navigation
     } catch (e) {
       console.warn('navigateToProfile failed', e);
@@ -201,19 +203,19 @@ const DiscoverModal = ({ isOpen, onClose }) => {
                   <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 rounded-t-xl transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
 
                   <div className="relative mb-5">
-                    {user.profile_image_url ? (
-                      <Image 
-                        src={user.profile_image_url} 
-                        alt={user.username} 
-                        width={80}
-                        height={80}
-                        className="w-20 h-20 rounded-full object-cover ring-2 ring-gray-800 group-hover:ring-cyan-400 transition-all duration-300 shadow-lg"
-                      />
-                    ) : (
-                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center font-bold text-2xl text-white ring-2 ring-gray-800 group-hover:ring-cyan-400 transition-all duration-300 shadow-lg">
-                        {user.username.charAt(0).toUpperCase()}
-                      </div>
-                    )}
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center font-bold text-2xl text-white ring-2 ring-gray-800 group-hover:ring-cyan-400 transition-all duration-300 shadow-lg overflow-hidden">
+                      {user.profile_image_url ? (
+                        <Image
+                          src={absoluteUrl(user.profile_image_url)}
+                          alt={user.username}
+                          width={80}
+                          height={80}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span>{user.username.charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
                     <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-emerald-500 border-2 border-gray-900 shadow-lg"></div>
                   </div>
 
@@ -232,7 +234,7 @@ const DiscoverModal = ({ isOpen, onClose }) => {
                     </div>
                     <div className="flex-1">
                       <div className="text-white font-bold text-lg">{user.story_count || user.stories_count || 0}</div>
-                      <div className="text-slate-400 text-xs uppercase tracking-wide">Posts</div>
+                      <div className="text-slate-400 text-xs uppercase tracking-wide">Stories</div>
                     </div>
                   </div>
 

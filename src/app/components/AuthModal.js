@@ -773,29 +773,20 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
                 {signupStep === 2 && (
                   <>
                     <div className="mt-4">
-                      <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">
-                        Bio
-                        <span className="text-xs text-gray-500 ml-2 normal-case">Tell us a bit about yourself (Optional)</span>
-                      </label>
+                      <label className="block text-sm font-medium text-blue-300 mb-2">Bio</label>
                       <textarea
                         name="bio"
                         value={formData.bio}
                         onChange={handleChange}
-                        placeholder="Share your story interests, what you like to create, or anything about yourself..."
+                        placeholder="About you (optional)"
                         className="w-full bg-gradient-to-b from-gray-800 to-black border border-blue-900/50 rounded-xl py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all resize-none"
                         rows={3}
                         maxLength={500}
                       />
-                      <div className="mt-1 text-xs text-gray-500 flex justify-end">
-                        {formData.bio.length}/500 characters
-                      </div>
                     </div>
 
                     <div className="mt-4">
-                      <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">
-                        Preferred Content Categories (Optional - Max 3)
-                        <span className="text-xs text-gray-500 ml-2 normal-case">Select up to 3 categories you plan to create content in</span>
-                      </label>
+                      <label className="block text-sm font-medium text-blue-300 mb-2">Categories</label>
                       <Select
                         value={selectedCategories}
                         onChange={handleCategoriesChange}
@@ -812,49 +803,10 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
                             options: options
                           }));
                         })()}
-                        styles={{
-                          ...customSelectStyles,
-                          group: (base) => ({
-                            ...base,
-                            padding: '8px',
-                            '&:not(:last-child)': {
-                              borderBottom: '1px solid rgba(59, 130, 246, 0.2)'
-                            }
-                          }),
-                          groupHeading: (base) => ({
-                            ...base,
-                            color: '#60A5FA',
-                            fontSize: '0.9em',
-                            fontWeight: 600,
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.05em',
-                            marginBottom: '8px',
-                            paddingLeft: '8px',
-                            borderLeft: '2px solid rgba(59, 130, 246, 0.5)'
-                          }),
-                          multiValue: (base) => ({
-                            ...base,
-                            backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                            borderRadius: '0.5rem',
-                            padding: '2px',
-                            border: '1px solid rgba(59, 130, 246, 0.3)'
-                          }),
-                          multiValueLabel: (base) => ({
-                            ...base,
-                            color: 'white'
-                          }),
-                          multiValueRemove: (base) => ({
-                            ...base,
-                            color: 'rgba(255, 255, 255, 0.6)',
-                            ':hover': {
-                              backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                              color: '#EF4444'
-                            }
-                          })
-                        }}
+                        styles={customSelectStyles}
                         isMulti
                         isClearable
-                        placeholder="Select your preferred categories (max 3)"
+                        placeholder="Categories (max 3, optional)"
                         isOptionDisabled={() => selectedCategories.length >= 3}
                         formatOptionLabel={option => (
                           <div className="flex items-center gap-2">
@@ -869,14 +821,14 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
                     </div>
 
                     <div className="mt-4">
-                      <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">Country (Optional)</label>
+                      <label className="block text-sm font-medium text-blue-300 mb-2">Country</label>
                       <Select
                         value={selectedCountry}
                         onChange={handleCountryChange}
                         options={countryOptions}
                         styles={customSelectStyles}
                         isClearable
-                        placeholder="Select your country"
+                        placeholder="Country (optional)"
                         formatOptionLabel={country => (
                           <div className="flex items-center gap-2">
                             <ReactCountryFlag
@@ -894,7 +846,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
                     </div>
 
                     <div className="mt-4">
-                      <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">City (Optional)</label>
+                      <label className="block text-sm font-medium text-blue-300 mb-2">City</label>
                       <Select
                         value={selectedCity}
                         onChange={handleCityChange}
@@ -902,7 +854,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
                         styles={customSelectStyles}
                         isClearable
                         isDisabled={!selectedCountry}
-                        placeholder={selectedCountry ? "Select your city" : "Please select a country first"}
+                        placeholder={selectedCountry ? "City (optional)" : "Select country first"}
                       />
                     </div>
                   </>

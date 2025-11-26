@@ -259,6 +259,8 @@ const VerseViewer = ({
   const getAuthorProfileImageUrl = () => {
     const a = getAuthor();
     if (!a) return null;
+    // Prefer profile_image_url if present (matches backend serializer)
+    if (a.profile_image_url) return absoluteUrl(a.profile_image_url);
     const maybe = a.profile_image || a.image || a.avatar || a.photo || a.picture || (a.profile && (a.profile.image || a.profile.avatar));
     if (!maybe) return null;
     if (typeof maybe === 'string') return absoluteUrl(maybe);
@@ -1130,7 +1132,7 @@ const VerseViewer = ({
                 >
                   <div className="w-full h-full rounded-full bg-gradient-to-r from-accent-orange to-neon-pink flex items-center justify-center font-bold text-base flex-shrink-0 cursor-pointer overflow-hidden">
                     {getAuthorProfileImageUrl() ? (
-                      <Image src={getAuthorProfileImageUrl()} alt={`${getAuthorDisplayName()}'s profile`} className="w-full h-full object-cover" width={48} height={48} />
+                      <img src={getAuthorProfileImageUrl()} alt={`${getAuthorDisplayName()}'s profile`} className="w-full h-full object-cover" />
                     ) : (
                       <span className="text-white">{getAuthorInitial()}</span>
                     )}
@@ -1142,24 +1144,23 @@ const VerseViewer = ({
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      // Optimistically hide immediately (user asked it should disappear)
-                      setIsFollowing(true);
-                      // Call follow API; revert if it fails
-                      (async () => {
-                        if (!isAuthenticated) {
-                          if (typeof openAuthModal === 'function') openAuthModal('follow', getAuthorUsername());
-                          setIsFollowing(false);
-                          return;
-                        }
-                        try {
-                          await userApi.followUser(getAuthorUsername());
-                        } catch (err) {
+                      const username = getAuthorUsername();
+                      console.log('Follow button clicked, username:', username); // Debug log
+                      setIsFollowing(true); // Optimistically hide immediately and never revert
+                      if (!isAuthenticated) {
+                        if (typeof openAuthModal === 'function') openAuthModal('follow', username);
+                        return;
+                      }
+                      userApi.followUser(username)
+                        .then(() => {
+                          console.log('Follow API call succeeded for:', username);
+                        })
+                        .catch((err) => {
                           console.error('Failed to follow user:', err);
-                          setIsFollowing(false);
-                        }
-                      })();
+                          // Do not revert isFollowing
+                        });
                     }}
-                    className="follow-button absolute bottom-0 right-0 bg-transparent border-2 rounded-full w-7 h-7 flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors"
+                    className="follow-button absolute bottom-0 right-0 bg-transparent border-2 rounded-full w-6 h-6 flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors"
                     aria-label="Follow"
                     title="Follow"
                   >
@@ -1288,14 +1289,26 @@ const VerseViewer = ({
                 <span className={`text-xs mt-1 ${isSaved ? 'text-accent-orange' : 'text-white'}`}>{saveCount}</span>
               </div>
               
-              {/* Plus Button (at bottom) */}
-              <button
-                title="Contribute verse"
-                onClick={handleOpenContribute}
-                className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 text-white shadow-lg flex items-center justify-center hover:scale-105 transition-transform"
-              >
-                <i className="fas fa-plus"></i>
-              </button>
+              {/* Contribute Button (at bottom) - only if story allows contributions */}
+              {story.allow_contributions ? (
+                <button
+                  title="Contribute verse"
+                  onClick={handleOpenContribute}
+                  className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 text-white shadow-lg flex items-center justify-center hover:scale-105 transition-transform"
+                >
+                  <i className="fas fa-feather"></i>
+                </button>
+              ) : (
+                <div
+                  className="w-12 h-12 rounded-full flex items-center justify-center bg-gray-700/40 text-gray-400 cursor-not-allowed relative group"
+                  title="Contributions are disabled for this story."
+                >
+                  <i className="fas fa-feather"></i>
+                  <span className="absolute bottom-[-2.2rem] left-1/2 -translate-x-1/2 bg-black/90 text-xs text-white rounded px-2 py-1 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                    Contributions are disabled for this story.
+                  </span>
+                </div>
+              )}
             </div>
           </div>
         </div>

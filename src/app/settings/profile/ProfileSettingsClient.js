@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Select from 'react-select';
 import ReactCountryFlag from 'react-country-flag';
@@ -15,6 +15,7 @@ export default function ProfileSettingsClient() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const formRef = useRef(null);
 
   const [formData, setFormData] = useState({
     account_type: 'personal',
@@ -298,7 +299,14 @@ export default function ProfileSettingsClient() {
     setSuccess(false);
 
     try {
-      await userApi.updateProfile(currentUser.username, formData);
+      // Create a copy of formData and remove the username field since it's disabled
+      const dataToSend = { ...formData };
+      delete dataToSend.username;
+      
+      // Log the data being sent
+      console.log('Submitting form data:', dataToSend);
+      
+      await userApi.updateCurrentUserProfile(dataToSend);
       await refreshAuth(); // Refresh auth context with new user data
       setSuccess(true);
       // Scroll to top to show success message
@@ -313,37 +321,47 @@ export default function ProfileSettingsClient() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950">
         <div className="text-gray-400">Loading profile settings...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent mb-2">
-            Edit Profile
-          </h1>
-          <p className="text-gray-400">Update your profile information and preferences</p>
-        </div>
-
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950">
+      <div className="w-full max-w-2xl h-[100dvh] overflow-y-auto rounded-2xl shadow-2xl bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 p-0 m-0 flex flex-col justify-start pb-24">
         {/* Success/Error Messages */}
-        {success && (
-          <div className="mb-6 p-4 bg-green-500/20 border border-green-500/50 rounded-lg text-green-200">
-            Profile updated successfully!
-          </div>
-        )}
-        {error && (
-          <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200">
-            {error}
-          </div>
-        )}
-
+        <div className="p-6">
+          {success && (
+            <div className="mb-6 p-4 bg-green-500/20 border border-green-500/50 rounded-lg text-green-200">
+              Profile updated successfully!
+            </div>
+          )}
+          {error && (
+            <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-lg text-red-200">
+              {error}
+            </div>
+          )}
+        </div>
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-6 p-6 pt-0 flex-grow">
+          <div className="mb-8 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => router.back()}
+              className="flex items-center px-3 py-2 rounded-lg bg-gray-800 hover:bg-blue-900 text-blue-300 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+              aria-label="Go back"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 mr-2">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+              Back
+            </button>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent mb-2">
+              Edit Profile
+            </h1>
+          </div>
+          <p className="text-gray-400 mb-4">Update your profile information and preferences</p>
           {/* Name Fields */}
           {formData.account_type === 'personal' ? (
             <div className="grid grid-cols-2 gap-4">
@@ -389,7 +407,6 @@ export default function ProfileSettingsClient() {
               />
             </div>
           )}
-
           {/* Username */}
           <div>
             <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">
@@ -406,7 +423,6 @@ export default function ProfileSettingsClient() {
             />
             <p className="mt-1 text-xs text-gray-500">Username cannot be changed</p>
           </div>
-
           {/* Email */}
           <div>
             <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">
@@ -421,7 +437,6 @@ export default function ProfileSettingsClient() {
               placeholder="your.email@example.com"
             />
           </div>
-
           {/* Bio */}
           <div>
             <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">
@@ -441,7 +456,6 @@ export default function ProfileSettingsClient() {
               {formData.bio.length}/500 characters
             </div>
           </div>
-
           {/* Gender - Only for personal accounts */}
           {formData.account_type === 'personal' && (
             <div>
@@ -466,7 +480,6 @@ export default function ProfileSettingsClient() {
               />
             </div>
           )}
-
           {/* Country */}
           <div>
             <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">
@@ -494,7 +507,6 @@ export default function ProfileSettingsClient() {
               )}
             />
           </div>
-
           {/* City */}
           <div>
             <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">
@@ -510,7 +522,6 @@ export default function ProfileSettingsClient() {
               placeholder={selectedCountry ? "Select your city" : "Please select a country first"}
             />
           </div>
-
           {/* Categories */}
           <div>
             <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">
@@ -547,28 +558,28 @@ export default function ProfileSettingsClient() {
               )}
             />
           </div>
-
-          {/* Submit Button */}
-          <div className="pt-6">
-            <button
-              type="submit"
-              disabled={saving}
-              className="w-full py-4 px-8 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-lg uppercase tracking-widest transition-all duration-300 transform hover:scale-[1.02] hover:from-blue-500 hover:to-purple-500 hover:shadow-lg hover:shadow-blue-500/30 active:scale-[0.98] flex items-center justify-center gap-3 group disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? (
-                <>
-                  <i className="fas fa-spinner animate-spin"></i>
-                  Saving Changes...
-                </>
-              ) : (
-                <>
-                  Save Changes
-                  <i className="fas fa-save group-hover:scale-110 transition-transform"></i>
-                </>
-              )}
-            </button>
-          </div>
         </form>
+      </div>
+      {/* Fixed Save Button at Bottom */}
+      <div className="fixed bottom-0 left-0 right-0 flex justify-center p-6 z-10">
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => formRef.current?.requestSubmit()}
+          className="w-full max-w-2xl py-4 px-8 rounded-xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold text-lg uppercase tracking-widest transition-all duration-300 transform hover:scale-[1.02] hover:from-blue-500 hover:to-purple-500 hover:shadow-lg hover:shadow-blue-500/30 active:scale-[0.98] flex items-center justify-center gap-3 group disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saving ? (
+            <>
+              <i className="fas fa-spinner animate-spin"></i>
+              Saving Changes...
+            </>
+          ) : (
+            <>
+              Save Changes
+              <i className="fas fa-save group-hover:scale-110 transition-transform"></i>
+            </>
+          )}
+        </button>
       </div>
     </div>
   );

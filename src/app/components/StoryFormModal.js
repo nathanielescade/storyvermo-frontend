@@ -60,28 +60,31 @@ ConfirmationDialog.displayName = 'ConfirmationDialog';
 // Optimized Verse Content Component with internal state
 const VerseContent = memo(({ value, onChange, verseId, ...props }) => {
   const [internalValue, setInternalValue] = useState(value);
+  const [expanded, setExpanded] = useState(false);
   const isFocused = useRef(false);
-  
+
   // Update internal value when parent value changes
   useEffect(() => {
     if (!isFocused.current) {
       setInternalValue(value);
     }
   }, [value]);
-  
+
   const handleChange = useCallback((e) => {
     setInternalValue(e.target.value);
   }, []);
-  
+
   const handleFocus = useCallback(() => {
     isFocused.current = true;
+    setExpanded(true);
   }, []);
-  
+
   const handleBlur = useCallback(() => {
     isFocused.current = false;
+    setExpanded(false);
     onChange(internalValue);
   }, [internalValue, onChange]);
-  
+
   return (
     <textarea
       {...props}
@@ -90,6 +93,10 @@ const VerseContent = memo(({ value, onChange, verseId, ...props }) => {
       onChange={handleChange}
       onFocus={handleFocus}
       onBlur={handleBlur}
+      className={
+        `${props.className || ''} verse-content-textarea ${expanded ? 'expanded' : ''}`
+      }
+      style={{ transition: 'height 0.3s', height: expanded ? 144 : 48 }}
     />
   );
 });
@@ -143,7 +150,6 @@ const VerseItem = memo(({
         </label>
         <VerseContent 
           placeholder="Describe your verse (optional)"
-          rows={3}
           value={verse.content || ''}
           onChange={handleContentChange}
           verseId={verse.id}
@@ -372,6 +378,7 @@ const StoryFormModal = ({
   const router = useRouter();
   const { currentUser, isAuthenticated } = useAuth();
   const [isClient, setIsClient] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   
   useEffect(() => {
     setIsClient(true);
@@ -704,278 +711,275 @@ const StoryFormModal = ({
   }, []);
   
   // Handle publish/update post and verses
-// Modify the handlePublish function to properly handle verse updates
-const handlePublish = async () => {
-  const { isValid, firstErrorField } = validateForm();
-  
-  if (!isValid) {
-    setError('Please fix the validation errors below');
-    scrollToFirstError(firstErrorField);
-    return;
-  }
-
-  // Check if all verses are empty and show confirmation if needed
-  if (areAllVersesEmpty()) {
-    setShowEmptyVerseConfirmation(true);
-    return;
-  }
-
-  await proceedWithPublish();
-};
-
-// Update the proceedWithPublish function
-const proceedWithPublish = async () => {
-  setShowEmptyVerseConfirmation(false);
-  setLoading(true);
-  setError(null);
-
-  try {
-    // Check authentication
-    if (!isAuthenticated || !currentUser) {
-      throw new Error('You must be logged in to perform this action');
+  const handlePublish = async () => {
+    const { isValid, firstErrorField } = validateForm();
+    
+    if (!isValid) {
+      setError('Please fix the validation errors below');
+      scrollToFirstError(firstErrorField);
+      return;
     }
 
-    // Helper function to upload a single image with better error handling
-    const uploadImage = async (file) => {
-      try {
-        // Create FormData properly
-        const formData = new FormData();
-        formData.append('file', file);  // Backend expects 'file' field
-        formData.append('alt_text', file.name || '');
-    
-        // Get auth token
-        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-        
-        console.log('Uploading image:', {
-          name: file.name,
-          type: file.type,
-          size: file.size,
-          hasToken: !!token
-        });
-    
-        const res = await fetch('/api/images/', {
-          method: 'POST',
-          headers: {
-            // DON'T set Content-Type - let browser set it with boundary for multipart
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          },
-          credentials: 'include', // Important for session auth
-          body: formData
-        });
-    
-        if (!res.ok) {
-          const errorText = await res.text();
-          let errorData;
-          try {
-            errorData = JSON.parse(errorText);
-          } catch {
-            errorData = { error: errorText };
-          }
-          
-          console.error('Image upload failed:', {
-            status: res.status,
-            statusText: res.statusText,
-            error: errorData,
-          });
-          
-          throw new Error(errorData.error || `Upload failed: ${res.statusText}`);
-        }
-    
-        const data = await res.json();
-        console.log('Image uploaded successfully:', data);
-        return data;
-        
-      } catch (error) {
-        console.error('Upload error:', error);
-        throw error;
+    // Check if all verses are empty and show confirmation if needed
+    if (areAllVersesEmpty()) {
+      setShowEmptyVerseConfirmation(true);
+      return;
+    }
+
+    await proceedWithPublish();
+  };
+
+  const proceedWithPublish = async () => {
+    setShowEmptyVerseConfirmation(false);
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Check authentication
+      if (!isAuthenticated || !currentUser) {
+        throw new Error('You must be logged in to perform this action');
       }
-    };
-    
 
-    // Upload all verse images first and collect their public_ids
-    const versesWithUploadedImages = await Promise.all(
-      verses.map(async (verse) => {
-        const uploadedImageIds = [];
-        
-        for (const img of verse.imageIds || []) {
-          if (img && (img.file instanceof File || img instanceof File)) {
-            const file = img.file instanceof File ? img.file : img;
-            try {
-              const result = await uploadImage(file);
-              uploadedImageIds.push(result.public_id);
-            } catch (uploadErr) {
-              console.error('Failed to upload verse image:', uploadErr);
-              throw uploadErr;
-            }
-          } else if (typeof img === 'string') {
-            uploadedImageIds.push(img);
-          } else if (img && img.public_id) {
-            uploadedImageIds.push(img.public_id);
-          }
-        }
-        
-        return {
-          content: (verse.content || '').trim(),
-          image_ids: uploadedImageIds,
-          order: verse.order || 0,
-          // Include the verse ID if it's an existing verse
-          ...(verse.slug && { id: verse.slug })
-        };
-      })
-    );
-
-    // Prepare story payload with tags
-    const storyPayload = {
-      title: title.trim(),
-      description: description.trim(),
-      tags_input: selectedTags,
-      allow_contributions: allowContributions,
-      creator: currentUser.id || currentUser.pk || currentUser.username
-    };
-
-    // Handle cover image
-    let finalCoverImageId = coverImageId;
-    
-    if (imageFile) {
-      try {
-        console.log('Uploading cover image...');
-        const result = await uploadImage(imageFile);
-        finalCoverImageId = result.public_id;
-        console.log('Cover image uploaded:', finalCoverImageId);
-      } catch (uploadErr) {
-        console.error('Failed to upload cover image:', uploadErr);
-        throw uploadErr;
-      }
-    }
-    
-    // Add cover image to payload if we have one
-    if (finalCoverImageId) {
-      storyPayload.cover_image_public_id = finalCoverImageId;
-    }
-
-    let savedStory;
-    if (editingStory) {
-      console.log('Updating story with payload:', storyPayload);
-      savedStory = await storiesApi.updateStory(editingStory.slug, storyPayload);
-    } else {
-      console.log('Creating story with payload:', storyPayload);
-      savedStory = await storiesApi.createStory(storyPayload);
-    }
-
-    // After creating/updating the story, handle verses
-    const createdVerses = [];
-    const storyIdentifier = savedStory?.public_id || savedStory?.id || savedStory?.slug;
-
-    if (Array.isArray(versesWithUploadedImages) && storyIdentifier) {
-      for (let i = 0; i < versesWithUploadedImages.length; i++) {
-        const v = versesWithUploadedImages[i];
+      // Helper function to upload a single image with better error handling
+      const uploadImage = async (file) => {
         try {
-          const verseData = {
-            story: storyIdentifier,
-            content: v.content || '',
-            order: v.order || i + 1,
-            image_ids: v.image_ids || []
-          };
-
-          let verseResponse;
+          // Create FormData properly
+          const formData = new FormData();
+          formData.append('file', file);  // Backend expects 'file' field
+          formData.append('alt_text', file.name || '');
+      
+          // Get auth token
+          const token = localStorage.getItem('token') || sessionStorage.getItem('token');
           
-          // Check if this is an existing verse or a new one
-          if (v.id && editingStory) {
-            // This is an existing verse, update it
-            verseResponse = await versesApi.updateVerse(v.id, verseData);
-          } else {
-            // This is a new verse, create it
-            verseResponse = await versesApi.createVerse(verseData);
+          console.log('Uploading image:', {
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            hasToken: !!token
+          });
+      
+          const res = await fetch('/api/images/', {
+            method: 'POST',
+            headers: {
+              // DON'T set Content-Type - let browser set it with boundary for multipart
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            credentials: 'include', // Important for session auth
+            body: formData
+          });
+      
+          if (!res.ok) {
+            const errorText = await res.text();
+            let errorData;
+            try {
+              errorData = JSON.parse(errorText);
+            } catch {
+              errorData = { error: errorText };
+            }
+            
+            console.error('Image upload failed:', {
+              status: res.status,
+              statusText: res.statusText,
+              error: errorData,
+            });
+            
+            throw new Error(errorData.error || `Upload failed: ${res.statusText}`);
           }
+      
+          const data = await res.json();
+          console.log('Image uploaded successfully:', data);
+          return data;
+          
+        } catch (error) {
+          console.error('Upload error:', error);
+          throw error;
+        }
+      };
 
-          // Create moments for each image id
-          const imageIds = v.image_ids || [];
-          if (Array.isArray(imageIds) && imageIds.length > 0 && verseResponse) {
-            for (let m = 0; m < imageIds.length; m++) {
+      // Upload all verse images first and collect their public_ids
+      const versesWithUploadedImages = await Promise.all(
+        verses.map(async (verse) => {
+          const uploadedImageIds = [];
+          
+          for (const img of verse.imageIds || []) {
+            if (img && (img.file instanceof File || img instanceof File)) {
+              const file = img.file instanceof File ? img.file : img;
               try {
-                await momentsApi.createMoment({
-                  verse: verseResponse.public_id || verseResponse.id,
-                  image_id: imageIds[m],
-                  order: m + 1
-                });
-              } catch (momentErr) {
-                console.warn('Failed to create moment for verse', verseResponse, momentErr);
+                const result = await uploadImage(file);
+                uploadedImageIds.push(result.public_id);
+              } catch (uploadErr) {
+                console.error('Failed to upload verse image:', uploadErr);
+                throw uploadErr;
+              }
+            } else if (typeof img === 'string') {
+              uploadedImageIds.push(img);
+            } else if (img && img.public_id) {
+              uploadedImageIds.push(img.public_id);
+            }
+          }
+          
+          return {
+            content: (verse.content || '').trim(),
+            image_ids: uploadedImageIds,
+            order: verse.order || 0,
+            // Include the verse ID if it's an existing verse
+            ...(verse.slug && { id: verse.slug })
+          };
+        })
+      );
+
+      // Prepare story payload with tags
+      const storyPayload = {
+        title: title.trim(),
+        description: description.trim(),
+        tags_input: selectedTags,
+        allow_contributions: allowContributions,
+        creator: currentUser.id || currentUser.pk || currentUser.username
+      };
+
+      // Handle cover image
+      let finalCoverImageId = coverImageId;
+      
+      if (imageFile) {
+        try {
+          console.log('Uploading cover image...');
+          const result = await uploadImage(imageFile);
+          finalCoverImageId = result.public_id;
+          console.log('Cover image uploaded:', finalCoverImageId);
+        } catch (uploadErr) {
+          console.error('Failed to upload cover image:', uploadErr);
+          throw uploadErr;
+        }
+      }
+      
+      // Add cover image to payload if we have one
+      if (finalCoverImageId) {
+        storyPayload.cover_image_public_id = finalCoverImageId;
+      }
+
+      let savedStory;
+      if (editingStory) {
+        console.log('Updating story with payload:', storyPayload);
+        savedStory = await storiesApi.updateStory(editingStory.slug, storyPayload);
+      } else {
+        console.log('Creating story with payload:', storyPayload);
+        savedStory = await storiesApi.createStory(storyPayload);
+      }
+
+      // After creating/updating the story, handle verses
+      const createdVerses = [];
+      const storyIdentifier = savedStory?.public_id || savedStory?.id || savedStory?.slug;
+
+      if (Array.isArray(versesWithUploadedImages) && storyIdentifier) {
+        for (let i = 0; i < versesWithUploadedImages.length; i++) {
+          const v = versesWithUploadedImages[i];
+          try {
+            const verseData = {
+              story: storyIdentifier,
+              content: v.content || '',
+              order: v.order || i + 1,
+              image_ids: v.image_ids || []
+            };
+
+            let verseResponse;
+            
+            // Check if this is an existing verse or a new one
+            if (v.id && editingStory) {
+              // This is an existing verse, update it
+              verseResponse = await versesApi.updateVerse(v.id, verseData);
+            } else {
+              // This is a new verse, create it
+              verseResponse = await versesApi.createVerse(verseData);
+            }
+
+            // Create moments for each image id
+            const imageIds = v.image_ids || [];
+            if (Array.isArray(imageIds) && imageIds.length > 0 && verseResponse) {
+              for (let m = 0; m < imageIds.length; m++) {
+                try {
+                  await momentsApi.createMoment({
+                    verse: verseResponse.public_id || verseResponse.id,
+                    image_id: imageIds[m],
+                    order: m + 1
+                  });
+                } catch (momentErr) {
+                  console.warn('Failed to create moment for verse', verseResponse, momentErr);
+                }
               }
             }
-          }
 
-          createdVerses.push(verseResponse);
-        } catch (verseErr) {
-          console.warn('Failed to create/update verse', v, verseErr);
+            createdVerses.push(verseResponse);
+          } catch (verseErr) {
+            console.warn('Failed to create/update verse', v, verseErr);
+          }
         }
       }
-    }
 
-    // Attach created verses to savedStory for immediate UI update
-    if (createdVerses.length > 0) {
+      // Attach created verses to savedStory for immediate UI update
+      if (createdVerses.length > 0) {
+        try {
+          savedStory.verses = createdVerses;
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      setSuccess(editingStory ? 'Story updated successfully!' : 'Story created successfully!');
+      if (onUpdateStory) {
+        onUpdateStory(savedStory, !editingStory);
+      }
+
+      // Notify server-side proxy to trigger revalidation and indexing without exposing the secret to the client.
       try {
-        savedStory.verses = createdVerses;
-      } catch (e) {
-        // ignore
-      }
-    }
-
-    setSuccess(editingStory ? 'Story updated successfully!' : 'Story created successfully!');
-    if (onUpdateStory) {
-      onUpdateStory(savedStory, !editingStory);
-    }
-
-    // Notify server-side proxy to trigger revalidation and indexing without exposing the secret to the client.
-    try {
-      const csrf = getCsrfToken();
-      // Fire-and-forget but log results for debugging
-      fetch('/api/publish-proxy', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': csrf
-        },
-        body: JSON.stringify({ slug: savedStory?.slug })
-      })
-        .then(async (r) => {
-          try { const j = await r.json().catch(() => null); console.log('publish-proxy response', r.status, j); } catch(e){}
+        const csrf = getCsrfToken();
+        // Fire-and-forget but log results for debugging
+        fetch('/api/publish-proxy', {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrf
+          },
+          body: JSON.stringify({ slug: savedStory?.slug })
         })
-        .catch((e) => console.warn('publish-proxy failed', e));
-    } catch (e) {
-      console.warn('publish-proxy invocation error', e);
-    }
-
-    setTimeout(() => {
-      onClose();
-      setSuccess(null);
-      // Redirect to story slug after update
-      if (savedStory.slug) {
-        router.push(`/stories/${savedStory.slug}`);
-      } else if (editingStory && editingStory.slug) {
-        // Fallback to editingStory.slug if savedStory doesn't have slug
-        router.push(`/stories/${editingStory.slug}`);
+          .then(async (r) => {
+            try { const j = await r.json().catch(() => null); console.log('publish-proxy response', r.status, j); } catch(e){}
+          })
+          .catch((e) => console.warn('publish-proxy failed', e));
+      } catch (e) {
+        console.warn('publish-proxy invocation error', e);
       }
-    }, 2000);
-  } catch (err) {
-    console.error('Error saving story:', err);
-    
-    // Provide user-friendly error messages
-    let errorMessage = 'An error occurred while saving the story. Please try again.';
-    
-    if (err.message.includes('permission denied') || err.message.includes('403')) {
-      errorMessage = 'Upload permission denied. Please try refreshing the page and logging in again.';
-    } else if (err.message.includes('Session expired') || err.message.includes('401')) {
-      errorMessage = 'Your session has expired. Please refresh the page and try again.';
-    } else if (err.message) {
-      errorMessage = err.message;
+
+      setTimeout(() => {
+        onClose();
+        setSuccess(null);
+        // Redirect to story slug after update
+        if (savedStory.slug) {
+          router.push(`/stories/${savedStory.slug}`);
+        } else if (editingStory && editingStory.slug) {
+          // Fallback to editingStory.slug if savedStory doesn't have slug
+          router.push(`/stories/${editingStory.slug}`);
+        }
+      }, 2000);
+    } catch (err) {
+      console.error('Error saving story:', err);
+      
+      // Provide user-friendly error messages
+      let errorMessage = 'An error occurred while saving the story. Please try again.';
+      
+      if (err.message.includes('permission denied') || err.message.includes('403')) {
+        errorMessage = 'Upload permission denied. Please try refreshing the page and logging in again.';
+      } else if (err.message.includes('Session expired') || err.message.includes('401')) {
+        errorMessage = 'Your session has expired. Please refresh the page and try again.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
     }
-    
-    setError(errorMessage);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
   
   // Cancel publishing and go back to verses
   const cancelPublish = () => {
@@ -1399,10 +1403,12 @@ const proceedWithPublish = async () => {
                   <div className="relative">
                     <textarea 
                       placeholder="Share your story, thoughts, or experiences..."
-                      rows={4}
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
-                      className="w-full px-5 py-4 bg-slate-900/60 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 resize-none text-lg"
+                      onFocus={() => setIsDescriptionExpanded(true)}
+                      onBlur={() => setIsDescriptionExpanded(false)}
+                      className="w-full px-5 py-2 bg-slate-900/60 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 resize-none text-lg story-description-textarea"
+                      style={{ transition: 'height 0.3s', height: isDescriptionExpanded ? 144 : 48 }}
                     ></textarea>
                     <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500/5 to-blue-500/5 opacity-0 pointer-events-none transition-opacity duration-300"></div>
                   </div>

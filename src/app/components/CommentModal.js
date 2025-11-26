@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { commentsApi } from '../../../lib/api';
+import { commentsApi, absoluteUrl } from '../../../lib/api';
 
 const CommentModal = ({ 
   isOpen, 
@@ -39,10 +39,22 @@ const CommentModal = ({
   // Helper function to get display name based on account type
   const getDisplayName = (user) => {
     if (!user) return 'Unknown';
+    if (user.first_name && user.last_name) {
+      return `${user.first_name} ${user.last_name}`;
+    }
+    if (user.display_name) {
+      return user.display_name;
+    }
     if (user.account_type === 'brand' && user.brand_name) {
       return user.brand_name;
     }
-    return user.username || 'Unknown';
+    if (user.username) {
+      return user.username;
+    }
+    if (user.name) {
+      return user.name;
+    }
+    return 'Unknown';
   };
 
   // Check if mobile
@@ -476,14 +488,14 @@ const CommentModal = ({
 
   return (
     <div 
-      className="fixed inset-0 z-[200] flex items-start md:items-center justify-center bg-black/80 backdrop-blur-lg"
+      className="fixed inset-0 z-20 flex items-start md:items-center justify-center bg-black/80 backdrop-blur-lg"
       onClick={onClose}
     >
       {/* Modal container */}
       <div 
         ref={modalRef}
-        className={`relative w-full ${isMobile ? 'max-w-md h-[85vh] mt-4' : 'max-w-2xl h-[90vh] max-h-[800px]'} bg-gradient-to-br from-gray-900 to-black rounded-t-2xl md:rounded-2xl border border-cyan-500/30 shadow-2xl overflow-hidden flex flex-col transform transition-all duration-300 scale-95 animate-scaleIn`}
-        style={getModalStyle()}
+        className={`relative w-full h-full ${isMobile ? 'max-w-md pb-6' : 'max-w-2xl'} bg-gradient-to-br from-gray-900 to-black rounded-t-2xl md:rounded-2xl border border-cyan-500/30 shadow-2xl overflow-hidden flex flex-col transform transition-all duration-300 scale-95 animate-scaleIn`}
+        style={{ ...getModalStyle(), height: isMobile ? '100dvh' : '100vh', maxHeight: isMobile ? '100dvh' : '100vh' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Animated neon border effect */}
@@ -544,11 +556,24 @@ const CommentModal = ({
         {/* Post Preview */}
         <div className="p-6 border-b border-cyan-500/20 bg-black/30 relative z-10">
           <div className="flex items-start space-x-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-white font-bold">
-              {getDisplayName(post.creator)?.charAt(0).toUpperCase() || 'U'}
+            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-white font-bold overflow-hidden">
+              {(() => {
+                const creator = post.creator || {};
+                const imgUrl = creator.profile_image_url || creator.profile_image || creator.profileImageUrl || creator.profileImage || null;
+                if (imgUrl) {
+                  return (
+                    <img
+                      src={absoluteUrl(imgUrl)}
+                      alt={getDisplayName(creator)}
+                      className="w-full h-full object-cover rounded-full"
+                    />
+                  );
+                }
+                return getDisplayName(creator)?.charAt(0).toUpperCase() || 'U';
+              })()}
             </div>
-            <div>
-              <h3 className="font-bold text-white">{post.title}</h3>
+            <div className="min-w-0">
+              <h3 className="font-bold text-white truncate overflow-ellipsis whitespace-nowrap block max-w-xs" title={post.title}>{post.title}</h3>
               <p className="text-gray-400 text-sm">{getDisplayName(post.creator)}</p>
             </div>
           </div>
@@ -577,8 +602,16 @@ const CommentModal = ({
                 {/* Comment */}
                 <div className="relative bg-gradient-to-b from-gray-800/50 to-black/50 rounded-xl p-4 border border-cyan-500/20 backdrop-blur-sm">
                   <div className="flex space-x-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-white font-bold flex-shrink-0">
-                      {getDisplayName(comment.author)?.charAt(0).toUpperCase() || 'U'}
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-white font-bold flex-shrink-0 overflow-hidden">
+                      {comment.author?.profile_image_url ? (
+                        <img
+                          src={absoluteUrl(comment.author.profile_image_url)}
+                          alt={getDisplayName(comment.author)}
+                          className="w-full h-full object-cover rounded-full"
+                        />
+                      ) : (
+                        getDisplayName(comment.author)?.charAt(0).toUpperCase() || 'U'
+                      )}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center space-x-2">
@@ -677,8 +710,16 @@ const CommentModal = ({
                               className="relative bg-gradient-to-b from-gray-700/30 to-black/30 rounded-xl p-3 border border-purple-500/20 backdrop-blur-sm"
                             >
                               <div className="flex space-x-3">
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                                  {getDisplayName(reply.author)?.charAt(0).toUpperCase() || 'U'}
+                                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 overflow-hidden">
+                                  {reply.author?.profile_image_url ? (
+                                    <img
+                                      src={absoluteUrl(reply.author.profile_image_url)}
+                                      alt={getDisplayName(reply.author)}
+                                      className="w-full h-full object-cover rounded-full"
+                                    />
+                                  ) : (
+                                    getDisplayName(reply.author)?.charAt(0).toUpperCase() || 'U'
+                                  )}
                                 </div>
                                 <div className="flex-1">
                                   <div className="flex items-center space-x-2">
@@ -752,8 +793,22 @@ const CommentModal = ({
         </div>
         
         {/* Add Comment Section */}
-        <div className="p-6 border-t border-cyan-500/30 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md relative z-10">
-          <div className="flex space-x-3">
+        <div className="p-2 border-t border-cyan-500/30 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md relative z-10">
+          <div className="flex flex-col gap-2">
+            {/* Emoji Reaction Row */}
+            <div className="flex gap-2 mb-2 justify-center">
+              {['🔥','😂','❤️','😍','😮','👍','🙏'].map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  className="text-2xl px-2 py-1 rounded-full bg-slate-800/60 hover:bg-cyan-500/30 transition-all duration-200 shadow hover:scale-110"
+                  onClick={() => setNewComment((prev) => prev + emoji)}
+                  title={`Add ${emoji}`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
             <div className="flex-1 flex space-x-3">
               <textarea
                 ref={commentTextareaRef}

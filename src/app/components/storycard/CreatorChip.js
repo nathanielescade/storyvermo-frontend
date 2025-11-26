@@ -295,10 +295,10 @@ const CreatorChip = ({
                     
                     {!isOwner && !isFollowing && !isSelf && creatorUsername !== 'anonymous' && (
                         <button 
-                            className="follow-button absolute bottom-0 right-0 bg-transparent border-1 rounded-full w-8 h-8 flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors"
+                            className="follow-button absolute bottom-0 right-0 bg-transparent border-2 rounded-full w-6 h-6 flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors"
                             onClick={handleFollowClick}
                         >
-                            <i className="fas fa-plus text-white font-extrabold text-4xl"></i>
+                            <i className="fas fa-plus text-white font-extrabold text-xl"></i>
                         </button>
                     )}
                 </div>
