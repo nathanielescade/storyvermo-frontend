@@ -3,7 +3,6 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { notificationsApi } from '../../../../lib/api';
-import { useGuestNotifications } from '../../../../hooks/useGuestNotifications';
 import {
   isLeaderboardNotification,
   isAchievementNotification,
@@ -21,15 +20,6 @@ const NotificationBell = () => {
   const [notificationsPreview, setNotificationsPreview] = useState([]);
   const [previewLoading, setPreviewLoading] = useState(false);
   const notificationRef = useRef(null);
-  
-  // Get guest notifications (will be null for authenticated users)
-  const {
-    notification: guestNotification,
-    isAuthenticated,
-    dismissNotification: dismissGuestNotification,
-    trackNotificationShown,
-    trackCTAClicked
-  } = useGuestNotifications();
 
   // Fetch unread count on mount and subscribe to updates
   useEffect(() => {
@@ -65,11 +55,6 @@ const NotificationBell = () => {
           }
         }
 
-        // Add guest notification count if not authenticated and guest notification exists
-        if (guestNotification && !isAuthenticated && guestNotification.dismiss_count > 0) {
-          count += 1;
-        }
-
         if (mounted) setUnreadCount(count);
       } catch (err) {
         console.debug('Failed to fetch notification count', err);
@@ -91,7 +76,7 @@ const NotificationBell = () => {
       clearInterval(intervalId);
       window.removeEventListener('notifications:count:update', handleCountUpdate);
     };
-  }, [guestNotification, isAuthenticated]);
+  }, []);
 
   useEffect(() => {
     if (!showNotifications) return;
@@ -102,32 +87,19 @@ const NotificationBell = () => {
         const data = await notificationsApi.getNotifications();
         const list = data?.notifications ?? data?.results ?? (Array.isArray(data) ? data : []);
         
-        // If guest user and has guest notification, prepend it to the list
-        if (!isAuthenticated && guestNotification) {
-          const combined = [guestNotification, ...list];
-          if (mounted) {
-            setNotificationsPreview(combined);
-            setPreviewLoading(false);
-          }
-        } else {
-          if (mounted) {
-            setNotificationsPreview(list);
-            setPreviewLoading(false);
-          }
+        if (mounted) {
+          setNotificationsPreview(list);
+          setPreviewLoading(false);
         }
       } catch (err) {
         console.debug('Failed to fetch preview notifications', err);
         if (mounted) {
-          // Show guest notification even if API fails
-          if (!isAuthenticated && guestNotification) {
-            setNotificationsPreview([guestNotification]);
-          }
           setPreviewLoading(false);
         }
       }
     })();
     return () => { mounted = false; };
-  }, [showNotifications, guestNotification, isAuthenticated]);
+  }, [showNotifications]);
 
   const markAsRead = async (id) => {
     try {
@@ -197,47 +169,6 @@ const NotificationBell = () => {
               <div className="text-center py-4 text-gray-400">No notifications yet</div>
             ) : (
               notificationsPreview.slice(0,5).map(n => {
-                // Check if this is a guest notification
-                if (n.type && n.type.startsWith('GUEST_')) {
-                  return (
-                    <div
-                      key={n.id || 'guest-notif'}
-                      className="px-2 py-2 rounded cursor-pointer transition-all mb-1 hover:bg-slate-700/40 bg-slate-800/30 border border-slate-700/40 border-l-2 border-l-amber-400"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        trackCTAClicked(n);
-                        if (n.cta_url) {
-                          setShowNotifications(false);
-                          router.push(n.cta_url);
-                        }
-                      }}
-                    >
-                      <div className="flex items-center gap-2">
-                        {/* Icon */}
-                        <span className="text-base shrink-0">{n.emoji || '🎉'}</span>
-
-                        {/* Title - single line */}
-                        <span className="text-sm font-medium text-white truncate flex-1">{n.title}</span>
-
-                        {/* Dismiss option for guest notifications */}
-                        {n.dismiss_count > 0 && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              dismissGuestNotification(n.id);
-                              setNotificationsPreview(prev => prev.filter(x => x.id !== n.id));
-                            }}
-                            className="text-gray-400 hover:text-white px-1 shrink-0"
-                            aria-label="Dismiss"
-                          >
-                            ×
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                }
-
                 // Check if this is a leaderboard or achievement notification
                 if (isLeaderboardNotification(n) || isAchievementNotification(n)) {
                   return (

@@ -6,7 +6,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notificationsApi } from '../../../lib/api';
 import { useAuth } from '../../../contexts/AuthContext';
-import { useGuestNotifications } from '../../../hooks/useGuestNotifications';
 import {
   isLeaderboardNotification,
   isAchievementNotification,
@@ -27,13 +26,6 @@ export function NotificationsClient() {
   const [loadingMore, setLoadingMore] = useState(false);
   const observer = useRef();
   const { currentUser, isAuthenticated } = useAuth();
-  const {
-    notification: guestNotification,
-    isAuthenticated: guestIsAuth,
-    dismissNotification: dismissGuestNotification,
-    trackNotificationShown: trackGuestShown,
-    trackCTAClicked: trackGuestCTA
-  } = useGuestNotifications();
   const router = useRouter();
 
   // Helper function to get display name based on account type
@@ -64,11 +56,6 @@ export function NotificationsClient() {
       const data = await notificationsApi.getNotifications();
       const list = data?.notifications ?? data?.results ?? (Array.isArray(data) ? data : null) ?? [];
       let normalized = list || [];
-      
-      // Prepend guest notification if not authenticated and guest notification exists
-      if (!isAuthenticated && guestNotification && guestNotification.dismiss_count > 0) {
-        normalized = [guestNotification, ...normalized];
-      }
       
       const pageSize = 10;
       const start = (pageNumber - 1) * pageSize;
@@ -108,7 +95,7 @@ export function NotificationsClient() {
         setLoadingMore(false);
       }
     }
-  }, [isAuthenticated, currentUser, guestNotification]);
+  }, [isAuthenticated, currentUser]);
 
   // Effect for initial load
   useEffect(() => {

@@ -22,14 +22,7 @@ const nextConfig = {
       },
     ],
   },
-  async rewrites() {
-    return [
-      {
-        source: '/api/notifications/guest_notifications/',
-        destination: 'http://localhost:8000/api/notifications/guest_notifications/',
-      },
-    ];
-  },
+
 };
 
 export default nextConfig;

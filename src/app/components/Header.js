@@ -52,7 +52,6 @@ const Header = ({ openAuthModal }) => {
           <SearchBar />
         </div>
         
-        {/* Notification Bell - visible to all users (authenticated and guests) */}
         {mounted && (
           <NotificationBell />
         )}
