@@ -170,6 +170,18 @@ export async function GET() {
           }
         }
 
+          // Add individual verse URLs for SEO
+          const verses = Array.isArray(s.verses) ? s.verses : [];
+          for (const v of verses) {
+            const verseId = v.id || v.public_id || v.slug;
+            if (!verseId) continue;
+            const verseLoc = `${SITE_URL}/verses/${encodeURIComponent(verseId)}`;
+            if (!seen.has(verseLoc)) {
+              urls.push({ loc: verseLoc, priority: '0.4', changefreq: 'monthly' });
+              seen.add(verseLoc);
+            }
+          }
+
         fetched += 1;
         // Respect sitemap size limits (50k URLs). Stop early if too large.
         if (fetched >= 45000) break;

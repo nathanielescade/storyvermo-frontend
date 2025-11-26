@@ -80,7 +80,7 @@ const DimensionNav = ({ openAuthModal, openStoryFormModal, openDiscoverModal, in
   return (
     <>
       {/* Mobile Navigation */}
-      <div className={`dimension-nav md:hidden ${inStoryCard ? '' : 'fixed bottom-0'} left-0 right-0 bg-dark-blue/90 backdrop-blur-xl py-2 flex justify-around items-center z-10 border-t border-neon-blue/30`}>
+      <div className={`dimension-nav md:hidden ${inStoryCard ? '' : 'fixed bottom-0'} left-0 right-0 bg-dark-blue/90 backdrop-blur-xl py-2 flex justify-around items-center z-50 border-t border-neon-blue/30`}>
         <div 
           className={`nav-item flex flex-col items-center text-base transition-all cursor-pointer ${activeDimension === 'explore' ? 'active text-neon-blue' : 'text-white/80'}`} 
           data-dimension="explore"

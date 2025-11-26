@@ -376,6 +376,7 @@ export default function StoryCard({
 
     if (viewType === 'feed') {
         const coverImageUrl = getCoverImageUrl();
+        const creatorUsername = getCreatorUsername(); // Get the username once
         
         return (
             <div className="image-container" style={{ display: storyDeleted ? 'none' : 'block' }}>
@@ -394,7 +395,7 @@ export default function StoryCard({
                         WebkitUserSelect: 'none'
                     }}
                     data-story-id={story.id} 
-                    data-creator={getCreatorUsername()} 
+                    data-creator={creatorUsername} 
                     data-story-slug={story.slug || ''}
                     // Removed touch handlers to avoid blocking vertical scroll.
                 >
@@ -644,6 +645,7 @@ export default function StoryCard({
                     handleShareStory={() => setShowShareModal(true)}
                     dropdownRef={dropdownRef}
                     coords={dropdownCoords}
+                    creatorUsername={creatorUsername} // Pass the username to the dropdown
                 />
             </div>
         );

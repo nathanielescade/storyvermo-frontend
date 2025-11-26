@@ -14,7 +14,8 @@ const DropdownMenu = ({
     handleReportStory, 
     handleShareStory,
     dropdownRef,
-    coords // { left, top }
+    coords, // { left, top }
+    creatorUsername // Add this prop to pass the username
 }) => {
     if (!showDropdown) return null;
 
@@ -64,7 +65,7 @@ const DropdownMenu = ({
                     {!isFollowing && (
                         <button 
                             className="w-full text-left px-4 py-3 text-white hover:bg-gray-800 flex items-center gap-3 transition-colors"
-                            onClick={handleFollow}
+                            onClick={(e) => handleFollow(e, creatorUsername)}
                         >
                             <i className="fas fa-user-plus text-green-400"></i>
                             <span>Follow User</span>
