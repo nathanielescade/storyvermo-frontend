@@ -1,4 +1,5 @@
 /** @type {import('next').NextConfig} */
+
 const nextConfig = {
   images: {
     remotePatterns: [
@@ -20,6 +21,14 @@ const nextConfig = {
         pathname: '/media/**',
       },
     ],
+  },
+  async rewrites() {
+    return [
+      {
+        source: '/api/notifications/guest_notifications/',
+        destination: 'http://localhost:8000/api/notifications/guest_notifications/',
+      },
+    ];
   },
 };
 

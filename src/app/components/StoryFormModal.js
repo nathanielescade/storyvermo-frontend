@@ -737,52 +737,60 @@ const proceedWithPublish = async () => {
 
     // Helper function to upload a single image with better error handling
     const uploadImage = async (file) => {
-      const fd = new FormData();
-      fd.append('file', file);
-      
-      // Get fresh CSRF token
-      const csrfToken = getCsrfToken();
-      
-      const headers = {
-        'X-CSRFToken': csrfToken
-      };
-      
-      // Try to get token from meta tag if cookie method fails
-      if (!csrfToken) {
-        const metaToken = document.querySelector('[name=csrf-token]')?.getAttribute('content');
-        if (metaToken) {
-          headers['X-CSRFToken'] = metaToken;
-        }
-      }
-      
-      const res = await fetch(`/api/images/`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: headers,
-        body: fd
-      });
-      
-      if (!res.ok) {
-        const errorText = await res.text();
-        console.error('Image upload failed:', {
-          status: res.status,
-          statusText: res.statusText,
-          error: errorText,
-          hasCSRF: !!csrfToken
-        });
+      try {
+        // Create FormData properly
+        const formData = new FormData();
+        formData.append('file', file);  // Backend expects 'file' field
+        formData.append('alt_text', file.name || '');
+    
+        // Get auth token
+        const token = localStorage.getItem('token') || sessionStorage.getItem('token');
         
-        // Provide more specific error messages
-        if (res.status === 403) {
-          throw new Error('Upload permission denied. Please try logging in again.');
-        } else if (res.status === 401) {
-          throw new Error('Session expired. Please refresh the page and try again.');
-        } else {
-          throw new Error(`Image upload failed: ${res.statusText}`);
+        console.log('Uploading image:', {
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          hasToken: !!token
+        });
+    
+        const res = await fetch('/api/images/', {
+          method: 'POST',
+          headers: {
+            // DON'T set Content-Type - let browser set it with boundary for multipart
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+          },
+          credentials: 'include', // Important for session auth
+          body: formData
+        });
+    
+        if (!res.ok) {
+          const errorText = await res.text();
+          let errorData;
+          try {
+            errorData = JSON.parse(errorText);
+          } catch {
+            errorData = { error: errorText };
+          }
+          
+          console.error('Image upload failed:', {
+            status: res.status,
+            statusText: res.statusText,
+            error: errorData,
+          });
+          
+          throw new Error(errorData.error || `Upload failed: ${res.statusText}`);
         }
+    
+        const data = await res.json();
+        console.log('Image uploaded successfully:', data);
+        return data;
+        
+      } catch (error) {
+        console.error('Upload error:', error);
+        throw error;
       }
-      
-      return await res.json();
     };
+    
 
     // Upload all verse images first and collect their public_ids
     const versesWithUploadedImages = await Promise.all(

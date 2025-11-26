@@ -7,10 +7,25 @@ export async function POST(request) {
     // Read the form data from the client request
     const formData = await request.formData();
 
-    // Forward the request to the backend API
-    const response = await fetch(`${NEXT_PUBLIC_API_URL}/api/images/`, {
+
+    // Get API URL from environment variable
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (!apiUrl) {
+      console.error('NEXT_PUBLIC_API_URL is not defined in environment variables');
+      return Response.json(
+        { error: 'Internal server error', details: 'API URL not configured' },
+        { status: 500 }
+      );
+    }
+
+    // Forward the request to the backend API, including the cookie header for session auth
+    const incomingCookies = request.headers.get('cookie');
+    const csrfToken = request.headers.get('x-csrftoken') || request.headers.get('x-xsrf-token');
+    const response = await fetch(`${apiUrl}/api/images/`, {
       method: 'POST',
       headers: {
+        ...(incomingCookies ? { cookie: incomingCookies } : {}),
+        ...(csrfToken ? { 'X-CSRFToken': csrfToken } : {}),
         // Don't set Content-Type, let fetch set it with the boundary
         // 'Content-Type': 'multipart/form-data',  // ❌ Wrong
       },
