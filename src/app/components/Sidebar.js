@@ -231,7 +231,7 @@ const Sidebar = ({ user, followers, recentStories }) => {
       <div className="sidebar-footer relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-neon-blue/5 to-neon-purple/5 z-0"></div>
         <div className="relative z-10 flex flex-col items-center gap-2">
-          <div className="text-xs font-rajdhani text-white/50 text-center">© 2023 StoryVerm</div>
+          <div className="text-xs font-rajdhani text-white/50 text-center">© {new Date().getFullYear()} StoryVerm</div>
           <div className="flex gap-2">
             <div className="w-1 h-1 rounded-full bg-neon-blue"></div>
             <div className="w-1 h-1 rounded-full bg-neon-purple"></div>
