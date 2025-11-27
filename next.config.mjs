@@ -20,9 +20,13 @@ const nextConfig = {
         hostname: 'api.storyvermo.com',
         pathname: '/media/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'storyvermospace.nyc3.cdn.digitaloceanspaces.com',
+        pathname: '/**',
+      },
     ],
   },
-
 };
 
 export default nextConfig;
