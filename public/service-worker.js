@@ -2,7 +2,6 @@ const CACHE_NAME = 'storyvermo-cache-v1';
 const urlsToCache = [
   '/',
 //   '/static/js/main.js',
-  '/static/css/main.css',
   '/favicon.ico',
   '/apple-touch-icon.png',
   '/favicon-32x32.png',
