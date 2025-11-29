@@ -1,5 +1,6 @@
 // components/header/NotificationBell.jsx
 import { useState, useEffect, useRef } from 'react';
+import { useAuth } from '../../../../contexts/AuthContext';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { notificationsApi } from '../../../../lib/api';
@@ -14,6 +15,7 @@ import {
 import LeaderboardNotificationDisplay from '../LeaderboardNotificationDisplay';
 
 const NotificationBell = () => {
+  const { isAuthenticated } = useAuth();
   const router = useRouter();
   const [showNotifications, setShowNotifications] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -24,7 +26,10 @@ const NotificationBell = () => {
   // Fetch unread count on mount and subscribe to updates
   useEffect(() => {
     let mounted = true;
-    
+    if (!isAuthenticated) {
+      setUnreadCount(0);
+      return;
+    }
     const fetchUnreadCount = async () => {
       try {
         let data = null;
@@ -33,7 +38,6 @@ const NotificationBell = () => {
         } catch (e) {
           data = null;
         }
-
         let count = 0;
         if (typeof data === 'number') {
           count = data;
@@ -44,7 +48,6 @@ const NotificationBell = () => {
           else if (data.notifications) count = (data.notifications.filter ? data.notifications.filter(n => !n.is_read).length : 0);
           else if (data.results) count = (data.results.filter ? data.results.filter(n => !n.is_read).length : 0);
         }
-
         if (!count) {
           try {
             const full = await notificationsApi.getNotifications();
@@ -53,38 +56,37 @@ const NotificationBell = () => {
           } catch (e) {
           }
         }
-
         if (mounted) setUnreadCount(count);
       } catch (err) {
       }
     };
-    
     fetchUnreadCount();
     const intervalId = setInterval(fetchUnreadCount, 30000);
-    
     const handleCountUpdate = (event) => {
       const newCount = typeof event.detail === 'number' ? event.detail : 0;
       setUnreadCount(newCount);
     };
-    
     window.addEventListener('notifications:count:update', handleCountUpdate);
-    
     return () => {
       mounted = false;
       clearInterval(intervalId);
       window.removeEventListener('notifications:count:update', handleCountUpdate);
     };
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (!showNotifications) return;
     let mounted = true;
     setPreviewLoading(true);
     (async () => {
+      if (!isAuthenticated) {
+        setNotificationsPreview([]);
+        setPreviewLoading(false);
+        return;
+      }
       try {
         const data = await notificationsApi.getNotifications();
         const list = data?.notifications ?? data?.results ?? (Array.isArray(data) ? data : []);
-        
         if (mounted) {
           setNotificationsPreview(list);
           setPreviewLoading(false);
@@ -96,7 +98,7 @@ const NotificationBell = () => {
       }
     })();
     return () => { mounted = false; };
-  }, [showNotifications]);
+  }, [showNotifications, isAuthenticated]);
 
   const markAsRead = async (id) => {
     try {
