@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { useAuth } from '../../../contexts/AuthContext';
 import { storiesApi, versesApi, momentsApi } from '../../../lib/api';
 
@@ -174,11 +173,11 @@ const VerseItem = memo(({
               <div key={imgIndex} className="relative group">
                 {typeof image === 'string' ? (
                   <div className="relative w-full h-36">
-                    <Image 
+                    {/* FIXED: Replaced Next.js Image with regular img tag */}
+                    <img 
                       src={image} 
                       alt={title ? `${title} - Moment ${imgIndex + 1}` : `Moment ${imgIndex + 1}`} 
-                      fill
-                      className="object-cover rounded-xl border border-gray-700"
+                      className="w-full h-full object-cover rounded-xl border border-gray-700"
                       onError={(e) => {
                         console.error("Verse image failed to load:", e);
                         e.target.src = '';
@@ -188,11 +187,11 @@ const VerseItem = memo(({
                   </div>
                 ) : (
                   <div className="relative w-full h-36">
-                    <Image 
+                    {/* FIXED: Replaced Next.js Image with regular img tag */}
+                    <img 
                       src={image.preview || image.url || image.file_url || (image.file ? URL.createObjectURL(image.file) : '')} 
                       alt={title ? `${title} - Moment ${imgIndex + 1}` : `Moment ${imgIndex + 1}`} 
-                      fill
-                      className="object-cover rounded-xl border border-gray-700"
+                      className="w-full h-full object-cover rounded-xl border border-gray-700"
                       onError={(e) => {
                         console.error("Verse image failed to load:", e);
                         e.target.src = '';
@@ -1200,11 +1199,11 @@ const StoryFormModal = ({
           {imagePreview ? (
             <>
               <div className="relative w-full h-full">
-                <Image 
+                {/* FIXED: Replaced Next.js Image with regular img tag */}
+                <img 
                   src={imagePreview} 
                   alt={title ? `${title} - Cover image` : 'Cover image'} 
-                  fill
-                  className="object-cover"
+                  className="w-full h-full object-cover"
                   onError={(e) => {
                     console.error("Image failed to load:", e);
                     e.target.src = '';
