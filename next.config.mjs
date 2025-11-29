@@ -22,7 +22,7 @@ const nextConfig = {
       // },
       {
         protocol: 'https',
-        hostname: 'storyvermo.nyc3.cdn.digitaloceanspaces.com', 
+        hostname: 'storyvermo.nyc3.digitaloceanspaces.com', 
         pathname: '/**',
       },
     ],
