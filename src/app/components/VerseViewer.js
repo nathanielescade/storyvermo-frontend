@@ -1131,10 +1131,19 @@ const VerseViewer = ({
                   <div className="w-full h-full rounded-full bg-gradient-to-r from-accent-orange to-neon-pink flex items-center justify-center font-bold text-base flex-shrink-0 cursor-pointer overflow-hidden">
                     {/* FIXED: Replaced Next.js Image with regular img tag */}
                     {getAuthorProfileImageUrl() ? (
-                      <img src={getAuthorProfileImageUrl()} alt={`${getAuthorDisplayName()}'s profile`} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-white">{getAuthorInitial()}</span>
-                    )}
+                      <img 
+                        src={getAuthorProfileImageUrl()} 
+                        alt={`${getAuthorDisplayName()}'s profile`} 
+                        className="w-full h-full object-cover" 
+                        onError={e => {
+                          // Hide image and show initials if image fails to load
+                          e.target.style.display = 'none';
+                          const fallback = e.target.parentNode.querySelector('.author-initial-fallback');
+                          if (fallback) fallback.style.display = 'block';
+                        }}
+                      />
+                    ) : null}
+                    <span className="text-white author-initial-fallback" style={{display: getAuthorProfileImageUrl() ? 'none' : 'block'}}>{getAuthorInitial()}</span>
                   </div>
                 </a>
                 {/* Follow button overlay on avatar (same style & behavior as CreatorChip) */}
