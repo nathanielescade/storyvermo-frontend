@@ -225,7 +225,6 @@ debug('[StoryCard] open verses clicked (optimistic open)', {
                 window.__fullStoryForViewer = fullStory;
             }
         } catch (e) {
-warn('[StoryCard] failed fetching story after opening viewer', e);
             setIsViewerOpening(false);
             // Keep the viewer open even if fetch fails; it will use whatever `currentStory` was available.
         }
@@ -454,7 +453,6 @@ error('Failed to delete story:', err);
                                     setDropdownCoords({ left, top });
                                     setShowDropdown(true);
                                 } catch (e) {
-                        warn('Failed to compute dropdown coords', e);
                                     setShowDropdown(true);
                                 }
                             }}

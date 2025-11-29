@@ -261,7 +261,6 @@ export function SearchClient() {
         )
       }));
     } catch (error) {
-      // Provide richer error info in console to help debugging backend responses
       try {
       } catch (e) {
         // ignore

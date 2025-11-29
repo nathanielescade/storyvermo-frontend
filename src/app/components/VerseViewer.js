@@ -655,7 +655,7 @@ const VerseViewer = ({
                 onStoryUpdate(updatedStory);
               }
             }
-          }).catch(err => warn('Failed to refresh verse metadata:', err));
+            }).catch(() => {});
         }
       }
 

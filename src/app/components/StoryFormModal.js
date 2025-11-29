@@ -910,14 +910,12 @@ const StoryFormModal = ({
                     order: m + 1
                   });
                 } catch (momentErr) {
-                  warn('Failed to create moment for verse', verseResponse, momentErr);
                 }
               }
             }
 
             createdVerses.push(verseResponse);
           } catch (verseErr) {
-            warn('Failed to create/update verse', v, verseErr);
           }
         }
       }
@@ -952,9 +950,7 @@ const StoryFormModal = ({
           .then(async (r) => {
             try { const j = await r.json().catch(() => null); log('publish-proxy response', r.status, j); } catch(e){}
           })
-          .catch((e) => warn('publish-proxy failed', e));
       } catch (e) {
-        warn('publish-proxy invocation error', e);
       }
 
       setTimeout(() => {

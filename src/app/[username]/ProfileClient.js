@@ -155,10 +155,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
         get_full_name: fullName,
       };
       
-      // Log leaderboard data for debugging
-      console.log('Leaderboard Top:', response.leaderboard_top);
-      console.log('Leaderboard Top Length:', response.leaderboard_top?.length);
-      console.log('User Rank:', response.rank);
+
       
       setUser(userData);
 
