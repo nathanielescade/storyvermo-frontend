@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { absoluteUrl } from '../../../lib/api';
 
 function SmartImg({ src, alt = '', width, height, className, style }) {
@@ -22,8 +21,9 @@ function SmartImg({ src, alt = '', width, height, className, style }) {
     );
   }
 
+  // FIXED: Replaced Next.js Image with regular img tag
   return (
-    <Image
+    <img
       src={src}
       alt={alt}
       width={width}

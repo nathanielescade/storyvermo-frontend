@@ -86,11 +86,11 @@ const EnlargeModal = ({
             <div className="fixed inset-0 bg-black/90 backdrop-blur-lg z-[600] flex items-center justify-center" onClick={() => setShowEnlargeModal(false)}>
                 <div className="relative max-w-4xl max-h-[90vh] w-full" onClick={e => e.stopPropagation()}>
                     {coverImageUrl ? (
-                        // FIXED: Replaced Next.js Image with regular img tag for better compatibility
+                        // FIXED: Replaced Next.js Image with regular img tag for all URL types
                         <div className="relative w-full h-[80vh]">
                             <img 
-                                src={coverImageUrl} 
-                                alt={story.title || 'Story cover'} 
+                                src={coverImageUrl}
+                                alt={story.title || 'Story cover'}
                                 className="w-full h-full object-contain"
                             />
                         </div>
