@@ -20,6 +20,7 @@ const SearchBar = ({
     loading: false
   });
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const searchInputRef = useRef(null);
   const searchContainerRef = useRef(null);
@@ -32,14 +33,14 @@ const SearchBar = ({
     }
   }, []);
 
-  // Auto-focus when component mounts
+  // Auto-focus when component mounts (desktop only)
   useEffect(() => {
-    if (searchInputRef.current) {
+    if (!isMobile && searchInputRef.current) {
       setTimeout(() => {
         searchInputRef.current.focus();
       }, 100);
     }
-  }, []);
+  }, [isMobile]);
 
   // Handle search input changes with auto-suggest
   const handleSearchInput = (e) => {
@@ -198,6 +199,8 @@ const SearchBar = ({
             value={searchQuery}
             onChange={handleSearchInput}
             onKeyDown={handleKeyDown}
+            onFocus={() => setInputFocused(true)}
+            onBlur={() => setTimeout(() => setInputFocused(false), 100)}
           />
           <i className={`fas fa-search absolute ${isMobile ? 'left-4' : 'left-3'} top-1/2 transform -translate-y-1/2 text-neon-blue ${isMobile ? 'text-xl' : ''}`}></i>
           
@@ -269,8 +272,8 @@ const SearchBar = ({
             </div>
           )}
           
-          {/* Recent Searches dropdown */}
-          {!showSuggestions && (
+          {/* Recent Searches dropdown (only when input is focused and not showing suggestions) */}
+          {!showSuggestions && inputFocused && (
             <div className="search-dropdown">
               <div className="search-section">
                 <div className="search-section-title">
