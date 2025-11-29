@@ -15,11 +15,11 @@ const nextConfig = {
         port: '8000',
         pathname: '/media/**',
       },
-      {
-        protocol: 'https',
-        hostname: 'api.storyvermo.com',
-        pathname: '/media/**',
-      },
+      // {
+      //   protocol: 'https',
+      //   hostname: 'api.storyvermo.com',
+      //   pathname: '/media/**',
+      // },
       {
         protocol: 'https',
         hostname: 'storyvermo.nyc3.cdn.digitaloceanspaces.com', 
