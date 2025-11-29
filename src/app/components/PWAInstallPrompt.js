@@ -8,6 +8,15 @@ export default function PWAInstallPrompt() {
   const [installed, setInstalled] = useState(false);
 
   useEffect(() => {
+    const isIos = () => {
+      const ua = window.navigator.userAgent;
+      return /iphone|ipad|ipod/i.test(ua);
+    };
+    const isInStandaloneMode = () => (
+      window.matchMedia && window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true
+    );
+
     const beforeHandler = (e) => {
       // Prevent immediate prompt
       e.preventDefault();
@@ -27,8 +36,13 @@ export default function PWAInstallPrompt() {
 
     // If already in standalone mode, don't show
     try {
-      if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+      if (isInStandaloneMode()) {
         setInstalled(true);
+      } else if (isIos()) {
+        // iOS does not support beforeinstallprompt, show custom banner if not installed
+        setTimeout(() => {
+          setVisible(true);
+        }, 1000);
       }
     } catch (e) {
       // ignore
@@ -43,13 +57,18 @@ export default function PWAInstallPrompt() {
   if (!visible || installed) return null;
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    // hide banner after user choice
-    setVisible(false);
-    setDeferredPrompt(null);
-    console.log('PWA install choice:', outcome);
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      // hide banner after user choice
+      setVisible(false);
+      setDeferredPrompt(null);
+      console.log('PWA install choice:', outcome);
+    } else {
+      // iOS: show instructions to add to home screen
+      alert('To install this app on your iPhone/iPad, tap the Share icon and then "Add to Home Screen".');
+      setVisible(false);
+    }
   };
 
   const handleClose = () => {
