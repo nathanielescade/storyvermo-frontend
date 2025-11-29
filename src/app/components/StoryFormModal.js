@@ -1213,7 +1213,6 @@ const StoryFormModal = ({
                   alt={title ? `${title} - Cover image` : 'Cover image'} 
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    console.error("Image failed to load:", e);
                     e.target.src = '';
                     e.target.alt = "Image preview failed to load";
                   }}
