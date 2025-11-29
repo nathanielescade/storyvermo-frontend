@@ -1129,8 +1129,8 @@ const VerseViewer = ({
                   }}
                 >
                   <div className="w-full h-full rounded-full bg-gradient-to-r from-accent-orange to-neon-pink flex items-center justify-center font-bold text-base flex-shrink-0 cursor-pointer overflow-hidden">
+                    {/* FIXED: Replaced Next.js Image with regular img tag */}
                     {getAuthorProfileImageUrl() ? (
-                      {/* FIXED: Replaced Next.js Image with regular img tag */}
                       <img src={getAuthorProfileImageUrl()} alt={`${getAuthorDisplayName()}'s profile`} className="w-full h-full object-cover" />
                     ) : (
                       <span className="text-white">{getAuthorInitial()}</span>

@@ -2,7 +2,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useAuth } from '../../../../contexts/AuthContext';
 
 const UserMenu = ({ openAuthModal }) => {
@@ -64,11 +63,10 @@ const UserMenu = ({ openAuthModal }) => {
             onClick={() => setShowUserMenu(!showUserMenu)}
           >
             {getProfileImageUrl(currentUser) ? (
-              <Image 
+              // FIXED: Replaced Next.js Image with regular img tag
+              <img 
                 src={getProfileImageUrl(currentUser)} 
                 alt={`${getUsername(currentUser)}'s profile`} 
-                width={40}
-                height={40}
                 className="w-full h-full object-cover"
               />
             ) : (
