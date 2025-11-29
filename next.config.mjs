@@ -15,17 +15,12 @@ const nextConfig = {
         port: '8000',
         pathname: '/media/**',
       },
-
       {
         protocol: 'https',
         hostname: 'storyvermo.nyc3.cdn.digitaloceanspaces.com', 
         pathname: '/**',
       },
-      {
-        protocol: 'https',
-        hostname: 'storyvermo.nyc3.digitaloceanspaces.com',
-        pathname: '/**',
-      },
+      // Add any other domains where your images might be hosted
     ],
   },
 };

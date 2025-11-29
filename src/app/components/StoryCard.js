@@ -325,11 +325,18 @@ export default function StoryCard({
         return null;
     };
 
+    // FIXED: Improved getCoverImageUrl function to handle all image URL formats
     const getCoverImageUrl = () => {
         if (!story) return null;
         const cov = story.cover_image;
         if (!cov) return null;
-        if (typeof cov === 'string') return cov ? absoluteUrl(cov) : null;
+        
+        // Handle string URLs
+        if (typeof cov === 'string') {
+            return cov ? absoluteUrl(cov) : null;
+        }
+        
+        // Handle object URLs
         const url = cov.file_url || cov.url || '';
         return url ? absoluteUrl(url) : null;
     };
@@ -401,13 +408,11 @@ export default function StoryCard({
                 >
                     {coverImageUrl ? (
                         <div className="relative w-full h-full">
-                            <Image 
+                            {/* FIXED: Use regular img tag instead of Next.js Image for better compatibility */}
+                            <img 
                                 src={coverImageUrl} 
                                 alt={story.title || 'Story cover'} 
-                                className="scene-bg"
-                                fill
-                                sizes="(max-width: 768px) 100vw, 50vw"
-                                priority={index < 3} // Prioritize loading first 3 images
+                                className="scene-bg w-full h-full object-cover"
                             />
                         </div>
                     ) : (
@@ -657,12 +662,13 @@ export default function StoryCard({
         return (
             <div className="verse-card" onClick={handleOpenVerses}>
                 {imageUrl ? (
-                    <Image 
+                    // FIXED: Use regular img tag instead of Next.js Image for better compatibility
+                    <img 
                         src={imageUrl} 
                         alt={story.title || 'Untitled Story'}
+                        className="w-full h-full object-cover"
                         width={400}
                         height={300}
-                        className="w-full h-full object-cover"
                     />
                 ) : (
                     <div className="verse-card-placeholder bg-linear-to-br from-slate-800 to-slate-900 flex items-center justify-center">
