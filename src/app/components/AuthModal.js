@@ -418,12 +418,9 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
     
     try {
       if (isLoginMode) {
-        console.log('Submitting login form with data:', formData);
         const result = await login(formData);
-        console.log('Login result:', result);
 
         if (result && result.success) {
-          console.log('Login successful, closing modal');
           onClose();
           if (onAuthSuccess) onAuthSuccess();
           return;
@@ -445,10 +442,8 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
           setErrors({ general: result.error || 'Login failed. Please check your credentials.' });
         }
       } else {
-        console.log('Submitting registration form with data:', formData);
         // Call register from AuthContext which wraps authApi.register
         const registerResult = await registerUser(formData);
-        console.log('Registration result:', registerResult);
 
         if (registerResult && registerResult.success) {
           // Registration succeeded. If the auth context returned a user (auto-login),
@@ -461,7 +456,6 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
               onClose();
               if (onAuthSuccess) onAuthSuccess({ showFollowSuggestions: true, categories: formData.preferred_categories || [] });
             } catch (e) {
-              console.error('Error during post-registration success flow:', e);
             }
             return;
           }
@@ -488,7 +482,6 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
         }
       }
     } catch (error) {
-      console.error('Authentication error:', error);
       // If axios-like error, prefer response.data
       if (error && error.response && error.response.data) {
         parseApiErrors(error.response.data);

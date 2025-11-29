@@ -59,7 +59,6 @@ const description = `Discover creative stories and verses inspired by ${prettyTa
     }
   } catch (e) {
     // ignore and fall back to defaults below
-    console.debug('[generateMetadata] tag seo fetch failed', e);
   }
 
   return {

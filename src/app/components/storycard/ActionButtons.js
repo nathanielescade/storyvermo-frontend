@@ -82,7 +82,6 @@ const ActionButtons = ({
             // Revert optimistic update on error
             setOptimisticLike(isLiked);
             setOptimisticLikeCount(story.likes_count || 0);
-            console.error('Error toggling like:', error);
         } finally {
             setIsLikeLoading(false);
         }
@@ -125,7 +124,6 @@ const ActionButtons = ({
             // Revert optimistic update on error
             setOptimisticSave(isSaved);
             setOptimisticSaveCount(story.saves_count || 0);
-            console.error('Error toggling save:', error);
         } finally {
             setIsSaveLoading(false);
         }

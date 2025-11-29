@@ -133,7 +133,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
       const response = await userApi.getFollowing(currentUser.username);
       setCurrentUserFollowing(response.map(user => user.username));
     } catch (error) {
-      console.error('Error fetching current user following list:', error);
     }
   }, [isAuthenticated, currentUser?.username]);
 
@@ -142,8 +141,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
     try {
       const response = await userApi.getProfile(username);
       
-      console.log('Profile API URL:', `/api/profiles/${username}/`);
-      console.log('Profile API Full Response:', response);
       
       // Build a robust full-name value from multiple possible API fields
       const first = response.first_name || response.creator_first_name || response.given_name || '';
@@ -158,9 +155,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
       };
       
       // Log leaderboard data for debugging
-      console.log('Leaderboard Top:', response.leaderboard_top);
-      console.log('Leaderboard Top Length:', response.leaderboard_top?.length);
-      console.log('User Rank:', response.rank);
       
       setUser(userData);
 
@@ -175,8 +169,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
         setIsFollowing(!!response.is_following);
       }
     } catch (error) {
-      console.error('Error fetching profile data:', error);
-      console.error('Error details:', {
         message: error.message,
         stack: error.stack,
         response: error.response
@@ -199,7 +191,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
         setFollowing(response || []);
       }
     } catch (error) {
-      console.error(`Error fetching ${type}:`, error);
     }
   }, [username]);
 
@@ -238,7 +229,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
         setCurrentUserFollowing(prev => prev.filter(u => u !== username));
       }
     } catch (error) {
-      console.error('Error following user:', error);
     }
   };
 
@@ -259,7 +249,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
         setCurrentUserFollowing(prev => prev.filter(u => u !== userToFollow.username));
       }
     } catch (error) {
-      console.error('Error following user:', error);
     }
   };
 
@@ -320,7 +309,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
       // Clean up the object URL
       URL.revokeObjectURL(objectUrl);
     } catch (error) {
-      console.error('Error uploading image:', error);
     }
   };
 
@@ -345,7 +333,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
           : story
       ));
     } catch (error) {
-      console.error('Error toggling like:', error);
     }
   };
 
@@ -358,7 +345,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
           : story
       ));
     } catch (error) {
-      console.error('Error toggling save:', error);
     }
   };
 

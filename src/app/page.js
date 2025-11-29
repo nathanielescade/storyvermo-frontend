@@ -36,7 +36,6 @@ export default async function Home({ initialTag = 'for-you' }) {
     const params = { page: 1, tag: initialTag || 'for-you' };
     initial = await storiesApi.getPaginatedStories(params);
   } catch (e) {
-    console.error('Server fetch for initial stories failed:', e);
     // Return empty initial state instead of null
     initial = { results: [], next: null };
   }

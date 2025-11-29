@@ -64,7 +64,6 @@ export default async function TagsPage() {
       error = `Failed to fetch tags: ${response.status}`;
     }
   } catch (e) {
-    console.warn('[tags page] failed to fetch tags', e);
     error = e.message;
     tags = [];
   }

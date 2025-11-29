@@ -129,9 +129,7 @@ const CommentModal = ({
       setLoading(true);
       setError('');
       
-      console.log('Fetching comments for post:', post.slug);
       const response = await commentsApi.fetchComments(post.slug);
-      console.log('Comments API response:', response);
       
       // Handle different response formats
       let commentsArray = [];
@@ -143,7 +141,6 @@ const CommentModal = ({
         commentsArray = response.comments;
       }
       
-      console.log('Processed comments array:', commentsArray);
 
       // Sort comments by score (engagement + recency) and then by creation time
       const sortedComments = [...commentsArray].sort((a, b) => {
@@ -159,10 +156,8 @@ const CommentModal = ({
         return new Date(b.created_at) - new Date(a.created_at);
       });
 
-      console.log('Sorted comments:', sortedComments);
       setComments(sortedComments);
     } catch (error) {
-      console.error('Error fetching comments:', error);
       setError('Failed to load comments. Please try again.');
       setComments([]);
     } finally {
@@ -191,7 +186,6 @@ const CommentModal = ({
         }
       }
       const newCommentData = await commentsApi.createComment(commentData);
-      console.log('Created comment:', newCommentData);
       
       // Add the new comment to the list and re-sort
       const updatedComments = [...comments, newCommentData].sort((a, b) => {
@@ -216,7 +210,6 @@ const CommentModal = ({
       // Update comment count in parent component
       updateCommentCount(post.slug, 1);
     } catch (error) {
-      console.error('Error adding comment:', error);
       if (error.message === 'Authentication required. Please log in to perform this action.' ||
           error.message === 'You must be logged in to comment') {
         setError('Your session has expired. Please log in again.');
@@ -227,7 +220,6 @@ const CommentModal = ({
   };
   
   const handleReplyClick = (comment) => {
-    console.log('Replying to comment:', comment);
     setReplyingTo(comment);
     setReplyContent(`@${getDisplayName(comment.author)} `);
     
@@ -272,9 +264,7 @@ const CommentModal = ({
         content: replyContent.trim(),
       };
       
-      console.log('Creating reply:', replyData);
       const newReply = await commentsApi.createComment(replyData);
-      console.log('Created reply:', newReply);
       
       // Update the parent comment with the new reply
       const updatedComments = comments.map(comment => {
@@ -312,7 +302,6 @@ const CommentModal = ({
       // Update comment count in parent component
       updateCommentCount(post.slug, 1);
     } catch (error) {
-      console.error('Error adding reply:', error);
       if (error.message === 'Authentication required. Please log in to perform this action.' ||
           error.message === 'You must be logged in to comment' ||
           error.message === 'You must be logged in to reply') {
@@ -325,16 +314,13 @@ const CommentModal = ({
   
   const handleToggleReplies = async (comment) => {
     if (!comment || !comment.public_id) {
-      console.error('Invalid comment object or missing public_id:', comment);
       setError('Invalid comment. Please try again.');
       return;
     }
     
     const commentId = comment.public_id;
-    console.log('Toggling replies for comment:', commentId);
     
     if (expandedReplies[commentId]) {
-      console.log('Hiding replies for comment:', commentId);
       setExpandedReplies(prev => ({
         ...prev,
         [commentId]: false
@@ -348,9 +334,7 @@ const CommentModal = ({
         [commentId]: true
       }));
       
-      console.log('Fetching replies for comment:', commentId);
       const response = await commentsApi.fetchCommentReplies(commentId);
-      console.log('Fetched replies response:', response);
       
       let repliesArray = [];
       if (Array.isArray(response)) {
@@ -361,7 +345,6 @@ const CommentModal = ({
         repliesArray = response.replies;
       }
       
-      console.log('Processed replies array:', repliesArray);
       
       const updatedComments = comments.map(c => {
         if (c.public_id === commentId) {
@@ -379,7 +362,6 @@ const CommentModal = ({
         [commentId]: true
       }));
     } catch (error) {
-      console.error('Error fetching replies:', error);
       setError('Failed to load replies. Please try again.');
     } finally {
       setLoadingReplies(prev => ({

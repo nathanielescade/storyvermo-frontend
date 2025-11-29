@@ -176,7 +176,6 @@ export default function ProfileSettingsClient() {
 
       try {
         const userData = await userApi.getProfile(currentUser.username);
-        console.log('Fetched user data:', userData);
         
         // Set form data
         setFormData({
@@ -212,7 +211,6 @@ export default function ProfileSettingsClient() {
         if (userData.gender) {
           const matchingGender = genderOptions.find(g => g.value === userData.gender);
           setSelectedGender(matchingGender || null);
-          console.log('Setting gender:', matchingGender);
         }
 
         if (userData.preferred_categories && Array.isArray(userData.preferred_categories)) {
@@ -220,12 +218,10 @@ export default function ProfileSettingsClient() {
             userData.preferred_categories.includes(cat.value)
           );
           setSelectedCategories(matchingCategories);
-          console.log('Setting categories:', matchingCategories);
         }
 
         setLoading(false);
       } catch (error) {
-        console.error('Error fetching user data:', error);
         setError('Failed to load profile data');
         setLoading(false);
       }
@@ -304,7 +300,6 @@ export default function ProfileSettingsClient() {
       delete dataToSend.username;
       
       // Log the data being sent
-      console.log('Submitting form data:', dataToSend);
       
       await userApi.updateCurrentUserProfile(dataToSend);
       await refreshAuth(); // Refresh auth context with new user data
@@ -312,7 +307,6 @@ export default function ProfileSettingsClient() {
       // Scroll to top to show success message
       window.scrollTo(0, 0);
     } catch (error) {
-      console.error('Error updating profile:', error);
       setError(error.message || 'Failed to update profile');
     } finally {
       setSaving(false);

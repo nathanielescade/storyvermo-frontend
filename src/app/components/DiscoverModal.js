@@ -15,7 +15,6 @@ const DiscoverModal = ({ isOpen, onClose }) => {
   // Fetch recommended users when modal opens
   useEffect(() => {
     if (isOpen) {
-      console.debug('[DiscoverModal] opened');
       fetchRecommendedUsers();
     }
   }, [isOpen]);
@@ -54,20 +53,16 @@ const DiscoverModal = ({ isOpen, onClose }) => {
     setLoading(true);
     setError(null);
     try {
-      console.log('Fetching recommended users...');
       const data = await searchApi.getRecommendedCreators();
-      console.log('API response:', data);
 
       if (Array.isArray(data)) {
         setUsers(data);
       } else if (data && typeof data === 'object' && Array.isArray(data.results)) {
         setUsers(data.results);
       } else {
-        console.debug('[DiscoverModal] no recommended users returned', data);
         setUsers([]);
       }
     } catch (error) {
-      console.error('Error fetching recommended users:', error);
       setError('Failed to load users. Please try again later.');
       setUsers([]);
     } finally {
@@ -100,7 +95,6 @@ const DiscoverModal = ({ isOpen, onClose }) => {
         setUsers(finalUsers);
       }
     } catch (error) {
-      console.error('Error toggling follow status:', error);
       // Revert optimistic update on error
       setUsers(prevUsers);
     }
@@ -112,7 +106,6 @@ const DiscoverModal = ({ isOpen, onClose }) => {
       router.push(`/${username}`);
       onClose(); // Close modal after navigation
     } catch (e) {
-      console.warn('navigateToProfile failed', e);
     }
   };
 

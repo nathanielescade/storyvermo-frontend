@@ -33,7 +33,6 @@ export default async function Page({ params }) {
     }
   } catch (err) {
     // ignore - client will handle missing profile
-    console.debug('[Page] failed to fetch initial profile:', err?.message || err);
   }
 
   return <ProfileClient username={username} initialProfile={initialProfile} />;
@@ -56,7 +55,6 @@ export async function generateMetadata({ params }) {
     }
   } catch (err) {
     // Ignore - fall back to username
-    console.debug('[generateMetadata] failed to fetch profile for metadata:', err?.message || err);
   }
 
   return {

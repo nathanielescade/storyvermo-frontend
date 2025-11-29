@@ -22,9 +22,7 @@ const FollowSuggestionsModal = ({ isOpen, onClose, categories = [] }) => {
       setLoading(true);
       try {
         const query = (categories && categories.length && useQuery) ? categories.join(',') : '';
-        console.debug('[FollowSuggestionsModal] fetching recommended creators, query=', query);
         const resp = query ? await searchApi.getRecommendedCreators(query) : await searchApi.getRecommendedCreators();
-        console.debug('[FollowSuggestionsModal] api response:', resp);
         if (!active) return;
         let list = [];
         if (Array.isArray(resp)) list = resp;
@@ -33,7 +31,6 @@ const FollowSuggestionsModal = ({ isOpen, onClose, categories = [] }) => {
 
         if (list.length === 0 && useQuery && query) {
           // Fallback: try without query (same as DiscoverModal)
-          console.debug('[FollowSuggestionsModal] category-based fetch returned empty, falling back to general recommendations');
           return await fetchSuggestions(false);
         }
 
@@ -42,7 +39,6 @@ const FollowSuggestionsModal = ({ isOpen, onClose, categories = [] }) => {
         list.slice(0, 10).forEach(u => { initial[u.username] = !!u.is_following; });
         setFollowState(initial);
       } catch (e) {
-        console.error('Failed to fetch follow suggestions', e);
         setSuggestions([]);
       } finally {
         if (active) setLoading(false);
@@ -55,7 +51,6 @@ const FollowSuggestionsModal = ({ isOpen, onClose, categories = [] }) => {
         try {
           await refreshAuth();
         } catch (e) {
-          console.debug('refreshAuth failed', e);
         }
       }
 
@@ -94,7 +89,6 @@ const FollowSuggestionsModal = ({ isOpen, onClose, categories = [] }) => {
         setFollowState(prev => ({ ...prev, [username]: !!res.is_following }));
       }
     } catch (err) {
-      console.error('Follow API failed', err);
       // revert on failure
       setFollowState(prev => ({ ...prev, [username]: !prev[username] }));
     }
@@ -108,7 +102,6 @@ const FollowSuggestionsModal = ({ isOpen, onClose, categories = [] }) => {
       // Keep modal open/close behavior to parent; here we close to match DiscoverModal behavior
       onClose();
     } catch (e) {
-      console.warn('navigateToProfile failed', e);
     }
   };
 

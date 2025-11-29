@@ -189,7 +189,6 @@ export async function generateMetadata({ params, searchParams }) {
       },
     };
   } catch (error) {
-    console.error('Error generating metadata:', error);
     return {
       title: 'Story Not Found - StoryVermo',
       description: 'The story you\'re looking for doesn\'t exist or might have been deleted.',

@@ -46,7 +46,6 @@ export function middleware(req) {
     }
   } catch (e) {
     // swallow errors to avoid breaking normal request flow
-    console.warn('middleware deleted-paths check failed', e);
   }
 
   return NextResponse.next();

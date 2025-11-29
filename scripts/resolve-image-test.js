@@ -39,9 +39,6 @@ const samples = [
   { file: { path: '/tmp/localfile.jpg' } }
 ];
 
-console.log('Resolve image src test:');
 samples.forEach((s, i) => {
-  console.log(i, '=>', resolveImageSrc(s));
 });
 
-console.log('All done.');

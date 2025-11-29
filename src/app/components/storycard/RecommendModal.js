@@ -26,7 +26,6 @@ const RecommendModal = ({
             const response = await userApi.getFollowers(currentUser.username);
             setFollowers(response || []);
         } catch (error) {
-            console.error('Error fetching followers:', error);
             setFollowers([]);
         } finally {
             setLoading(false);
@@ -67,7 +66,6 @@ const RecommendModal = ({
             setSearchTerm('');
             alert(`Story recommended successfully to ${selectedUsers.length} followers!`);
         } catch (error) {
-            console.error('Error recommending story:', error);
             alert('Failed to recommend story. Please try again.');
         }
     };

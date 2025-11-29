@@ -58,14 +58,12 @@ export default function useMain(initialState = null) {
                             setPrefetchedStories(nextStories.results || []);
                         })
                         .catch(err => {
-                            console.warn('Failed to prefetch next page', err);
                         })
                         .finally(() => {
                             isPrefetchingRef.current = false;
                         });
                 }
             } catch (error) {
-                console.error('Error initializing app:', error);
                 setError(error.message || 'Failed to load stories');
             } finally {
                 setLoading(false);
@@ -123,14 +121,12 @@ export default function useMain(initialState = null) {
                         setPrefetchedStories(prefetched);
                     })
                     .catch(err => {
-                        console.warn('Failed to prefetch next page', err);
                     })
                     .finally(() => {
                         isPrefetchingRef.current = false;
                     });
             }
         } catch (error) {
-            console.error('Error switching tag:', error);
             setError(error.message || 'Failed to load stories');
         } finally {
             setLoading(false);
@@ -178,7 +174,6 @@ export default function useMain(initialState = null) {
                             }
                         })
                         .catch(err => {
-                            console.warn('Failed to prefetch next page', err);
                             setHasNext(false);
                         })
                         .finally(() => {
@@ -222,14 +217,12 @@ export default function useMain(initialState = null) {
                         }
                     })
                     .catch(err => {
-                        console.warn('Failed to prefetch next page', err);
                     })
                     .finally(() => {
                         isPrefetchingRef.current = false;
                     });
             }
         } catch (error) {
-            console.error('Error fetching more stories:', error);
             setError(error.message || 'Failed to load more stories');
         } finally {
             setIsFetching(false);
@@ -261,7 +254,6 @@ export default function useMain(initialState = null) {
             
             return response;
         } catch (error) {
-            console.error('Error following user:', error);
             return { success: false, message: 'Failed to follow user' };
         }
     }, []);
@@ -292,7 +284,6 @@ export default function useMain(initialState = null) {
             
             return response;
         } catch (error) {
-            console.error('Error toggling like:', error);
             return { success: false, message: 'Failed to toggle like' };
         }
     }, []);
@@ -315,7 +306,6 @@ export default function useMain(initialState = null) {
             
             return response;
         } catch (error) {
-            console.error('Error toggling save:', error);
             return { success: false, message: 'Failed to toggle save' };
         }
     }, []);

@@ -170,7 +170,6 @@ export function SearchClient() {
         setResults(paginatedResults);
       }
     } catch (error) {
-      console.error('Search error:', error);
       setError('Failed to perform search. Please try again.');
       setResults(prev => ({ ...prev, loading: false }));
     } finally {
@@ -225,7 +224,6 @@ export function SearchClient() {
         )
       }));
     } catch (error) {
-      console.error('Error toggling like:', error);
     }
   };
 
@@ -241,7 +239,6 @@ export function SearchClient() {
         )
       }));
     } catch (error) {
-      console.error('Error toggling save:', error);
     }
   };
 
@@ -265,9 +262,7 @@ export function SearchClient() {
       }));
     } catch (error) {
       // Provide richer error info in console to help debugging backend responses
-      console.error('Error following user:', error);
       try {
-        console.debug('Follow error status:', error.status, 'body:', error.body, 'url:', error.url);
       } catch (e) {
         // ignore
       }

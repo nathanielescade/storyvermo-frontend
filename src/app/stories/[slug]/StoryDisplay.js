@@ -31,7 +31,6 @@ export default function StoryDisplay({ initialStory, slug }) {
         if (data) setStory(data);
         else notFound();
       }).catch(err => {
-        console.error('Error fetching story:', err);
         notFound();
       });
     }
@@ -92,7 +91,6 @@ export default function StoryDisplay({ initialStory, slug }) {
         }, 80);
       } catch (err) {
         // swallow any errors to avoid breaking scroll
-        console.debug('overscroll wheel handler error', err);
       }
     };
 

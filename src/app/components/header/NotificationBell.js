@@ -51,13 +51,11 @@ const NotificationBell = () => {
             const list = full?.notifications ?? full?.results ?? (Array.isArray(full) ? full : []);
             count = list.filter(n => !n.is_read).length;
           } catch (e) {
-            console.debug('notifications: fallback to full list failed', e);
           }
         }
 
         if (mounted) setUnreadCount(count);
       } catch (err) {
-        console.debug('Failed to fetch notification count', err);
       }
     };
     
@@ -92,7 +90,6 @@ const NotificationBell = () => {
           setPreviewLoading(false);
         }
       } catch (err) {
-        console.debug('Failed to fetch preview notifications', err);
         if (mounted) {
           setPreviewLoading(false);
         }
@@ -109,7 +106,6 @@ const NotificationBell = () => {
       setUnreadCount(newCount);
       window.dispatchEvent(new CustomEvent('notifications:count:update', { detail: newCount }));
     } catch (err) {
-      console.error('Failed to mark read', err);
     }
   };
 
@@ -120,7 +116,6 @@ const NotificationBell = () => {
       setUnreadCount(0);
       window.dispatchEvent(new CustomEvent('notifications:count:update', { detail: 0 }));
     } catch (err) {
-      console.error('Failed to mark all read from header', err);
     }
   };
 

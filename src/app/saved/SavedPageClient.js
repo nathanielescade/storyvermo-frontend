@@ -27,7 +27,6 @@ const SavedPageClient = () => {
         const stories = await storiesApi.getSavedStories();
         setSavedStories(stories);
       } catch (error) {
-        console.error('Error fetching saved stories:', error);
       } finally {
         setLoading(false);
       }
@@ -52,7 +51,6 @@ const SavedPageClient = () => {
     try {
       await storiesApi.toggleSaveBySlug(story.slug);
     } catch (error) {
-      console.error('Error toggling save:', error);
       // Revert on error
       setSavedStories(prev => [...prev, story]);
     }

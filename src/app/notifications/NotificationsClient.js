@@ -93,7 +93,6 @@ export function NotificationsClient() {
       const unread = normalized.filter(n => !n.is_read).length;
       try { window.dispatchEvent(new CustomEvent('notifications:count:update', { detail: unread })); } catch (e) { /* ignore */ }
     } catch (err) {
-      console.error('Error fetching notifications:', err);
       
       // Handle authentication errors specifically
       if (err.status === 401 || err.status === 403) {
@@ -150,10 +149,8 @@ export function NotificationsClient() {
         
         // Make API call in background - no need to await
         notificationsApi.markAsRead(notification.id).catch(err => {
-          console.error('Error marking notification read:', err);
         });
       } catch (err) {
-        console.error('Error updating notification state:', err);
       }
     }
 
@@ -162,7 +159,6 @@ export function NotificationsClient() {
     
     // Navigate if we have a valid URL
     if (targetUrl) {
-      console.debug('Navigating to:', targetUrl); // helps debug routing
       router.push(targetUrl);
     }
   };
@@ -177,7 +173,6 @@ export function NotificationsClient() {
         return updated;
       });
     } catch (err) {
-      console.error('Error marking all notifications as read:', err);
       setError({ 
         type: 'general', 
         message: 'Failed to mark all notifications as read' 

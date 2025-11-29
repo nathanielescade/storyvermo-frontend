@@ -48,7 +48,6 @@ const ShareModal = ({ isOpen, onClose, shareData, imageUrl, isVerse }) => {
         onClose();
       }
     } catch (error) {
-      console.error('Error sharing:', error);
       if (error.name !== 'AbortError') {
         alert('Failed to share. Please try again.');
       }
@@ -75,13 +74,11 @@ const ShareModal = ({ isOpen, onClose, shareData, imageUrl, isVerse }) => {
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
         } catch (err) {
-          console.error('Fallback: Oops, unable to copy', err);
           alert('Unable to copy link. Please copy manually.');
         }
         document.body.removeChild(textArea);
       }
     } catch (error) {
-      console.error('Error copying to clipboard:', error);
       alert('Failed to copy link. Please try again.');
     }
   };

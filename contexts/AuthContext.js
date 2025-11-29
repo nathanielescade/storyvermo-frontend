@@ -131,7 +131,6 @@ export function AuthProvider({ children }) {
         
         // Set a 3-second timeout for auth check
         timeoutId = setTimeout(() => {
-          console.warn('Auth verification timeout - keeping cached state');
           abortController.abort();
         }, 3000);
         
@@ -148,7 +147,6 @@ export function AuthProvider({ children }) {
         clearTimeout(timeoutId);
         
         if (!response.ok) {
-          console.debug('Auth check returned non-ok status:', response.status);
           if (mounted) {
             setCurrentUser(null);
             setIsAuthenticated(false);
@@ -162,7 +160,6 @@ export function AuthProvider({ children }) {
         }
         
         const data = await response.json();
-        console.log('Auth verification response:', data);
         
         if (!mounted) return;
         
@@ -176,7 +173,6 @@ export function AuthProvider({ children }) {
             localStorage.setItem('currentUser', JSON.stringify(user));
             localStorage.setItem('isAuthenticated', 'true');
           }
-          console.log('User verified:', user.username || user.id);
         } else {
           setCurrentUser(null);
           setIsAuthenticated(false);
@@ -185,18 +181,15 @@ export function AuthProvider({ children }) {
             localStorage.removeItem('currentUser');
             localStorage.removeItem('isAuthenticated');
           }
-          console.log('User not authenticated');
         }
       } catch (error) {
         clearTimeout(timeoutId);
         
         // If it's an abort (timeout), keep cached state
         if (error.name === 'AbortError') {
-          console.warn('Auth verification timed out - keeping cached state');
           return;
         }
         
-        console.error('Auth verification error:', error);
         if (mounted) {
           setCurrentUser(null);
           setIsAuthenticated(false);
@@ -222,9 +215,7 @@ export function AuthProvider({ children }) {
   // Login function
   const login = async (credentials) => {
     try {
-      console.log('Attempting login with:', { username: credentials.username });
       const response = await authApi.login(credentials);
-      console.log('Login response:', response);
 
       // Check if login was successful
       if (response && (response.success || response.user)) {
@@ -239,7 +230,6 @@ export function AuthProvider({ children }) {
             localStorage.setItem('isAuthenticated', 'true');
           }
           
-          console.log('Login successful:', user.username || user.id);
           
           // Small delay to ensure cookies are set
           await new Promise(resolve => setTimeout(resolve, 100));
@@ -250,7 +240,6 @@ export function AuthProvider({ children }) {
 
       // Parse error response
       const errors = parseApiErrors(response);
-      console.error('Login failed with errors:', errors);
       
       return { 
         success: false, 
@@ -259,7 +248,6 @@ export function AuthProvider({ children }) {
         raw: response 
       };
     } catch (error) {
-      console.error('Login error:', error);
       
       // Try to parse error from response. apiRequest may attach a `.body` or set `response.data`.
       let errors = { general: 'An unexpected error occurred' };
@@ -295,9 +283,7 @@ export function AuthProvider({ children }) {
   // Register function
   const register = async (userData) => {
     try {
-      console.log('Attempting registration');
       const response = await authApi.register(userData);
-      console.log('Registration response:', response);
       
       // Handle registration success
       if (response && (response.success || response.user)) {
@@ -312,7 +298,6 @@ export function AuthProvider({ children }) {
             localStorage.setItem('isAuthenticated', 'true');
           }
           
-          console.log('Registration and auto-login successful:', user.username || user.id);
           
           // Small delay to ensure cookies are set
           await new Promise(resolve => setTimeout(resolve, 100));
@@ -329,7 +314,6 @@ export function AuthProvider({ children }) {
       if (response && !response.user && !response.success) {
         const msg = (response.message || response.detail || '').toString();
         if (/success|successful|created|ok/i.test(msg)) {
-          console.log('Registration response indicates success (message):', msg);
 
           // Try to refresh auth to obtain the new user session/profile
           try {
@@ -344,11 +328,9 @@ export function AuthProvider({ children }) {
                 localStorage.setItem('isAuthenticated', 'true');
               }
 
-              console.log('Auto-login after registration successful:', user.username || user.id);
               return { success: true, user };
             }
           } catch (e) {
-            console.warn('Auto-login after registration failed:', e);
           }
 
           // If auto-login didn't work, still return a success marker so the
@@ -363,7 +345,6 @@ export function AuthProvider({ children }) {
       let errors;
       try {
         if (!response || (typeof response === 'object' && Object.keys(response).length === 0)) {
-          console.error('Registration failed - empty/invalid response:', response);
           errors = { general: (response && response.message) || 'Registration failed' };
         } else if (response instanceof Error) {
           errors = { general: response.message || 'Registration failed' };
@@ -371,16 +352,12 @@ export function AuthProvider({ children }) {
           errors = parseApiErrors(response);
         }
       } catch (parseErr) {
-        console.error('Error while parsing registration response:', parseErr, 'response:', response);
         errors = { general: 'Registration failed' };
       }
 
       // Log a snapshot (stringified) as well as the object to avoid empty
-      // console prints caused by later mutation/refs in some browsers.
       try {
-        console.error('Registration failed with errors (snapshot):', JSON.stringify(errors));
       } catch (e) {
-        console.error('Registration failed with errors:', errors);
       }
       
       return { 
@@ -390,7 +367,6 @@ export function AuthProvider({ children }) {
         raw: response 
       };
     } catch (error) {
-      console.error('Registration error:', error);
       
       // Try to parse error from response
       let errors = { general: 'An unexpected error occurred' };
@@ -428,14 +404,12 @@ export function AuthProvider({ children }) {
         localStorage.removeItem('isAuthenticated');
       }
       
-      console.log('Logout successful');
       
       // Redirect to home page
       if (typeof window !== 'undefined') {
         window.location.href = '/';
       }
     } catch (error) {
-      console.error('Logout error:', error);
       // Clear local state even if API call fails
       setCurrentUser(null);
       setIsAuthenticated(false);
@@ -450,9 +424,7 @@ export function AuthProvider({ children }) {
   // Refresh auth status
   const refreshAuth = async () => {
     try {
-      console.log('Refreshing auth status');
       const response = await authApi.checkAuth();
-      console.log('Auth refresh response:', response);
       
       const user = normalizeUserFromResponse(response);
       
@@ -465,7 +437,6 @@ export function AuthProvider({ children }) {
           localStorage.setItem('isAuthenticated', 'true');
         }
         
-        console.log('Auth refresh successful:', user.username || user.id);
         return true;
       }
       
@@ -477,10 +448,8 @@ export function AuthProvider({ children }) {
         localStorage.removeItem('isAuthenticated');
       }
       
-      console.log('Not authenticated after refresh');
       return false;
     } catch (error) {
-      console.error('Auth refresh error:', error);
       setCurrentUser(null);
       setIsAuthenticated(false);
       

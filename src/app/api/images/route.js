@@ -11,7 +11,6 @@ export async function POST(request) {
     // Get API URL from environment variable
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
     if (!apiUrl) {
-      console.error('NEXT_PUBLIC_API_URL is not defined in environment variables');
       return Response.json(
         { error: 'Internal server error', details: 'API URL not configured' },
         { status: 500 }
@@ -35,10 +34,6 @@ export async function POST(request) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Image upload failed:', {
-        status: response.status,
-        error: errorText,
-      });
       return Response.json(
         { error: 'Failed to upload image', details: errorText },
         { status: response.status }
@@ -48,7 +43,6 @@ export async function POST(request) {
     const data = await response.json();
     return Response.json(data);
   } catch (error) {
-    console.error('Error uploading image:', error);
     return Response.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }

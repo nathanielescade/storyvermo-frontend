@@ -37,7 +37,6 @@ const EnlargeModal = ({
                 setIsDownloading(false);
             }, 100);
         } catch (error) {
-            console.error('Download failed:', error);
             
             // Fallback to direct download — open in new tab. For cross-origin
             // images, this may still be blocked, but it's a last-resort fallback.

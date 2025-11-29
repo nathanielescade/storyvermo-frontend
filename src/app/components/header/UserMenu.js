@@ -29,7 +29,6 @@ const UserMenu = ({ openAuthModal }) => {
       await logout();
       router.push('/');
     } catch (error) {
-      console.error('Logout failed:', error);
     }
   };
 

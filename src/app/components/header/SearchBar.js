@@ -88,7 +88,6 @@ const SearchBar = ({
 
       setResults(newResults);
     } catch (error) {
-      console.error('Search error:', error);
       setResults(prev => ({ ...prev, loading: false }));
     }
   }, 120);
@@ -113,7 +112,6 @@ const SearchBar = ({
         }
       }
     } catch (e) {
-      console.warn('navigateToSuggestion failed', e);
     } finally {
       setShowSuggestions(false);
       setActiveSuggestionIndex(-1);

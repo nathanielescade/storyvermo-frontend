@@ -386,7 +386,7 @@ const VerseViewer = ({
       updateVerseMetadata(verse.id, metadata);
       return metadata;
     } catch (error) {
-      console.error('Error fetching verse metadata:', error);
+      error('Error fetching verse metadata:', error);
       return null;
     }
   };
@@ -655,7 +655,7 @@ const VerseViewer = ({
                 onStoryUpdate(updatedStory);
               }
             }
-          }).catch(err => console.warn('Failed to refresh verse metadata:', err));
+          }).catch(err => warn('Failed to refresh verse metadata:', err));
         }
       }
 
@@ -720,7 +720,7 @@ const VerseViewer = ({
       // Revert on error
       setIsLiked(!newLikedState);
       setLikeCount(likeCount);
-      console.error('Error toggling verse like:', error);
+      error('Error toggling verse like:', error);
     }
   };
 
@@ -758,7 +758,7 @@ const VerseViewer = ({
       // Revert on error
       setIsSaved(!newSavedState);
       setSaveCount(saveCount);
-      console.error('Error toggling verse save:', error);
+      error('Error toggling verse save:', error);
     }
   };
 
@@ -1153,7 +1153,7 @@ const VerseViewer = ({
                       e.preventDefault();
                       e.stopPropagation();
                       const username = getAuthorUsername();
-                      console.log('Follow button clicked, username:', username); // Debug log
+                      log('Follow button clicked, username:', username); // Debug log
                       setIsFollowing(true); // Optimistically hide immediately and never revert
                       if (!isAuthenticated) {
                         if (typeof openAuthModal === 'function') openAuthModal('follow', username);
@@ -1161,10 +1161,10 @@ const VerseViewer = ({
                       }
                       userApi.followUser(username)
                         .then(() => {
-                          console.log('Follow API call succeeded for:', username);
+                          log('Follow API call succeeded for:', username);
                         })
                         .catch((err) => {
-                          console.error('Failed to follow user:', err);
+                          error('Failed to follow user:', err);
                           // Do not revert isFollowing
                         });
                     }}
@@ -1344,7 +1344,7 @@ const VerseViewer = ({
               // Update the story state with the new data
               // This will trigger a re-render with the new verse
             } catch (error) {
-              console.error('Error refreshing story data:', error);
+              error('Error refreshing story data:', error);
             }
           }
         }}
@@ -1388,7 +1388,7 @@ const VerseViewer = ({
                     }
                     alert('Verse deleted successfully!');
                   } catch (error) {
-                    console.error('Error deleting verse:', error);
+                    error('Error deleting verse:', error);
                     alert('Error deleting verse. Please try again.');
                   }
                 }}

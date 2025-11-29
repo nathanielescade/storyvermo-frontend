@@ -451,7 +451,7 @@ const StoryFormModal = ({
         throw new Error('Failed to fetch popular tags');
       }
     } catch (err) {
-      console.error('Error loading tags:', err);
+      error('Error loading tags:', err);
       setTagsError('Failed to load popular tags');
       
       // Fallback to default tags if API fails
@@ -544,10 +544,10 @@ const StoryFormModal = ({
   
   // Handle image upload for post
   const handleImageUpload = (e) => {
-    console.log('Handling image upload');
+    log('Handling image upload');
     const file = e.target.files[0];
     if (file) {
-      console.log('File selected:', file.name, 'Size:', file.size, 'Type:', file.type);
+      log('File selected:', file.name, 'Size:', file.size, 'Type:', file.type);
       if (file.size > 10 * 1024 * 1024) {
         setError('Image file must be less than 10MB');
         return;
@@ -561,11 +561,11 @@ const StoryFormModal = ({
       setImageFile(file);
       const reader = new FileReader();
       reader.onload = function(event) {
-        console.log('File read successfully');
+        log('File read successfully');
         setImagePreview(event.target.result);
       };
       reader.onerror = function(error) {
-        console.error('Error reading file:', error);
+        error('Error reading file:', error);
         setError('Error reading the image file. Please try again.');
       };
       reader.readAsDataURL(file);
@@ -758,7 +758,7 @@ const StoryFormModal = ({
           // Get auth token
           const token = localStorage.getItem('token') || sessionStorage.getItem('token');
           
-          console.log('Uploading image:', {
+          log('Uploading image:', {
             name: file.name,
             type: file.type,
             size: file.size,
@@ -784,7 +784,7 @@ const StoryFormModal = ({
               errorData = { error: errorText };
             }
             
-            console.error('Image upload failed:', {
+            error('Image upload failed:', {
               status: res.status,
               statusText: res.statusText,
               error: errorData,
@@ -794,11 +794,11 @@ const StoryFormModal = ({
           }
       
           const data = await res.json();
-          console.log('Image uploaded successfully:', data);
+          log('Image uploaded successfully:', data);
           return data;
           
         } catch (error) {
-          console.error('Upload error:', error);
+          error('Upload error:', error);
           throw error;
         }
       };
@@ -815,7 +815,7 @@ const StoryFormModal = ({
                 const result = await uploadImage(file);
                 uploadedImageIds.push(result.public_id);
               } catch (uploadErr) {
-                console.error('Failed to upload verse image:', uploadErr);
+                error('Failed to upload verse image:', uploadErr);
                 throw uploadErr;
               }
             } else if (typeof img === 'string') {
@@ -849,12 +849,12 @@ const StoryFormModal = ({
       
       if (imageFile) {
         try {
-          console.log('Uploading cover image...');
+          log('Uploading cover image...');
           const result = await uploadImage(imageFile);
           finalCoverImageId = result.public_id;
-          console.log('Cover image uploaded:', finalCoverImageId);
+          log('Cover image uploaded:', finalCoverImageId);
         } catch (uploadErr) {
-          console.error('Failed to upload cover image:', uploadErr);
+          error('Failed to upload cover image:', uploadErr);
           throw uploadErr;
         }
       }
@@ -866,10 +866,10 @@ const StoryFormModal = ({
 
       let savedStory;
       if (editingStory) {
-        console.log('Updating story with payload:', storyPayload);
+        log('Updating story with payload:', storyPayload);
         savedStory = await storiesApi.updateStory(editingStory.slug, storyPayload);
       } else {
-        console.log('Creating story with payload:', storyPayload);
+        log('Creating story with payload:', storyPayload);
         savedStory = await storiesApi.createStory(storyPayload);
       }
 
@@ -910,14 +910,14 @@ const StoryFormModal = ({
                     order: m + 1
                   });
                 } catch (momentErr) {
-                  console.warn('Failed to create moment for verse', verseResponse, momentErr);
+                  warn('Failed to create moment for verse', verseResponse, momentErr);
                 }
               }
             }
 
             createdVerses.push(verseResponse);
           } catch (verseErr) {
-            console.warn('Failed to create/update verse', v, verseErr);
+            warn('Failed to create/update verse', v, verseErr);
           }
         }
       }
@@ -950,11 +950,11 @@ const StoryFormModal = ({
           body: JSON.stringify({ slug: savedStory?.slug })
         })
           .then(async (r) => {
-            try { const j = await r.json().catch(() => null); console.log('publish-proxy response', r.status, j); } catch(e){}
+            try { const j = await r.json().catch(() => null); log('publish-proxy response', r.status, j); } catch(e){}
           })
-          .catch((e) => console.warn('publish-proxy failed', e));
+          .catch((e) => warn('publish-proxy failed', e));
       } catch (e) {
-        console.warn('publish-proxy invocation error', e);
+        warn('publish-proxy invocation error', e);
       }
 
       setTimeout(() => {
@@ -969,7 +969,7 @@ const StoryFormModal = ({
         }
       }, 2000);
     } catch (err) {
-      console.error('Error saving story:', err);
+      error('Error saving story:', err);
       
       // Provide user-friendly error messages
       let errorMessage = 'An error occurred while saving the story. Please try again.';
@@ -1049,7 +1049,7 @@ const StoryFormModal = ({
   
   // Handle verse image file selection
   const handleVerseImageFileChange = useCallback(async (verseId, e) => {
-    console.log('Handling verse image file change for verse:', verseId);
+    log('Handling verse image file change for verse:', verseId);
     const files = Array.from(e.target.files);
     if (files.length > 0) {
       const validFiles = [];
@@ -1057,7 +1057,7 @@ const StoryFormModal = ({
       const imagePreviews = [];
       
       for (const file of files) {
-        console.log('Processing file:', file.name);
+        log('Processing file:', file.name);
         if (file.size > 10 * 1024 * 1024) {
           invalidFiles.push(`${file.name} is too large (>10MB)`);
         } else if (!file.type.startsWith('image/')) {
@@ -1073,7 +1073,7 @@ const StoryFormModal = ({
               name: file.name
             });
           } catch (error) {
-            console.error("Error generating preview:", error);
+            error("Error generating preview:", error);
             invalidFiles.push(`${file.name} preview failed`);
           }
         }
@@ -1084,8 +1084,8 @@ const StoryFormModal = ({
         return;
       }
       
-      console.log('Valid files processed:', validFiles.length);
-      console.log('Image previews generated:', imagePreviews.length);
+      log('Valid files processed:', validFiles.length);
+      log('Image previews generated:', imagePreviews.length);
       
       // Pass both files and previews to the parent component
       handleVerseImageUpload(verseId, imagePreviews);

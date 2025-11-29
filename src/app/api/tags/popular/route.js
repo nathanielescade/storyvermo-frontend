@@ -7,7 +7,6 @@ export async function GET(request) {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL;
     
     if (!apiUrl) {
-      console.error('NEXT_PUBLIC_API_URL is not defined');
       return Response.json(
         { error: 'API configuration error' },
         { status: 500 }
@@ -33,7 +32,6 @@ export async function GET(request) {
     const data = await response.json();
     return Response.json(data);
   } catch (error) {
-    console.error('Error fetching popular tags:', error);
     return Response.json(
       { error: 'Internal server error' },
       { status: 500 }

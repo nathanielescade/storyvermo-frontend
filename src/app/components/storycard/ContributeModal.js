@@ -166,7 +166,6 @@ const ContributeModal = ({
                         if (imageResponse && imageResponse.public_id) {
                             imageIds.push(imageResponse.public_id);
                         } else {
-                            console.error('Invalid image response:', imageResponse);
                             throw new Error('Failed to upload image');
                         }
                     }
@@ -206,7 +205,6 @@ const ContributeModal = ({
             
             alert(editingVerse ? 'Verse updated successfully!' : 'Verse contributed successfully!');
         } catch (error) {
-            console.error('Error submitting verse:', error);
             alert(`Error submitting verse: ${error.message || 'Unknown error occurred'}`);
         } finally {
             setIsSubmitting(false);

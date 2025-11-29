@@ -17,7 +17,6 @@ export function buildImageUrl(imageUrl, opts = {}) {
     return u.toString();
   } catch (err) {
     // If URL parsing fails, return original
-    console.warn('[cdn.buildImageUrl] failed to build url for', imageUrl, err);
     return imageUrl;
   }
 }

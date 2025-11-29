@@ -37,7 +37,6 @@ export async function GET() {
       }
     } catch (e) {
       // non-fatal
-      console.warn('Failed to fetch trending tags for sitemap:', e);
     }
 
     // Paginate through stories. Cap pages to avoid runaway generation.
@@ -137,11 +136,9 @@ export async function GET() {
             const fallback = await storiesApi.getPaginatedStories({ page, tag: 'all' });
             if (fallback) data = fallback;
           } catch (fbErr) {
-            console.warn('Fallback fetch with tag=all failed', fbErr);
           }
         }
       } catch (err) {
-        console.warn('Failed to fetch paginated stories on page', page, err);
         break;
       }
 
@@ -223,7 +220,6 @@ export async function GET() {
 
     return new Response(xml, { headers: { 'Content-Type': 'application/xml', 'Cache-Control': 'public, max-age=0, s-maxage=3600' } });
   } catch (err) {
-    console.error('Sitemap generation error', err);
     return new Response('Sitemap generation failed', { status: 500 });
   }
 }

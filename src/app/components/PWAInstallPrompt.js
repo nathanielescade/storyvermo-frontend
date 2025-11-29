@@ -63,7 +63,6 @@ export default function PWAInstallPrompt() {
       // hide banner after user choice
       setVisible(false);
       setDeferredPrompt(null);
-      console.log('PWA install choice:', outcome);
     } else {
       // iOS: show instructions to add to home screen
       alert('To install this app on your iPhone/iPad, tap the Share icon and then "Add to Home Screen".');

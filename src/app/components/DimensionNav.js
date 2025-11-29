@@ -12,34 +12,24 @@ const DimensionNav = ({ openAuthModal, openStoryFormModal, openDiscoverModal, in
   const router = useRouter();
 
   const handleCreatePost = () => {
-    console.log('handleCreatePost called');
-    console.log('Props received:', { openAuthModal, openStoryFormModal });
-    console.log('Auth state:', { currentUser, isAuthenticated });
-    console.log('openAuthModal type:', typeof openAuthModal);
-    console.log('openStoryFormModal type:', typeof openStoryFormModal);
     
     if (!isAuthenticated || !currentUser) {
-      console.log('User not authenticated, opening auth modal');
       // If user is not authenticated, open auth modal
       if (typeof openAuthModal === 'function') {
         openAuthModal('create', {});
       } else {
-        console.error('openAuthModal is not a function');
       }
       return;
     }
     
     // Open the story form modal if authenticated
     if (typeof openStoryFormModal === 'function') {
-      console.log('Opening story form modal');
       openStoryFormModal();
     } else {
-      console.error('openStoryFormModal is not a function, value:', openStoryFormModal);
     }
   };
 
   const handleDiscover = () => {
-    console.log('handleDiscover called');
     
     if (!isAuthenticated || !currentUser) {
       // If user is not authenticated, open auth modal
@@ -59,7 +49,6 @@ const DimensionNav = ({ openAuthModal, openStoryFormModal, openDiscoverModal, in
   };
 
   const handleProfile = () => {
-    console.log('handleProfile called');
     
     if (!isAuthenticated || !currentUser) {
       // If user is not authenticated, open auth modal
@@ -73,7 +62,6 @@ const DimensionNav = ({ openAuthModal, openStoryFormModal, openDiscoverModal, in
     if (currentUser && currentUser.username) {
       router.push(`/${currentUser.username}`);
     } else {
-      console.error('User has no username');
     }
   };
 
@@ -92,7 +80,6 @@ const DimensionNav = ({ openAuthModal, openStoryFormModal, openDiscoverModal, in
                 window.dispatchEvent(new CustomEvent('tag:switch', { detail: { tag: 'for-you', force: true } }));
               }
             } catch (e) {
-              console.warn('Failed to dispatch tag switch from DimensionNav', e);
             }
           }}
         >

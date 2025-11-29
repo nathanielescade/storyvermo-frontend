@@ -25,7 +25,6 @@ export default async function VersesPage() {
       error = `Failed to fetch verses: ${res.status}`;
     }
   } catch (e) {
-    console.warn('[verses page] failed to fetch verses', e);
     error = e.message;
     verses = [];
   }

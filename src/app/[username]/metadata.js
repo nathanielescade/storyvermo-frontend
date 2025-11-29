@@ -42,7 +42,6 @@ export async function generateMetadata({ params }) {
       publisher: 'StoryVermo',
     };
   } catch (err) {
-    console.error('Error generating profile metadata:', err);
     return {
       title: 'Profile Not Found - StoryVermo',
       description: 'Profile not found.',

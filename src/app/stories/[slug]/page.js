@@ -19,11 +19,7 @@ export default async function StoryPage({ params }) {
       notFound();
     }
 
-    console.debug('[StoryPage] fetched story payload', { 
-      slug, 
-      hasData: !!story, 
-      keys: story ? Object.keys(story) : null 
-    });
+
 
     // Build JSON-LD Article structured data for crawlers (image-first hints)
     const resolveMomentImageUrl = (moment) => {
@@ -109,7 +105,6 @@ export default async function StoryPage({ params }) {
       </>
     );
   } catch (error) {
-    console.error('Error fetching story:', error);
     notFound();
   }
 }

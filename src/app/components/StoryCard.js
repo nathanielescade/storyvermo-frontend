@@ -85,7 +85,7 @@ export default function StoryCard({
             setIsSaved(fullStory.is_saved_by_user || false);
             setIsFollowing(fullStory.isFollowing || fullStory.is_following || false);
         } catch (error) {
-            console.error('Error refetching story:', error);
+error('Error refetching story:', error);
         }
     }, [story.slug]);
 
@@ -128,7 +128,6 @@ export default function StoryCard({
         setIsLiked(story.is_liked_by_user ?? false);
         setIsSaved(story.is_saved_by_user ?? false);
         const followingValue = story.isFollowing || story.is_following || false;
-        console.log(`[StoryCard ${story.id}] story updated, setting isFollowing to:`, followingValue, { story });
         setIsFollowing(followingValue);
         setLocalCommentsCount(story.comments_count || 0);
         setCurrentStory(story);
@@ -137,7 +136,6 @@ export default function StoryCard({
         if (!story.hasOwnProperty('is_liked_by_user') || 
             !story.hasOwnProperty('is_saved_by_user') || 
             (!story.hasOwnProperty('isFollowing') && !story.hasOwnProperty('is_following'))) {
-            refetchStory().catch(err => console.error('Error refetching story:', err));
         }
 
         // Create bubbles around the hologram
@@ -202,13 +200,13 @@ export default function StoryCard({
             const response = await userApi.followUser(username);
             setIsFollowing(response.is_following);
         } catch (error) {
-            console.error('Error following user:', error);
+error('Error following user:', error);
         }
     };
 
     const handleOpenVerses = async () => {
         try {
-            console.debug('[StoryCard] open verses clicked (optimistic open)', {
+debug('[StoryCard] open verses clicked (optimistic open)', {
                 slug: story?.slug,
                 versesCount: Array.isArray(story?.verses) ? story.verses.length : 0,
                 sampleVerses: Array.isArray(story?.verses) ? story.verses.slice(0,3) : story?.verses
@@ -227,7 +225,7 @@ export default function StoryCard({
                 window.__fullStoryForViewer = fullStory;
             }
         } catch (e) {
-            console.warn('[StoryCard] failed fetching story after opening viewer', e);
+warn('[StoryCard] failed fetching story after opening viewer', e);
             setIsViewerOpening(false);
             // Keep the viewer open even if fetch fails; it will use whatever `currentStory` was available.
         }
@@ -258,11 +256,11 @@ export default function StoryCard({
             
             setTimeout(() => {
                 if (typeof onDeleteStory === 'function') {
-                    try { onDeleteStory(slug); } catch (e) { console.warn('onDeleteStory callback failed', e); }
+                    try { onDeleteStory(slug); } catch (e) { /* onDeleteStory callback failed */ }
                 }
             }, 500);
         } catch (err) {
-            console.error('Failed to delete story:', err);
+error('Failed to delete story:', err);
             alert(`Failed to delete story: ${err.message || err}`);
         } finally {
             setIsDeleting(false);
@@ -456,7 +454,7 @@ export default function StoryCard({
                                     setDropdownCoords({ left, top });
                                     setShowDropdown(true);
                                 } catch (e) {
-                                    console.warn('Failed to compute dropdown coords', e);
+                        warn('Failed to compute dropdown coords', e);
                                     setShowDropdown(true);
                                 }
                             }}
@@ -636,13 +634,13 @@ export default function StoryCard({
                                     document.execCommand('copy');
                                     alert('Link copied to clipboard!');
                                 } catch (err) {
-                                    console.error('Fallback: Oops, unable to copy', err);
+                        error('Fallback: Oops, unable to copy', err);
                                     alert('Unable to copy link. Please copy manually.');
                                 }
                                 document.body.removeChild(textArea);
                             }
                         } catch (error) {
-                            console.error('Error copying to clipboard:', error);
+                error('Error copying to clipboard:', error);
                             alert('Failed to copy link. Please try again.');
                         }
                     }}

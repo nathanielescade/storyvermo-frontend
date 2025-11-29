@@ -48,7 +48,6 @@ export default function FeedClient({ initialState }) {
         try {
           prefetchNext();
         } catch (e) {
-          console.warn('Prefetch next failed:', e);
         }
       }
     }, {
@@ -92,7 +91,6 @@ export default function FeedClient({ initialState }) {
       const newUrl = tagName === 'for-you' ? '/' : `/tags/${slug}/`;
       window.history.pushState({}, '', newUrl);
     } catch (e) {
-      console.warn('Failed to update history state for tag URL', e);
     }
 
     handleTagSwitch(tagName);

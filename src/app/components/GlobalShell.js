@@ -78,7 +78,6 @@ export default function GlobalShell() {
     try {
       window.dispatchEvent(new CustomEvent('auth:success', { detail: pendingAction }));
     } catch (e) {
-      console.debug('auth:success dispatch failed', e);
     }
 
     // If the payload requests follow suggestions, open the onboarding modal first.
