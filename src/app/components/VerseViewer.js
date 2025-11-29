@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -7,7 +7,6 @@ import ContributeModal from './storycard/ContributeModal';
 import { useRouter } from 'next/navigation';
 import ShareModal from './ShareModal';
 import { createPortal } from 'react-dom';
-import Image from 'next/image';
 
 // Helper to get an image URL from a moment
 const getMomentImageUrl = (moment) => {
@@ -1027,12 +1026,11 @@ const VerseViewer = ({
                         >
                           {imageUrl ? (
                             <div className="relative w-full h-full">
-                              <Image
+                              {/* FIXED: Replaced Next.js Image with regular img tag */}
+                              <img
                                 src={imageUrl}
                                 alt={`Verse moment ${momentIndex + 1}`}
                                 className="w-full h-full object-contain"
-                                width={1200}
-                                height={800}
                                 onError={(e) => { e.currentTarget.style.display = 'none'; }}
                               />
                               <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
@@ -1132,6 +1130,7 @@ const VerseViewer = ({
                 >
                   <div className="w-full h-full rounded-full bg-gradient-to-r from-accent-orange to-neon-pink flex items-center justify-center font-bold text-base flex-shrink-0 cursor-pointer overflow-hidden">
                     {getAuthorProfileImageUrl() ? (
+                      {/* FIXED: Replaced Next.js Image with regular img tag */}
                       <img src={getAuthorProfileImageUrl()} alt={`${getAuthorDisplayName()}'s profile`} className="w-full h-full object-cover" />
                     ) : (
                       <span className="text-white">{getAuthorInitial()}</span>

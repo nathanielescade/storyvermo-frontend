@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
@@ -48,14 +48,25 @@ function SmartImg({ src, alt = '', width, height, fill, className, style, onClic
     );
   }
 
-  // For remote images use next/image so we keep optimizations
+  // FIXED: Use regular img tag instead of Next.js Image for better compatibility
+  if (fill) {
+    return (
+      <img
+        src={src}
+        alt={alt}
+        className={className}
+        style={{ ...style, width: '100%', height: '100%', objectFit: 'cover' }}
+        onClick={onClick}
+      />
+    );
+  }
+
   return (
-    <Image
+    <img
       src={src}
       alt={alt}
       width={width}
       height={height}
-      fill={fill}
       className={className}
       style={style}
       onClick={onClick}
