@@ -3,7 +3,6 @@ import { useState, useRef, useEffect } from 'react';
 import { Modal, Box, TextField, Button, CircularProgress, IconButton } from '@mui/material';
 import { useDropzone } from 'react-dropzone';
 import { X as CloseIcon } from 'lucide-react';
-import Image from 'next/image';
 import { getCsrfToken } from '../../../../lib/utils';
 import { versesApi, momentsApi, imagesApi } from '../../../../lib/api';
 
@@ -289,11 +288,10 @@ const ContributeModal = ({
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     {verseImages.map((image, index) => (
                                         <div key={index} className="relative group">
-                                            <Image 
+                                            {/* FIXED: Replaced Next.js Image with regular img tag */}
+                                            <img 
                                                 src={image.preview} 
                                                 alt={`Verse image ${index + 1}`}
-                                                width={400}
-                                                height={144}
                                                 className="w-full h-36 object-cover rounded-xl border border-gray-700"
                                             />
                                             <button 

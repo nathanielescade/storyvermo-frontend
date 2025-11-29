@@ -1,8 +1,7 @@
-'use client';
+"use client";
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import Link from 'next/link';
 import { notificationsApi } from '../../../lib/api';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -35,6 +34,26 @@ export function NotificationsClient() {
       return user.brand_name;
     }
     return user.username || 'Unknown';
+  };
+
+  // Helper function to get image URL from different possible structures
+  const getImageUrl = (imageObj) => {
+    if (!imageObj) return null;
+    
+    // Handle different possible structures of image object
+    let imageUrl;
+    if (typeof imageObj === 'string') {
+      imageUrl = imageObj;
+    } else {
+      imageUrl = imageObj.file_url || imageObj.url;
+    }
+    
+    // Check if imageUrl is a string and not empty
+    if (typeof imageUrl === 'string' && imageUrl.trim() !== '') {
+      return imageUrl;
+    }
+    
+    return null;
   };
 
   const fetchNotifications = useCallback(async (pageNumber = 1, isLoadingMore = false) => {
@@ -507,11 +526,10 @@ export function NotificationsClient() {
                         <div className="flex gap-3 mt-3 md:flex-row flex-col">
                           <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0">
                             {notification.story?.cover_image ? (
-                              <Image 
-                                src={notification.story.cover_image.file_url} 
+                              // FIXED: Replaced Next.js Image with regular img tag
+                              <img 
+                                src={getImageUrl(notification.story.cover_image)} 
                                 alt={notification.story.title} 
-                                width={64} 
-                                height={64} 
                                 className="w-full h-full object-cover"
                               />
                             ) : (

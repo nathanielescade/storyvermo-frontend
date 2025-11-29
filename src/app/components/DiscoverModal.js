@@ -2,9 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { absoluteUrl } from '../../../lib/api';
-// Remove incorrect SmartImg import
 import { searchApi, userApi } from '../../../lib/api';
 
 const DiscoverModal = ({ isOpen, onClose }) => {
@@ -204,12 +202,11 @@ const DiscoverModal = ({ isOpen, onClose }) => {
 
                   <div className="relative mb-5">
                     <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center font-bold text-2xl text-white ring-2 ring-gray-800 group-hover:ring-cyan-400 transition-all duration-300 shadow-lg overflow-hidden">
+                      {/* FIXED: Replaced Next.js Image with regular img tag */}
                       {user.profile_image_url ? (
-                        <Image
+                        <img
                           src={absoluteUrl(user.profile_image_url)}
                           alt={user.username}
-                          width={80}
-                          height={80}
                           className="w-full h-full object-cover"
                         />
                       ) : (

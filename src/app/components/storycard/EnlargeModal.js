@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import Image from 'next/image';
 
 const EnlargeModal = ({ 
     showEnlargeModal, 
@@ -87,28 +86,14 @@ const EnlargeModal = ({
             <div className="fixed inset-0 bg-black/90 backdrop-blur-lg z-[600] flex items-center justify-center" onClick={() => setShowEnlargeModal(false)}>
                 <div className="relative max-w-4xl max-h-[90vh] w-full" onClick={e => e.stopPropagation()}>
                     {coverImageUrl ? (
-                        // Use Next's Image optimizer for absolute http(s) URLs so the
-                        // browser doesn't run into cross-origin/cors issues when loading
-                        // the full-size image in production. If the URL is a blob or
-                        // data URL, fall back to a plain <img>.
-                        (coverImageUrl.startsWith('http://') || coverImageUrl.startsWith('https://')) ? (
-                            <div className="relative w-full h-[80vh]">
-                                <Image
-                                    src={coverImageUrl}
-                                    alt={story.title || 'Story cover'}
-                                    fill
-                                    sizes="(max-width: 1024px) 100vw, 80vw"
-                                    style={{ objectFit: 'contain' }}
-                                    priority={false}
-                                />
-                            </div>
-                        ) : (
+                        // FIXED: Replaced Next.js Image with regular img tag for better compatibility
+                        <div className="relative w-full h-[80vh]">
                             <img 
                                 src={coverImageUrl} 
                                 alt={story.title || 'Story cover'} 
-                                className="w-full h-full object-contain rounded-xl"
+                                className="w-full h-full object-contain"
                             />
-                        )
+                        </div>
                     ) : (
                         <div className="w-full h-96 bg-gradient-to-br from-slate-800 to-slate-900 rounded-xl flex items-center justify-center">
                             <div className="text-slate-600 text-5xl">

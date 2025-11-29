@@ -1,6 +1,5 @@
 // RecommendModal.js
 import React, { useState, useEffect, useCallback } from 'react';
-import Image from 'next/image';
 import { absoluteUrl } from '../../../../lib/api';
 import { userApi, storyApi, storiesApi } from '../../../../lib/api';
 
@@ -188,20 +187,17 @@ const RecommendModal = ({
                                                             className="w-5 h-5 text-cyan-500 rounded focus:ring-cyan-500 focus:ring-2"
                                                         />
                                                         <label htmlFor={`user-${user.id}`} className="flex items-center gap-3 cursor-pointer flex-1">
+                                                            {/* FIXED: Replaced Next.js Image with regular img tag */}
                                                             {user.profile_image_url ? (
-                                                                <Image 
+                                                                <img 
                                                                     src={absoluteUrl(user.profile_image_url)}
                                                                     alt={user.name || user.username}
-                                                                    width={40}
-                                                                    height={40}
                                                                     className="w-10 h-10 rounded-full object-cover"
                                                                 />
                                                             ) : user.profile_picture ? (
-                                                                <Image 
+                                                                <img 
                                                                     src={absoluteUrl(user.profile_picture)}
                                                                     alt={user.name || user.username}
-                                                                    width={40}
-                                                                    height={40}
                                                                     className="w-10 h-10 rounded-full object-cover"
                                                                 />
                                                             ) : (
