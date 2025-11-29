@@ -173,31 +173,39 @@ const VerseItem = memo(({
               <div key={imgIndex} className="relative group">
                 {typeof image === 'string' ? (
                   <div className="relative w-full h-36">
-                    {/* FIXED: Replaced Next.js Image with regular img tag */}
                     <img 
                       src={image} 
                       alt={title ? `${title} - Moment ${imgIndex + 1}` : `Moment ${imgIndex + 1}`} 
                       className="w-full h-full object-cover rounded-xl border border-gray-700"
-                      onError={(e) => {
-                        console.error("Verse image failed to load:", e);
-                        e.target.src = '';
-                        e.target.alt = "Image failed to load";
+                      style={{ display: 'block' }}
+                      onError={e => {
+                        e.target.style.display = 'none';
+                        const fallback = e.target.parentNode.querySelector('.img-fallback');
+                        if (fallback) fallback.style.display = 'flex';
                       }}
                     />
+                    <div className="img-fallback absolute inset-0 flex-col items-center justify-center bg-gray-900/80 rounded-xl border border-gray-700 text-gray-300 text-xs gap-2" style={{display:'none'}}>
+                      <i className="fas fa-image text-2xl text-gray-500 mb-1"></i>
+                      <span>Image failed to load</span>
+                    </div>
                   </div>
                 ) : (
                   <div className="relative w-full h-36">
-                    {/* FIXED: Replaced Next.js Image with regular img tag */}
                     <img 
                       src={image.preview || image.url || image.file_url || (image.file ? URL.createObjectURL(image.file) : '')} 
                       alt={title ? `${title} - Moment ${imgIndex + 1}` : `Moment ${imgIndex + 1}`} 
                       className="w-full h-full object-cover rounded-xl border border-gray-700"
-                      onError={(e) => {
-                        console.error("Verse image failed to load:", e);
-                        e.target.src = '';
-                        e.target.alt = "Image failed to load";
+                      style={{ display: 'block' }}
+                      onError={e => {
+                        e.target.style.display = 'none';
+                        const fallback = e.target.parentNode.querySelector('.img-fallback');
+                        if (fallback) fallback.style.display = 'flex';
                       }}
                     />
+                    <div className="img-fallback absolute inset-0 flex-col items-center justify-center bg-gray-900/80 rounded-xl border border-gray-700 text-gray-300 text-xs gap-2" style={{display:'none'}}>
+                      <i className="fas fa-image text-2xl text-gray-500 mb-1"></i>
+                      <span>Image failed to load</span>
+                    </div>
                   </div>
                 )}
                 <button 
