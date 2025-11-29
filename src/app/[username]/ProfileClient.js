@@ -141,6 +141,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
     try {
       const response = await userApi.getProfile(username);
       
+
       
       // Build a robust full-name value from multiple possible API fields
       const first = response.first_name || response.creator_first_name || response.given_name || '';
@@ -155,6 +156,9 @@ export default function ProfileClient({ username, initialProfile = null }) {
       };
       
       // Log leaderboard data for debugging
+      console.log('Leaderboard Top:', response.leaderboard_top);
+      console.log('Leaderboard Top Length:', response.leaderboard_top?.length);
+      console.log('User Rank:', response.rank);
       
       setUser(userData);
 
@@ -169,10 +173,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
         setIsFollowing(!!response.is_following);
       }
     } catch (error) {
-        message: error.message,
-        stack: error.stack,
-        response: error.response
-      });
+
     } finally {
       // Only clear loading if we didn't already have an initial profile
       if (!initialProfile) setLoading(false);
