@@ -1,4 +1,5 @@
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://storyvermo.com';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.storyvermo.com';
 
 function formatDate(d) {
   if (!d) return null;
@@ -11,9 +12,45 @@ function formatDate(d) {
   }
 }
 
+function escapeXml(str) {
+  if (str == null) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+// Helper to safely fetch from API with error handling
+async function safeFetch(url, options = {}) {
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Accept': 'application/json',
+        ...options.headers,
+      },
+    });
+    
+    if (!response.ok) {
+      console.error(`API fetch failed: ${url} - Status: ${response.status}`);
+      return null;
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error(`API fetch error: ${url}`, error.message);
+    return null;
+  }
+}
+
 export async function GET() {
   try {
-    // Static important routes
+    console.log('🗺️  Starting sitemap generation...');
+    
+    // Static important routes (ALWAYS included)
     const urls = [
       { loc: `${SITE_URL}/`, priority: '1.0', changefreq: 'hourly' },
       { loc: `${SITE_URL}/about`, priority: '0.5', changefreq: 'monthly' },
@@ -26,218 +63,217 @@ export async function GET() {
       { loc: `${SITE_URL}/signup`, priority: '0.2', changefreq: 'monthly' },
     ];
 
-    // Include trending tags (if any)
-    try {
-      const tags = await (globalThis.tagsApi 
-        ? globalThis.tagsApi.getTrending() 
-        : (await import('../../lib/api.js')).tagsApi.getTrending()
-      );
-      
-      if (Array.isArray(tags) && tags.length > 0) {
-        tags.slice(0, 200).forEach((t) => {
-          const tag = typeof t === 'string' ? t : (t && t.name) ? t.name : String(t);
-          urls.push({ 
-            loc: `${SITE_URL}/tags/${encodeURIComponent(tag)}`, 
-            priority: '0.6', 
-            changefreq: 'daily' 
-          });
-        });
-      }
-    } catch (e) {
-      console.error('Failed to fetch tags for sitemap:', e.message);
-      // Non-fatal - continue without tags
-    }
-
-    // Paginate through stories
-    const MAX_PAGES = 500;
-    let page = 1;
-    let fetched = 0;
     const seen = new Set();
     
+    // Helper to extract slug from story object
     const extractSlug = (s) => {
       if (!s) return null;
       const candidates = [
-        s.slug, s.url_slug, s.public_id, s.id, s.pk,
-        s.serialized_slug,
-        s.attributes && s.attributes.slug,
-        s.data && s.data.slug,
-        s.fields && s.fields.slug,
+        s.slug, s.url_slug, s.public_id, 
+        s.id, s.pk, s.serialized_slug,
       ];
       for (const c of candidates) {
-        if (!c) continue;
-        const str = String(c).trim();
-        if (str) return str;
+        if (c) {
+          const str = String(c).trim();
+          if (str) return str;
+        }
       }
-      if (s.story && s.story.slug) return String(s.story.slug);
-      if (s.node && s.node.slug) return String(s.node.slug);
       return null;
     };
 
-    const escapeXml = (str) => {
-      if (str == null) return '';
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&apos;');
-    };
-
-    // 🔥 FIX: Safely import API and handle errors
+    // ============================================================================
+    // FETCH TAGS (Trending + Recent)
+    // ============================================================================
+    console.log('📌 Fetching tags...');
+    
     try {
-      const { storiesApi } = await import('../../lib/api.js');
+      // Fetch trending tags
+      const trendingTags = await safeFetch(`${API_URL}/api/tags/trending/`);
       
-      while (page <= MAX_PAGES && fetched < 45000) {
-        let data = null;
+      if (Array.isArray(trendingTags) && trendingTags.length > 0) {
+        console.log(`✅ Found ${trendingTags.length} trending tags`);
         
-        try {
-          data = await storiesApi.getPaginatedStories({ page });
-          
-          // 🔥 FIX: Handle empty database gracefully
-          if (!data || (Array.isArray(data?.results) && data.results.length === 0)) {
-            if (page === 1) {
-              console.log('No stories found - database might be empty');
-              // Try one more fallback
-              try {
-                const fallback = await storiesApi.getPaginatedStories({ page, tag: 'all' });
-                if (fallback && fallback.results && fallback.results.length > 0) {
-                  data = fallback;
-                } else {
-                  break; // Empty database - break out
-                }
-              } catch (fbErr) {
-                break; // Empty database
-              }
-            } else {
-              break; // No more pages
+        trendingTags.slice(0, 100).forEach((t) => {
+          const tag = t?.slug || t?.name || (typeof t === 'string' ? t : null);
+          if (tag) {
+            const tagUrl = `${SITE_URL}/tags/${encodeURIComponent(tag)}`;
+            if (!seen.has(tagUrl)) {
+              urls.push({ 
+                loc: tagUrl, 
+                priority: '0.7', 
+                changefreq: 'daily' 
+              });
+              seen.add(tagUrl);
             }
           }
-        } catch (err) {
-          console.error(`Failed to fetch stories page ${page}:`, err.message);
-          break; // Stop pagination on error
-        }
+        });
+      } else {
+        console.log('⚠️  No trending tags found');
+      }
 
-        const results = data?.results || (Array.isArray(data) ? data : []);
-        if (!results || results.length === 0) break;
-
-        for (const s of results) {
-          const slug = extractSlug(s);
-          if (!slug || seen.has(slug)) continue;
-          seen.add(slug);
-          
-          const loc = `${SITE_URL}/stories/${encodeURIComponent(slug)}`;
-          const lastmod = formatDate(
-            s?.updated_at || s?.modified || s?.published_at || 
-            s?.created_at || s?.date || s?.updatedAt
-          );
-          const isBad = s?.is_flagged || s?.is_bad || s?.flagged || false;
-          
-          urls.push({ 
-            loc, 
-            lastmod, 
-            priority: isBad ? '0.1' : '0.9', 
-            changefreq: 'daily' 
-          });
-
-          // Add author profile
-          const author = s?.creator || s?.author || s?.user || 
-                        (s.story && s.story.creator);
-          const username = author && (
-            author.username || author.public_id || 
-            author.id || author.name
-          );
-          
-          if (username) {
-            const pu = `${SITE_URL}/${encodeURIComponent(username)}`;
-            if (!seen.has(pu)) {
+      // Fetch recent tags
+      const recentTags = await safeFetch(`${API_URL}/api/tags/recent/`);
+      
+      if (Array.isArray(recentTags) && recentTags.length > 0) {
+        console.log(`✅ Found ${recentTags.length} recent tags`);
+        
+        recentTags.slice(0, 100).forEach((t) => {
+          const tag = t?.slug || t?.name || (typeof t === 'string' ? t : null);
+          if (tag) {
+            const tagUrl = `${SITE_URL}/tags/${encodeURIComponent(tag)}`;
+            if (!seen.has(tagUrl)) {
               urls.push({ 
-                loc: pu, 
-                priority: '0.5', 
+                loc: tagUrl, 
+                priority: '0.6', 
                 changefreq: 'weekly' 
               });
-              seen.add(pu);
+              seen.add(tagUrl);
             }
           }
+        });
+      }
+    } catch (tagError) {
+      console.error('❌ Tag fetch error:', tagError.message);
+    }
 
-          // Add verse URLs
-          const verses = Array.isArray(s.verses) ? s.verses : [];
-          for (const v of verses) {
-            const verseId = v.id || v.public_id || v.slug;
-            if (!verseId) continue;
-            const verseLoc = `${SITE_URL}/verses/${encodeURIComponent(verseId)}`;
-            if (!seen.has(verseLoc)) {
+    // ============================================================================
+    // FETCH STORIES (Paginated)
+    // ============================================================================
+    console.log('📚 Fetching stories...');
+    
+    const MAX_PAGES = 500;
+    let page = 1;
+    let totalStories = 0;
+    
+    while (page <= MAX_PAGES && totalStories < 45000) {
+      const data = await safeFetch(
+        `${API_URL}/api/stories/paginated_stories/?page=${page}`
+      );
+      
+      // Break if no data or empty results
+      if (!data || !data.results || data.results.length === 0) {
+        if (page === 1) {
+          console.log('⚠️  No stories found - database might be empty');
+        }
+        break;
+      }
+
+      console.log(`📄 Page ${page}: ${data.results.length} stories`);
+
+      for (const story of data.results) {
+        const slug = extractSlug(story);
+        if (!slug) continue;
+
+        const storyUrl = `${SITE_URL}/stories/${encodeURIComponent(slug)}`;
+        if (seen.has(storyUrl)) continue;
+        seen.add(storyUrl);
+
+        const lastmod = formatDate(
+          story?.updated_at || story?.created_at
+        );
+
+        urls.push({ 
+          loc: storyUrl, 
+          lastmod, 
+          priority: '0.9', 
+          changefreq: 'daily' 
+        });
+
+        // Add creator profile
+        const creator = story?.creator;
+        const username = creator?.username;
+        
+        if (username) {
+          const profileUrl = `${SITE_URL}/${encodeURIComponent(username)}`;
+          if (!seen.has(profileUrl)) {
+            urls.push({ 
+              loc: profileUrl, 
+              priority: '0.5', 
+              changefreq: 'weekly' 
+            });
+            seen.add(profileUrl);
+          }
+        }
+
+        // Add verses
+        const verses = Array.isArray(story.verses) ? story.verses : [];
+        for (const verse of verses) {
+          const verseId = verse?.slug || verse?.id || verse?.public_id;
+          if (verseId) {
+            const verseUrl = `${SITE_URL}/verses/${encodeURIComponent(verseId)}`;
+            if (!seen.has(verseUrl)) {
               urls.push({ 
-                loc: verseLoc, 
+                loc: verseUrl, 
                 priority: '0.4', 
                 changefreq: 'monthly' 
               });
-              seen.add(verseLoc);
+              seen.add(verseUrl);
             }
           }
-
-          fetched += 1;
-          if (fetched >= 45000) break;
         }
 
-        if (!data?.next || fetched >= 45000) break;
-        page += 1;
-      }
-      
-      console.log(`✅ Sitemap generated with ${fetched} stories`);
-      
-    } catch (apiError) {
-      console.error('Failed to load stories API:', apiError.message);
-      // Continue with just static routes if API fails
-    }
-
-    // Build XML
-    const xmlParts = [
-      '<?xml version="1.0" encoding="UTF-8"?>',
-      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">'
-    ];
-    
-    for (const u of urls) {
-      xmlParts.push('<url>');
-      xmlParts.push(`  <loc>${escapeXml(u.loc)}</loc>`);
-      if (u.lastmod) xmlParts.push(`  <lastmod>${u.lastmod}</lastmod>`);
-      if (u.changefreq) xmlParts.push(`  <changefreq>${u.changefreq}</changefreq>`);
-      if (u.priority) xmlParts.push(`  <priority>${u.priority}</priority>`);
-      
-      // Images (if any)
-      if (Array.isArray(u.images) && u.images.length > 0) {
-        for (const img of u.images) {
-          try {
-            const loc = img.loc || img.url || img.src;
-            if (!loc) continue;
-            xmlParts.push('  <image:image>');
-            xmlParts.push(`    <image:loc>${escapeXml(loc)}</image:loc>`);
-            if (img.caption) xmlParts.push(`    <image:caption>${escapeXml(img.caption)}</image:caption>`);
-            if (img.title) xmlParts.push(`    <image:title>${escapeXml(img.title)}</image:title>`);
-            xmlParts.push('  </image:image>');
-          } catch (e) {
-            // Ignore image errors
+        // Add story tags
+        const tags = Array.isArray(story.tags) ? story.tags : [];
+        for (const tag of tags) {
+          const tagName = tag?.slug || tag?.name;
+          if (tagName) {
+            const tagUrl = `${SITE_URL}/tags/${encodeURIComponent(tagName)}`;
+            if (!seen.has(tagUrl)) {
+              urls.push({ 
+                loc: tagUrl, 
+                priority: '0.6', 
+                changefreq: 'weekly' 
+              });
+              seen.add(tagUrl);
+            }
           }
         }
+
+        totalStories++;
       }
-      
-      xmlParts.push('</url>');
+
+      // Break if no more pages
+      if (!data.next) break;
+      page++;
     }
-    
+
+    console.log(`✅ Total stories: ${totalStories}`);
+    console.log(`✅ Total URLs: ${urls.length}`);
+
+    // ============================================================================
+    // BUILD XML SITEMAP
+    // ============================================================================
+    const xmlParts = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+    ];
+
+    for (const u of urls) {
+      xmlParts.push('  <url>');
+      xmlParts.push(`    <loc>${escapeXml(u.loc)}</loc>`);
+      if (u.lastmod) xmlParts.push(`    <lastmod>${u.lastmod}</lastmod>`);
+      if (u.changefreq) xmlParts.push(`    <changefreq>${u.changefreq}</changefreq>`);
+      if (u.priority) xmlParts.push(`    <priority>${u.priority}</priority>`);
+      xmlParts.push('  </url>');
+    }
+
     xmlParts.push('</urlset>');
 
     const xml = xmlParts.join('\n');
 
-    return new Response(xml, { 
-      headers: { 
+    console.log('🎉 Sitemap generated successfully!');
+
+    return new Response(xml, {
+      headers: {
         'Content-Type': 'application/xml; charset=utf-8',
-        'Cache-Control': 'public, max-age=0, s-maxage=3600' 
-      } 
+        'Cache-Control': 'public, max-age=3600, s-maxage=7200',
+      }
     });
-    
-  } catch (err) {
-    console.error('Sitemap generation error:', err);
-    
-    // 🔥 FIX: Return minimal valid sitemap instead of error
+
+  } catch (error) {
+    console.error('❌ Sitemap generation error:', error);
+
+    // Return minimal valid sitemap on error
     const minimalXml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
@@ -245,14 +281,23 @@ export async function GET() {
     <priority>1.0</priority>
     <changefreq>daily</changefreq>
   </url>
+  <url>
+    <loc>${SITE_URL}/tags</loc>
+    <priority>0.7</priority>
+    <changefreq>daily</changefreq>
+  </url>
+  <url>
+    <loc>${SITE_URL}/verses</loc>
+    <priority>0.6</priority>
+    <changefreq>weekly</changefreq>
+  </url>
 </urlset>`;
 
-    return new Response(minimalXml, { 
-      headers: { 
+    return new Response(minimalXml, {
+      headers: {
         'Content-Type': 'application/xml; charset=utf-8',
-        'Cache-Control': 'public, max-age=60, s-maxage=300' 
-      },
-      status: 200 // Return 200 with minimal sitemap instead of 500
+        'Cache-Control': 'public, max-age=300, s-maxage=600',
+      }
     });
   }
 }
