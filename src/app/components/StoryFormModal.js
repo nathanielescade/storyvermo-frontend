@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '../../../contexts/AuthContext';
 import { storiesApi, versesApi, momentsApi } from '../../../lib/api';
 
@@ -173,12 +174,13 @@ const VerseItem = memo(({
               <div key={imgIndex} className="relative group">
                 {typeof image === 'string' ? (
                   <div className="relative w-full h-36">
-                    {/* FIXED: Replaced Next.js Image with regular img tag */}
-                    <img 
+                    <Image 
                       src={image} 
                       alt={title ? `${title} - Moment ${imgIndex + 1}` : `Moment ${imgIndex + 1}`} 
-                      className="w-full h-full object-cover rounded-xl border border-gray-700"
+                      fill
+                      className="object-cover rounded-xl border border-gray-700"
                       onError={(e) => {
+                        console.error("Verse image failed to load:", e);
                         e.target.src = '';
                         e.target.alt = "Image failed to load";
                       }}
@@ -186,12 +188,13 @@ const VerseItem = memo(({
                   </div>
                 ) : (
                   <div className="relative w-full h-36">
-                    {/* FIXED: Replaced Next.js Image with regular img tag */}
-                    <img 
+                    <Image 
                       src={image.preview || image.url || image.file_url || (image.file ? URL.createObjectURL(image.file) : '')} 
                       alt={title ? `${title} - Moment ${imgIndex + 1}` : `Moment ${imgIndex + 1}`} 
-                      className="w-full h-full object-cover rounded-xl border border-gray-700"
+                      fill
+                      className="object-cover rounded-xl border border-gray-700"
                       onError={(e) => {
+                        console.error("Verse image failed to load:", e);
                         e.target.src = '';
                         e.target.alt = "Image failed to load";
                       }}
@@ -441,6 +444,7 @@ const StoryFormModal = ({
         throw new Error('Failed to fetch popular tags');
       }
     } catch (err) {
+      console.error('Error loading tags:', err);
       setTagsError('Failed to load popular tags');
       
       // Fallback to default tags if API fails
@@ -533,8 +537,10 @@ const StoryFormModal = ({
   
   // Handle image upload for post
   const handleImageUpload = (e) => {
+    console.log('Handling image upload');
     const file = e.target.files[0];
     if (file) {
+      console.log('File selected:', file.name, 'Size:', file.size, 'Type:', file.type);
       if (file.size > 10 * 1024 * 1024) {
         setError('Image file must be less than 10MB');
         return;
@@ -548,9 +554,11 @@ const StoryFormModal = ({
       setImageFile(file);
       const reader = new FileReader();
       reader.onload = function(event) {
+        console.log('File read successfully');
         setImagePreview(event.target.result);
       };
       reader.onerror = function(error) {
+        console.error('Error reading file:', error);
         setError('Error reading the image file. Please try again.');
       };
       reader.readAsDataURL(file);
@@ -743,7 +751,12 @@ const StoryFormModal = ({
           // Get auth token
           const token = localStorage.getItem('token') || sessionStorage.getItem('token');
           
-
+          console.log('Uploading image:', {
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            hasToken: !!token
+          });
       
           const res = await fetch('/api/images/', {
             method: 'POST',
@@ -764,15 +777,21 @@ const StoryFormModal = ({
               errorData = { error: errorText };
             }
             
-         
+            console.error('Image upload failed:', {
+              status: res.status,
+              statusText: res.statusText,
+              error: errorData,
+            });
             
             throw new Error(errorData.error || `Upload failed: ${res.statusText}`);
           }
       
           const data = await res.json();
+          console.log('Image uploaded successfully:', data);
           return data;
           
         } catch (error) {
+          console.error('Upload error:', error);
           throw error;
         }
       };
@@ -789,6 +808,7 @@ const StoryFormModal = ({
                 const result = await uploadImage(file);
                 uploadedImageIds.push(result.public_id);
               } catch (uploadErr) {
+                console.error('Failed to upload verse image:', uploadErr);
                 throw uploadErr;
               }
             } else if (typeof img === 'string') {
@@ -822,9 +842,12 @@ const StoryFormModal = ({
       
       if (imageFile) {
         try {
+          console.log('Uploading cover image...');
           const result = await uploadImage(imageFile);
           finalCoverImageId = result.public_id;
+          console.log('Cover image uploaded:', finalCoverImageId);
         } catch (uploadErr) {
+          console.error('Failed to upload cover image:', uploadErr);
           throw uploadErr;
         }
       }
@@ -836,8 +859,10 @@ const StoryFormModal = ({
 
       let savedStory;
       if (editingStory) {
+        console.log('Updating story with payload:', storyPayload);
         savedStory = await storiesApi.updateStory(editingStory.slug, storyPayload);
       } else {
+        console.log('Creating story with payload:', storyPayload);
         savedStory = await storiesApi.createStory(storyPayload);
       }
 
@@ -878,12 +903,14 @@ const StoryFormModal = ({
                     order: m + 1
                   });
                 } catch (momentErr) {
+                  console.warn('Failed to create moment for verse', verseResponse, momentErr);
                 }
               }
             }
 
             createdVerses.push(verseResponse);
           } catch (verseErr) {
+            console.warn('Failed to create/update verse', v, verseErr);
           }
         }
       }
@@ -916,8 +943,11 @@ const StoryFormModal = ({
           body: JSON.stringify({ slug: savedStory?.slug })
         })
           .then(async (r) => {
+            try { const j = await r.json().catch(() => null); console.log('publish-proxy response', r.status, j); } catch(e){}
           })
+          .catch((e) => console.warn('publish-proxy failed', e));
       } catch (e) {
+        console.warn('publish-proxy invocation error', e);
       }
 
       setTimeout(() => {
@@ -932,6 +962,7 @@ const StoryFormModal = ({
         }
       }, 2000);
     } catch (err) {
+      console.error('Error saving story:', err);
       
       // Provide user-friendly error messages
       let errorMessage = 'An error occurred while saving the story. Please try again.';
@@ -1011,6 +1042,7 @@ const StoryFormModal = ({
   
   // Handle verse image file selection
   const handleVerseImageFileChange = useCallback(async (verseId, e) => {
+    console.log('Handling verse image file change for verse:', verseId);
     const files = Array.from(e.target.files);
     if (files.length > 0) {
       const validFiles = [];
@@ -1018,6 +1050,7 @@ const StoryFormModal = ({
       const imagePreviews = [];
       
       for (const file of files) {
+        console.log('Processing file:', file.name);
         if (file.size > 10 * 1024 * 1024) {
           invalidFiles.push(`${file.name} is too large (>10MB)`);
         } else if (!file.type.startsWith('image/')) {
@@ -1033,6 +1066,7 @@ const StoryFormModal = ({
               name: file.name
             });
           } catch (error) {
+            console.error("Error generating preview:", error);
             invalidFiles.push(`${file.name} preview failed`);
           }
         }
@@ -1043,6 +1077,8 @@ const StoryFormModal = ({
         return;
       }
       
+      console.log('Valid files processed:', validFiles.length);
+      console.log('Image previews generated:', imagePreviews.length);
       
       // Pass both files and previews to the parent component
       handleVerseImageUpload(verseId, imagePreviews);
@@ -1164,12 +1200,13 @@ const StoryFormModal = ({
           {imagePreview ? (
             <>
               <div className="relative w-full h-full">
-                {/* FIXED: Replaced Next.js Image with regular img tag */}
-                <img 
+                <Image 
                   src={imagePreview} 
                   alt={title ? `${title} - Cover image` : 'Cover image'} 
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
                   onError={(e) => {
+                    console.error("Image failed to load:", e);
                     e.target.src = '';
                     e.target.alt = "Image preview failed to load";
                   }}
