@@ -1,5 +1,6 @@
 // CreatorChip.js - Enhanced with loading state animation and tooltip
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { formatTimeAgo } from '../../../../lib/utils';
 import { useAuth } from '../../../../contexts/AuthContext';
 
@@ -44,12 +45,23 @@ const CreatorChip = ({
         await handleFollow(e, creatorUsername);
     };
     
+    const router = useRouter();
     const handleVersesClick = () => {
         // Dismiss tooltip when button is clicked
         if (showTooltip) {
             setShowTooltip(false);
             localStorage.setItem('hasSeenVersesButtonTooltip', 'true');
         }
+        // Navigate to the story's verse page
+        if (story && story.slug && Array.isArray(story.verses) && story.verses.length > 0) {
+            const firstVerse = story.verses[0];
+            const verseId = firstVerse.id || firstVerse.public_id || firstVerse.slug;
+            if (verseId) {
+                router.push(`/stories/${encodeURIComponent(story.slug)}?verse=${encodeURIComponent(verseId)}`);
+                return;
+            }
+        }
+        // fallback: open modal as before
         handleOpenVerses();
     };
     
