@@ -204,18 +204,16 @@ error('Error following user:', error);
         }
     };
 
-    const handleOpenVerses = async () => {
+    const handleOpenVerses = useCallback(async () => {
         try {
-debug('[StoryCard] open verses clicked (optimistic open)', {
-                slug: story?.slug,
-                versesCount: Array.isArray(story?.verses) ? story.verses.length : 0,
-                sampleVerses: Array.isArray(story?.verses) ? story.verses.slice(0,3) : story?.verses
-            });
+            // Always log for debug
+            // debug('[StoryCard] open verses clicked (optimistic open)', {
+            //     slug: story?.slug,
+            //     versesCount: Array.isArray(story?.verses) ? story.verses.length : 0,
+            //     sampleVerses: Array.isArray(story?.verses) ? story.verses.slice(0,3) : story?.verses
+            // });
 
-            // Start opening indicator, then open viewer immediately so UI appears.
             setIsViewerOpening(true);
-            // Open the viewer immediately so the UI appears instantly.
-            // Fetch the full story in the background and patch the viewer when it arrives.
             setShowVerseViewer(true);
 
             // Fetch latest story data asynchronously (do not block UI)
@@ -226,9 +224,8 @@ debug('[StoryCard] open verses clicked (optimistic open)', {
             }
         } catch (e) {
             setIsViewerOpening(false);
-            // Keep the viewer open even if fetch fails; it will use whatever `currentStory` was available.
         }
-    };
+    }, [story.slug]);
 
     const handleDeleteStory = async () => {
         setShowDeleteModal(false);
