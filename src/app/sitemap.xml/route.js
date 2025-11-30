@@ -137,6 +137,62 @@ export async function GET() {
     }
 
     // ============================================================================
+    // FETCH ALL USERS/CREATORS (NEW!)
+    // ============================================================================
+    console.log('👥 Fetching all users...');
+    
+    try {
+      // Option 1: Try to get leaderboard (contains all active users)
+      const leaderboard = await safeFetch(`${API_URL}/api/profiles/leaderboard/`);
+      
+      if (leaderboard && Array.isArray(leaderboard.leaderboard)) {
+        console.log(`✅ Found ${leaderboard.leaderboard.length} users from leaderboard`);
+        
+        leaderboard.leaderboard.forEach((entry) => {
+          const username = entry?.user?.username;
+          if (username) {
+            const profileUrl = `${SITE_URL}/${encodeURIComponent(username)}`;
+            if (!seen.has(profileUrl)) {
+              urls.push({ 
+                loc: profileUrl, 
+                priority: '0.6', 
+                changefreq: 'weekly',
+                lastmod: formatDate(entry?.user?.date_joined || entry?.user?.created_at)
+              });
+              seen.add(profileUrl);
+            }
+          }
+        });
+      } else {
+        console.log('⚠️  No leaderboard data found');
+      }
+
+      // Option 2: Try to get recommended creators (backup)
+      const creators = await safeFetch(`${API_URL}/api/stories/recommended_creators/`);
+      
+      if (Array.isArray(creators) && creators.length > 0) {
+        console.log(`✅ Found ${creators.length} recommended creators`);
+        
+        creators.forEach((creator) => {
+          const username = creator?.username;
+          if (username) {
+            const profileUrl = `${SITE_URL}/${encodeURIComponent(username)}`;
+            if (!seen.has(profileUrl)) {
+              urls.push({ 
+                loc: profileUrl, 
+                priority: '0.5', 
+                changefreq: 'weekly' 
+              });
+              seen.add(profileUrl);
+            }
+          }
+        });
+      }
+    } catch (userError) {
+      console.error('❌ User fetch error:', userError.message);
+    }
+
+    // ============================================================================
     // FETCH STORIES (Paginated)
     // ============================================================================
     console.log('📚 Fetching stories...');
@@ -179,7 +235,7 @@ export async function GET() {
           changefreq: 'daily' 
         });
 
-        // Add creator profile
+        // Add creator profile (in case they weren't in leaderboard)
         const creator = story?.creator;
         const username = creator?.username;
         
@@ -189,7 +245,8 @@ export async function GET() {
             urls.push({ 
               loc: profileUrl, 
               priority: '0.5', 
-              changefreq: 'weekly' 
+              changefreq: 'weekly',
+              lastmod: formatDate(creator?.date_joined || creator?.created_at)
             });
             seen.add(profileUrl);
           }
@@ -208,6 +265,22 @@ export async function GET() {
                 changefreq: 'monthly' 
               });
               seen.add(verseUrl);
+            }
+          }
+
+          // Add verse author (in case they're different from story creator)
+          const verseAuthor = verse?.author;
+          const verseAuthorUsername = verseAuthor?.username;
+          
+          if (verseAuthorUsername) {
+            const authorUrl = `${SITE_URL}/${encodeURIComponent(verseAuthorUsername)}`;
+            if (!seen.has(authorUrl)) {
+              urls.push({ 
+                loc: authorUrl, 
+                priority: '0.5', 
+                changefreq: 'weekly' 
+              });
+              seen.add(authorUrl);
             }
           }
         }
@@ -239,6 +312,22 @@ export async function GET() {
 
     console.log(`✅ Total stories: ${totalStories}`);
     console.log(`✅ Total URLs: ${urls.length}`);
+
+    // Count each type for logging
+    const counts = {
+      stories: urls.filter(u => u.loc.includes('/stories/')).length,
+      users: urls.filter(u => !u.loc.includes('/stories/') && !u.loc.includes('/tags/') && !u.loc.includes('/verses/') && u.loc.match(/\/[^\/]+$/)).length,
+      tags: urls.filter(u => u.loc.includes('/tags/')).length,
+      verses: urls.filter(u => u.loc.includes('/verses/')).length,
+      static: urls.filter(u => u.loc.match(/\/(about|contact|privacy|terms|login|signup|^$)/)).length,
+    };
+    
+    console.log('📊 URL breakdown:');
+    console.log(`   - Stories: ${counts.stories}`);
+    console.log(`   - Users: ${counts.users}`);
+    console.log(`   - Tags: ${counts.tags}`);
+    console.log(`   - Verses: ${counts.verses}`);
+    console.log(`   - Static pages: ${counts.static}`);
 
     // ============================================================================
     // BUILD XML SITEMAP
