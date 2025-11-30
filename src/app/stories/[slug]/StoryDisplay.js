@@ -1,4 +1,3 @@
-// app/stories/[slug]/StoryDisplay.js
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
