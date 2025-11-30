@@ -5,6 +5,7 @@ import { AuthProvider } from '../../contexts/AuthContext';
 import Sidebar from './components/Sidebar';
 import CommentModal from './components/CommentModal';
 import GlobalShell from './components/GlobalShell';
+import Script from 'next/script';
 
 export default function RootLayout({ children }) {
   return (
@@ -14,6 +15,20 @@ export default function RootLayout({ children }) {
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
 
       <meta name="google-site-verification" content="wJjq83au-maldcRICvQfKYPlbzQ1pdustQ_GOSqJuVY" />
+
+        {/* Google Analytics (gtag.js) using next/script */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-JCM36RQZ8G"
+          strategy="afterInteractive"
+        />
+        <Script id="gtag-init" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-JCM36RQZ8G');
+          `}
+        </Script>
 
 
         {/* Favicon and App Icons */}
