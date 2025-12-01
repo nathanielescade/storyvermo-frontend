@@ -82,6 +82,7 @@ const ActionButtons = ({
             // Revert optimistic update on error
             setOptimisticLike(isLiked);
             setOptimisticLikeCount(story.likes_count || 0);
+           
         } finally {
             setIsLikeLoading(false);
         }
