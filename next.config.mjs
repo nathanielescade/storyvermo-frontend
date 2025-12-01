@@ -1,5 +1,13 @@
 /** @type {import('next').NextConfig} */
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '300mb', // match your Nginx & Django limits
+    },
+  },
+};
+
 const nextConfig = {
   images: {
     remotePatterns: [
@@ -17,7 +25,7 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'storyvermo.nyc3.cdn.digitaloceanspaces.com', 
+        hostname: 'storyvermo.nyc3.cdn.digitaloceanspaces.com',
         pathname: '/**',
       },
       // Add any other domains where your images might be hosted
