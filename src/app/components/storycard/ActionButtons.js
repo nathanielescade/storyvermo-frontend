@@ -42,7 +42,7 @@ const ActionButtons = ({
 
     const baseButtonClasses = 'w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer transition-all duration-200 ease-in-out relative';
     const hoverClasses = 'hover:bg-[#00d4ff]/20 hover:border-[#00d4ff] hover:scale-110';
-    const activeClasses = 'bg-[#ff6b35]/10 border-2 border-[#ff6b35]';
+    const activeClasses = 'bg-[#ff6b35] border-2 border-[#ff6b35]';
     const inactiveClasses = 'border border-white/20';
 
     const handleLike = async (e) => {
@@ -82,7 +82,6 @@ const ActionButtons = ({
             // Revert optimistic update on error
             setOptimisticLike(isLiked);
             setOptimisticLikeCount(story.likes_count || 0);
-           
         } finally {
             setIsLikeLoading(false);
         }

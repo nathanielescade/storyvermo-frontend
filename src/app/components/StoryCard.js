@@ -406,7 +406,7 @@ error('Failed to delete story:', err);
                             <img 
                                 src={coverImageUrl} 
                                 alt={story.title || 'Story cover'} 
-                                className="scene-bg w-full h-full object-cover"
+                                className="scene-bg w-full h-full "
                             />
                         </div>
                     ) : (
