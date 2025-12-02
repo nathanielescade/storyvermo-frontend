@@ -5,9 +5,9 @@ import { authApi } from '../lib/api';
 
 const AuthContext = createContext();
 
-export function AuthProvider({ children }) {
-  // Helper to normalize various backend auth response shapes
-  const normalizeUserFromResponse = (resp) => {
+// Helper utilities extracted to reduce context size
+const authUtils = {
+  normalizeUserFromResponse: (resp) => {
     if (!resp) return null;
     
     // Handle { authenticated: true, user: 'username' }
@@ -26,13 +26,10 @@ export function AuthProvider({ children }) {
     }
     
     return null;
-  };
+  },
 
-  // Parse and normalize error messages from various shapes
-  const normalizeErrorMessage = (message) => {
-    if (Array.isArray(message)) {
-      return message.join(', ');
-    }
+  normalizeErrorMessage: (message) => {
+    if (Array.isArray(message)) return message.join(', ');
     if (typeof message === 'object' && message !== null) {
       try {
         return JSON.stringify(message);
@@ -41,14 +38,14 @@ export function AuthProvider({ children }) {
       }
     }
     return String(message || '');
-  };
+  },
 
-  // Parse API error payloads (DRF, Django or custom) into structured format
-  const parseApiErrors = (payload) => {
+  parseApiErrors: (payload) => {
     // If an Error was passed directly, surface its message
     if (payload instanceof Error) {
       return { general: payload.message || 'An error occurred' };
     }
+    
     const errors = {};
     const source = payload || {};
 
@@ -74,12 +71,12 @@ export function AuthProvider({ children }) {
       for (const [key, val] of Object.entries(candidates)) {
         // Handle non_field_errors (DRF standard for general errors)
         if (key === 'non_field_errors' || key === '__all__' || key === 'non_field_error') {
-          errors.general = normalizeErrorMessage(val);
+          errors.general = authUtils.normalizeErrorMessage(val);
           continue;
         }
 
         // Keep original key (likely snake_case) so callers that expect that key get it
-        const normalized = normalizeErrorMessage(val);
+        const normalized = authUtils.normalizeErrorMessage(val);
         errors[key] = normalized;
 
         // Also provide a camelCase variant for callers that expect camelCase
@@ -98,8 +95,10 @@ export function AuthProvider({ children }) {
     }
 
     return errors;
-  };
+  }
+};
 
+export function AuthProvider({ children }) {
   // Initialize state instantly from localStorage for fast hydration
   const [currentUser, setCurrentUser] = useState(() => {
     if (typeof window === 'undefined') return null;
@@ -118,28 +117,23 @@ export function AuthProvider({ children }) {
   
   const [loading, setLoading] = useState(false);
 
-  // Silently verify auth in background with timeout (non-blocking)
+  // Simplified auth verification with timeout
   useEffect(() => {
     let mounted = true;
     let timeoutId;
-    let abortController;
     
-    const verifyAuthInBackground = async () => {
+    const verifyAuth = async () => {
       try {
-        // Create abort controller for fetch timeout
-        abortController = new AbortController();
-        
-        // Set a 3-second timeout for auth check
         timeoutId = setTimeout(() => {
-          abortController.abort();
+          if (mounted) {
+            // Timeout reached, keep current state
+            clearTimeout(timeoutId);
+          }
         }, 3000);
         
-        // Make the request with abort signal
-        const url = `${authApi.checkAuth.toString().includes('apiRequest') ? '' : ''}`;
-        const response = await fetch(`${typeof window !== 'undefined' ? '' : ''}${process.env.NEXT_PUBLIC_API_URL || 'https://api.storyvermo.com'}/auth/check/`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.storyvermo.com'}/auth/check/`, {
           credentials: 'include',
           headers: { 'Accept': 'application/json' },
-          signal: abortController.signal,
           redirect: 'manual'
         });
         
@@ -150,7 +144,6 @@ export function AuthProvider({ children }) {
           if (mounted) {
             setCurrentUser(null);
             setIsAuthenticated(false);
-            
             if (typeof window !== 'undefined') {
               localStorage.removeItem('currentUser');
               localStorage.removeItem('isAuthenticated');
@@ -160,15 +153,13 @@ export function AuthProvider({ children }) {
         }
         
         const data = await response.json();
-        
         if (!mounted) return;
         
-        const user = normalizeUserFromResponse(data);
+        const user = authUtils.normalizeUserFromResponse(data);
         
         if (user) {
           setCurrentUser(user);
           setIsAuthenticated(true);
-          
           if (typeof window !== 'undefined') {
             localStorage.setItem('currentUser', JSON.stringify(user));
             localStorage.setItem('isAuthenticated', 'true');
@@ -176,7 +167,6 @@ export function AuthProvider({ children }) {
         } else {
           setCurrentUser(null);
           setIsAuthenticated(false);
-          
           if (typeof window !== 'undefined') {
             localStorage.removeItem('currentUser');
             localStorage.removeItem('isAuthenticated');
@@ -184,16 +174,9 @@ export function AuthProvider({ children }) {
         }
       } catch (error) {
         clearTimeout(timeoutId);
-        
-        // If it's an abort (timeout), keep cached state
-        if (error.name === 'AbortError') {
-          return;
-        }
-        
         if (mounted) {
           setCurrentUser(null);
           setIsAuthenticated(false);
-          
           if (typeof window !== 'undefined') {
             localStorage.removeItem('currentUser');
             localStorage.removeItem('isAuthenticated');
@@ -202,45 +185,49 @@ export function AuthProvider({ children }) {
       }
     };
 
-    // Verify auth silently in background - doesn't block rendering
-    verifyAuthInBackground();
+    verifyAuth();
     
     return () => {
       mounted = false;
       clearTimeout(timeoutId);
-      if (abortController) abortController.abort();
     };
   }, []);
+
+  // Common function to update auth state
+  const updateAuthState = (user) => {
+    if (user) {
+      setCurrentUser(user);
+      setIsAuthenticated(true);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('currentUser', JSON.stringify(user));
+        localStorage.setItem('isAuthenticated', 'true');
+      }
+    } else {
+      setCurrentUser(null);
+      setIsAuthenticated(false);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('isAuthenticated');
+      }
+    }
+  };
 
   // Login function
   const login = async (credentials) => {
     try {
       const response = await authApi.login(credentials);
-
-      // Check if login was successful
+      
       if (response && (response.success || response.user)) {
-        const user = normalizeUserFromResponse(response);
-        
+        const user = authUtils.normalizeUserFromResponse(response);
         if (user) {
-          setCurrentUser(user);
-          setIsAuthenticated(true);
-          
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('currentUser', JSON.stringify(user));
-            localStorage.setItem('isAuthenticated', 'true');
-          }
-          
-          
+          updateAuthState(user);
           // Small delay to ensure cookies are set
           await new Promise(resolve => setTimeout(resolve, 100));
-          
           return { success: true, user };
         }
       }
 
-      // Parse error response
-      const errors = parseApiErrors(response);
-      
+      const errors = authUtils.parseApiErrors(response);
       return { 
         success: false, 
         error: errors.general || 'Login failed. Please check your credentials.',
@@ -248,25 +235,17 @@ export function AuthProvider({ children }) {
         raw: response 
       };
     } catch (error) {
-      
-      // Try to parse error from response. apiRequest may attach a `.body` or set `response.data`.
       let errors = { general: 'An unexpected error occurred' };
-
-      // axios-like error with response.data
+      
       if (error && error.response && error.response.data) {
-        errors = parseApiErrors(error.response.data);
+        errors = authUtils.parseApiErrors(error.response.data);
       } else if (error && error.body) {
-        // apiRequest attaches `.body` (may be string or object)
         try {
           const body = typeof error.body === 'string' ? JSON.parse(error.body) : error.body;
-          errors = parseApiErrors(body);
+          errors = authUtils.parseApiErrors(body);
         } catch (e) {
-          // not JSON - use body as message
           errors.general = String(error.body || error.message || 'Authentication failed');
         }
-      } else if (error && typeof error === 'object' && error.status) {
-        // fallback to using message or status
-        errors.general = error.message || `Error ${error.status}`;
       } else if (error && error.message) {
         errors.general = error.message;
       }
@@ -285,63 +264,33 @@ export function AuthProvider({ children }) {
     try {
       const response = await authApi.register(userData);
       
-      // Handle registration success
       if (response && (response.success || response.user)) {
-        const user = normalizeUserFromResponse(response);
-        
+        const user = authUtils.normalizeUserFromResponse(response);
         if (user) {
-          setCurrentUser(user);
-          setIsAuthenticated(true);
-          
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('currentUser', JSON.stringify(user));
-            localStorage.setItem('isAuthenticated', 'true');
-          }
-          
-          
-          // Small delay to ensure cookies are set
+          updateAuthState(user);
           await new Promise(resolve => setTimeout(resolve, 100));
-          
           return { success: true, user };
         }
       }
 
-      // Some backends return a success message without a user or explicit
-      // `success` boolean (e.g. { message: 'Registration successful.' }).
-      // Treat those as success and attempt to auto-login by probing the
-      // auth check endpoint. If that returns a user, set authenticated
-      // state so the UI can proceed directly to onboarding/follow-suggestions.
+      // Handle success message without user
       if (response && !response.user && !response.success) {
         const msg = (response.message || response.detail || '').toString();
         if (/success|successful|created|ok/i.test(msg)) {
-
-          // Try to refresh auth to obtain the new user session/profile
           try {
             const check = await authApi.checkAuth();
-            const user = normalizeUserFromResponse(check);
+            const user = authUtils.normalizeUserFromResponse(check);
             if (user) {
-              setCurrentUser(user);
-              setIsAuthenticated(true);
-
-              if (typeof window !== 'undefined') {
-                localStorage.setItem('currentUser', JSON.stringify(user));
-                localStorage.setItem('isAuthenticated', 'true');
-              }
-
+              updateAuthState(user);
               return { success: true, user };
             }
           } catch (e) {
+            // Continue to return success message
           }
-
-          // If auto-login didn't work, still return a success marker so the
-          // UI can show the success state and prompt the user to log in.
           return { success: true, message: msg };
         }
       }
       
-      // Parse validation errors. Be defensive: some backends return an empty
-      // object or a non-standard shape on validation failure. Handle Error
-      // instances and empty responses so the UI receives a predictable shape.
       let errors;
       try {
         if (!response || (typeof response === 'object' && Object.keys(response).length === 0)) {
@@ -349,15 +298,10 @@ export function AuthProvider({ children }) {
         } else if (response instanceof Error) {
           errors = { general: response.message || 'Registration failed' };
         } else {
-          errors = parseApiErrors(response);
+          errors = authUtils.parseApiErrors(response);
         }
       } catch (parseErr) {
         errors = { general: 'Registration failed' };
-      }
-
-      // Log a snapshot (stringified) as well as the object to avoid empty
-      try {
-      } catch (e) {
       }
       
       return { 
@@ -367,15 +311,14 @@ export function AuthProvider({ children }) {
         raw: response 
       };
     } catch (error) {
-      
-      // Try to parse error from response
       let errors = { general: 'An unexpected error occurred' };
+      
       if (error && error.response && error.response.data) {
-        errors = parseApiErrors(error.response.data);
+        errors = authUtils.parseApiErrors(error.response.data);
       } else if (error && error.body) {
         try {
           const body = typeof error.body === 'string' ? JSON.parse(error.body) : error.body;
-          errors = parseApiErrors(body);
+          errors = authUtils.parseApiErrors(body);
         } catch (e) {
           errors.general = String(error.body || error.message || 'Registration failed');
         }
@@ -396,27 +339,12 @@ export function AuthProvider({ children }) {
   const logout = async () => {
     try {
       await authApi.logout();
-      setCurrentUser(null);
-      setIsAuthenticated(false);
-      
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('currentUser');
-        localStorage.removeItem('isAuthenticated');
-      }
-      
-      
-      // Redirect to home page
+    } catch (error) {
+      // Continue with local logout even if API fails
+    } finally {
+      updateAuthState(null);
       if (typeof window !== 'undefined') {
         window.location.href = '/';
-      }
-    } catch (error) {
-      // Clear local state even if API call fails
-      setCurrentUser(null);
-      setIsAuthenticated(false);
-      
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('currentUser');
-        localStorage.removeItem('isAuthenticated');
       }
     }
   };
@@ -425,39 +353,17 @@ export function AuthProvider({ children }) {
   const refreshAuth = async () => {
     try {
       const response = await authApi.checkAuth();
-      
-      const user = normalizeUserFromResponse(response);
+      const user = authUtils.normalizeUserFromResponse(response);
       
       if (user) {
-        setCurrentUser(user);
-        setIsAuthenticated(true);
-        
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('currentUser', JSON.stringify(user));
-          localStorage.setItem('isAuthenticated', 'true');
-        }
-        
+        updateAuthState(user);
         return true;
       }
       
-      setCurrentUser(null);
-      setIsAuthenticated(false);
-      
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('currentUser');
-        localStorage.removeItem('isAuthenticated');
-      }
-      
+      updateAuthState(null);
       return false;
     } catch (error) {
-      setCurrentUser(null);
-      setIsAuthenticated(false);
-      
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('currentUser');
-        localStorage.removeItem('isAuthenticated');
-      }
-      
+      updateAuthState(null);
       return false;
     }
   };

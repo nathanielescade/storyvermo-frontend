@@ -29,6 +29,7 @@ export function useUserInteractions(storyId) {
     const pendingLikeRef = useRef(null);
     const pendingSaveRef = useRef(null);
     const syncTimeoutRef = useRef(null);
+    const syncTimeoutSaveRef = useRef(null);
     
     // Get localStorage key for this story
     const getStorageKey = useCallback((type) => {
@@ -37,7 +38,7 @@ export function useUserInteractions(storyId) {
     
     // Initialize from localStorage on mount
     useEffect(() => {
-        if (!isAuthenticated) return;
+        if (!isAuthenticated || !storyId) return;
         
         try {
             const savedLiked = localStorage.getItem(getStorageKey('liked')) === 'true';
@@ -52,10 +53,16 @@ export function useUserInteractions(storyId) {
     
     // Initialize like count from props or localStorage
     const initializeLikeCount = useCallback((initialCount) => {
-        if (typeof initialCount === 'number') {
+        if (typeof initialCount === 'number' && initialCount >= 0) {
             setLikeCount(initialCount);
+            // Also save to localStorage for persistence
+            try {
+                localStorage.setItem(getStorageKey('likeCount'), String(initialCount));
+            } catch (e) {
+                // localStorage might be unavailable
+            }
         }
-    }, []);
+    }, [getStorageKey]);
     
     /**
      * Toggle like with optimistic update and backend sync
@@ -94,6 +101,7 @@ export function useUserInteractions(storyId) {
             // Update localStorage immediately for persistence
             try {
                 localStorage.setItem(getStorageKey('liked'), String(newLiked));
+                localStorage.setItem(getStorageKey('likeCount'), String(newCount));
             } catch (e) {
                 // localStorage might be unavailable
             }
@@ -106,8 +114,13 @@ export function useUserInteractions(storyId) {
                     const response = await storiesApi.toggleStoryLike(storyId);
                     
                     // Update count from backend response if available
-                    if (response && response.likes_count !== undefined) {
+                    if (response && typeof response.likes_count === 'number') {
                         setLikeCount(response.likes_count);
+                        try {
+                            localStorage.setItem(getStorageKey('likeCount'), String(response.likes_count));
+                        } catch (e) {
+                            // localStorage might be unavailable
+                        }
                     }
                     
                     pendingLikeRef.current = null;
@@ -118,6 +131,7 @@ export function useUserInteractions(storyId) {
                     
                     try {
                         localStorage.setItem(getStorageKey('liked'), String(previousLiked));
+                        localStorage.setItem(getStorageKey('likeCount'), String(previousCount));
                     } catch (e) {
                         // ignore
                     }
@@ -147,8 +161,8 @@ export function useUserInteractions(storyId) {
         setIsSaveLoading(true);
         
         // Cancel any pending sync
-        if (syncTimeoutRef.current) {
-            clearTimeout(syncTimeoutRef.current);
+        if (syncTimeoutSaveRef.current) {
+            clearTimeout(syncTimeoutSaveRef.current);
         }
         
         try {
@@ -169,7 +183,7 @@ export function useUserInteractions(storyId) {
             // Schedule backend sync
             pendingSaveRef.current = { saved: newSaved, timestamp: Date.now() };
             
-            syncTimeoutRef.current = setTimeout(async () => {
+            syncTimeoutSaveRef.current = setTimeout(async () => {
                 try {
                     await storiesApi.toggleStorySave(storyId);
                     pendingSaveRef.current = null;
@@ -196,6 +210,9 @@ export function useUserInteractions(storyId) {
         return () => {
             if (syncTimeoutRef.current) {
                 clearTimeout(syncTimeoutRef.current);
+            }
+            if (syncTimeoutSaveRef.current) {
+                clearTimeout(syncTimeoutSaveRef.current);
             }
         };
     }, []);

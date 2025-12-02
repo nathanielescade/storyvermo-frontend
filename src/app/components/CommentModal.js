@@ -470,7 +470,7 @@ const CommentModal = ({
 
   return (
     <div 
-      className="fixed inset-0 z-20 flex items-start md:items-center justify-center bg-black/80 backdrop-blur-lg"
+      className="fixed inset-0 z-50 flex items-start md:items-center justify-center bg-black/80 backdrop-blur-lg"
       onClick={onClose}
     >
       {/* Modal container */}
