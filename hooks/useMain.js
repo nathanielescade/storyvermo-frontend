@@ -4,8 +4,9 @@ import { storiesApi, userApi } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function useMain(initialState = null) {
+    // Always use initialState for hydration, never overwrite with client fetch
     const [stories, setStories] = useState(initialState?.stories || []);
-    const [loading, setLoading] = useState(initialState ? false : true);
+    const [loading, setLoading] = useState(false);
     const [hasNext, setHasNext] = useState(initialState?.hasNext ?? true);
     const [isFetching, setIsFetching] = useState(false);
     const [currentTag, setCurrentTag] = useState(initialState?.currentTag || 'for-you');
@@ -16,62 +17,12 @@ export default function useMain(initialState = null) {
     const [error, setError] = useState(null);
     const [prefetchedStories, setPrefetchedStories] = useState(null);
     const isPrefetchingRef = useRef(false);
-    
+
     const { currentUser, isAuthenticated, refreshAuth } = useAuth();
-    
-    // Initialize the app with stories
-    useEffect(() => {
-        const initializeApp = async () => {
-            if (initialState) return;
-            
-            try {
-                setLoading(true);
-                let initialTag = 'for-you';
-                
-                if (typeof window !== 'undefined') {
-                    const match = window.location.pathname.match(/^\/tags\/([^\/]+)\/?$/);
-                    if (match && match[1]) {
-                        try {
-                            initialTag = decodeURIComponent(match[1]);
-                        } catch (e) {
-                            initialTag = match[1];
-                        }
-                    }
-                }
 
-                setCurrentTag(initialTag);
-                const params = { page: 1 };
-                if (initialTag !== 'for-you') params.tag = initialTag;
-
-                const initialStories = await storiesApi.getPaginatedStories(params);
-                setStories(initialStories.results || []);
-                setHasNext(initialStories.next !== null);
-                
-                // 🔥 FIX: Immediately prefetch next page
-                if (initialStories.next !== null && !isPrefetchingRef.current) {
-                    const nextParams = { page: 2 };
-                    if (initialTag !== 'for-you') nextParams.tag = initialTag;
-                    
-                    isPrefetchingRef.current = true;
-                    storiesApi.getPaginatedStories(nextParams)
-                        .then(nextStories => {
-                            setPrefetchedStories(nextStories.results || []);
-                        })
-                        .catch(err => {
-                        })
-                        .finally(() => {
-                            isPrefetchingRef.current = false;
-                        });
-                }
-            } catch (error) {
-                setError(error.message || 'Failed to load stories');
-            } finally {
-                setLoading(false);
-            }
-        };
-        
-        initializeApp();
-    }, [initialState]);
+    // Remove client-side fetch on mount; SSR initialState is always used
+    // This prevents hydration mismatch and ensures SSR stories are shown
+    // If you want to support client navigation to tags, use handleTagSwitch
     
     // Handle tag switching
     const handleTagSwitch = useCallback(async (tag, { force = false } = {}) => {
