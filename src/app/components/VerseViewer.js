@@ -1081,9 +1081,9 @@ const VerseViewer = ({
                 /* If no moments, show verse content in the main area */
                 <div className="flex-1 flex justify-center bg-black/10 cursor-pointer relative" onClick={toggleFocusMode}>
                   {/* Zoom controls for text-only verse */}
-                  <div className="absolute top-4 right-8 z-20 flex flex-col gap-2 items-end">
+                  <div className="absolute top-20 right-3 z-20 flex flex-row gap-2 items-end">
                     <button
-                      className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 text-white shadow-lg flex items-center justify-center hover:scale-110 transition-transform border border-cyan-400/40 text-2xl font-bold"
+                      className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-200/50 to-blue-500/50 text-white shadow-lg  flex items-center justify-center hover:scale-110 transition-transform border border-cyan-400/40 text-2xl font-bold"
                       onClick={e => { e.stopPropagation(); setFontSize(f => Math.min(f + 4, 80)); }}
                       title="Zoom In"
                       tabIndex={0}
@@ -1091,7 +1091,7 @@ const VerseViewer = ({
                       +
                     </button>
                     <button
-                      className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 text-white shadow-lg flex items-center justify-center hover:scale-110 transition-transform border border-cyan-400/40 text-2xl font-bold"
+                      className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500/50 to-blue-500/50 text-white shadow-lg flex items-center justify-center hover:scale-110 transition-transform border border-cyan-400/40 text-2xl font-bold"
                       onClick={e => { e.stopPropagation(); setFontSize(f => Math.max(f - 4, 12)); }}
                       title="Zoom Out"
                       tabIndex={0}
@@ -1358,16 +1358,20 @@ const VerseViewer = ({
                 <button
                   title="Contribute verse"
                   onClick={handleOpenContribute}
-                  className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 text-white shadow-lg flex items-center justify-center hover:scale-105 transition-transform"
+                  className="w-14 h-14 rounded-full bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 border-4 border-white/20 shadow-xl flex items-center justify-center hover:scale-110 transition-transform relative group"
+                  style={{ boxShadow: '0 4px 24px 0 rgba(0,255,255,0.18), 0 1.5px 8px 0 rgba(0,0,0,0.10)' }}
                 >
-                  <i className="fas fa-plus"></i>
+                  <span className="absolute inset-0 rounded-full bg-white/10 group-hover:bg-white/20 transition-all"></span>
+                  <i className="fas fa-plus text-white text-2xl relative z-10"></i>
                 </button>
               ) : (
                 <div
-                  className="w-12 h-12 rounded-full flex items-center justify-center bg-gray-700/40 text-gray-400 cursor-not-allowed relative group"
+                  className="w-14 h-14 rounded-full flex items-center justify-center bg-gray-700/40 text-gray-400 cursor-not-allowed relative group border-4 border-gray-400/20 shadow-xl"
                   title="Contributions are disabled for this story."
+                  style={{ boxShadow: '0 4px 24px 0 rgba(0,0,0,0.10)' }}
                 >
-                  <i className="fas fa-plus"></i>
+                  <span className="absolute inset-0 rounded-full bg-white/5"></span>
+                  <i className="fas fa-plus text-2xl relative z-10"></i>
                   <span className="absolute bottom-[-2.2rem] left-1/2 -translate-x-1/2 bg-black/90 text-xs text-white rounded px-2 py-1 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
                     Contributions are disabled for this story.
                   </span>
