@@ -38,12 +38,15 @@ const getMomentImageUrl = (moment) => {
   return null;
 };
 
-// Default theme for the viewer
+// Match ContributeModal theme exactly
 const defaultTheme = {
-  gradient: 'from-gray-900 via-blue-900 to-indigo-900',
-  particles: ['bg-cyan-400', 'bg-blue-400', 'bg-indigo-400', 'bg-purple-400'],
-  text: 'from-cyan-400 via-blue-400 to-indigo-500',
-  accent: 'cyan-400'
+  gradient: 'from-gray-950 via-slate-950 to-indigo-950',
+  particles: ['bg-cyan-400', 'bg-blue-400', 'bg-indigo-400', 'bg-purple-400', 'bg-pink-400', 'bg-amber-300'],
+  text: 'from-cyan-400 via-blue-500 to-purple-500',
+  accent: 'cyan-400',
+  border: 'border border-cyan-500/40',
+  glass: 'bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md',
+  shadow: 'shadow-2xl shadow-cyan-900/30',
 };
 
 // Custom smooth scroll function with easing
@@ -112,6 +115,8 @@ const VerseViewer = ({
   onStoryUpdate, // New prop to handle story updates
   onOpenStoryForm, // Prop to open StoryFormModal for story creators
 }) => {
+  // Font size state for zoom controls (text-only verses)
+  const [fontSize, setFontSize] = useState(32);
   const { currentUser } = useAuth();
   const router = useRouter();
   const [showVerseOptions, setShowVerseOptions] = useState(false);
@@ -914,41 +919,49 @@ const VerseViewer = ({
   if (!isOpen || !story) return null;
 
   const viewer = (
-    <div className={`fixed inset-0 z-[201] bg-gradient-to-br ${defaultTheme.gradient} transition-all duration-1000`}>
+    <div className={`fixed inset-0 z-[201] bg-gradient-to-br ${defaultTheme.gradient} ${defaultTheme.shadow} transition-all duration-1000 rounded-3xl border ${defaultTheme.border}`} style={{overflow: 'hidden'}}>
+      {/* Glassy border and subtle vignette, matching ContributeModal */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute inset-0 rounded-3xl border-2 border-cyan-500/30 animate-pulse"></div>
+        <div className="absolute inset-0 rounded-3xl border-2 border-purple-500/20 animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+        <div className="absolute inset-0 rounded-3xl border-2 border-pink-500/10 animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/10 to-transparent h-px w-full animate-pulse"></div>
+      </div>
+
       {/* Colorful bubbles */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {renderColorfulBubbles()}
       </div>
-      
+
       {/* Unique reading progress indicator - always visible; high z-index so it's not occluded */}
-      <div className="fixed top-0 left-0 right-0 h-1.5 z-[9999] bg-black/20 pointer-events-none">
+      <div className="fixed top-0 left-0 right-0 h-2 z-[9999] bg-black/30 pointer-events-none rounded-b-2xl">
         <div
-          className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 transition-all duration-300 ease-out"
+          className="h-full bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 transition-all duration-300 ease-out rounded-b-2xl shadow-lg shadow-cyan-400/20"
           style={{ width: `${readingProgress}%` }}
         ></div>
       </div>
-      
+
       {/* Scroll hint teaser - shows colorful animated down arrow when there are more verses */}
       {showScrollHint && story?.verses && story.verses.length > 1 && (
         <div className="fixed bottom-32 left-0 right-0 flex justify-center z-50 pointer-events-none">
           <div className="animate-bounce">
-            <i className="fas fa-chevron-down text-4xl bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent animate-pulse"></i>
+            <i className="fas fa-chevron-down text-4xl bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent animate-pulse drop-shadow-lg"></i>
           </div>
         </div>
       )}
-      
-      {/* Fixed Header with glassmorphism */}
-      <div className={`fixed top-0 left-0 right-0 z-50 bg-black/30 backdrop-blur-lg p-4 transition-opacity duration-500 ${!focusMode ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+
+      {/* Fixed Header with luxury glassmorphism */}
+      <div className={`fixed top-0 left-0 right-0 z-50 ${defaultTheme.glass} border-b border-cyan-400/20 p-4 transition-opacity duration-500 ${!focusMode ? 'opacity-100' : 'opacity-0 pointer-events-none'} shadow-lg shadow-cyan-900/10`}> 
         <div className="flex justify-between items-center">
           <div className="text-white font-medium flex items-center gap-2 min-w-0">
             <div className={`w-3 h-3 rounded-full bg-${defaultTheme.accent} animate-pulse`}></div>
-            <span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent truncate block max-w-[60vw]" title={`${story.title} - Verse ${currentVerseIndex + 1} of ${story.verses.length}`}>
-              {story.title} - Verse {currentVerseIndex + 1} of {story.verses.length}
+            <span className="bg-gradient-to-r from-cyan-300 via-blue-200 to-purple-300 bg-clip-text text-transparent truncate block max-w-[60vw] font-bold tracking-wide drop-shadow-lg" title={`${story.title} - Verse ${currentVerseIndex + 1} of ${story.verses.length}`}>
+              {story.title} <span className="opacity-60 font-normal">- Verse {currentVerseIndex + 1} of {story.verses.length}</span>
             </span>
           </div>
           <div className="flex items-center gap-3">
             <button 
-              className="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-black/60 transition-all"
+              className="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-black/60 transition-all border border-cyan-400/20 shadow"
               onClick={onClose}
             >
               <i className="fas fa-times"></i>
@@ -1066,9 +1079,52 @@ const VerseViewer = ({
                 </div>
               ) : (
                 /* If no moments, show verse content in the main area */
-                <div className="flex-1 flex items-center justify-center bg-black/10 p-8 cursor-pointer" onClick={toggleFocusMode}>
-                  <div className="text-white text-3xl text-center font-light max-w-3xl">
-                    {verse.content || 'No content for this verse'}
+                <div className="flex-1 flex justify-center bg-black/10 cursor-pointer relative" onClick={toggleFocusMode}>
+                  {/* Zoom controls for text-only verse */}
+                  <div className="absolute top-4 right-8 z-20 flex flex-col gap-2 items-end">
+                    <button
+                      className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 text-white shadow-lg flex items-center justify-center hover:scale-110 transition-transform border border-cyan-400/40 text-2xl font-bold"
+                      onClick={e => { e.stopPropagation(); setFontSize(f => Math.min(f + 4, 80)); }}
+                      title="Zoom In"
+                      tabIndex={0}
+                    >
+                      +
+                    </button>
+                    <button
+                      className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 text-white shadow-lg flex items-center justify-center hover:scale-110 transition-transform border border-cyan-400/40 text-2xl font-bold"
+                      onClick={e => { e.stopPropagation(); setFontSize(f => Math.max(f - 4, 12)); }}
+                      title="Zoom Out"
+                      tabIndex={0}
+                    >
+                      −
+                    </button>
+                  </div>
+                  <div
+                    className="w-full max-w-3xl h-full relative"
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'center',
+                      alignItems: 'stretch',
+                      height: '100%',
+                    }}
+                  >
+                    <div
+                      className="overflow-y-auto px-6 py-8"
+                      style={{
+                        maxHeight: 'calc(100vh - 160px)', // leave space for header/footer
+                        minHeight: '120px',
+                        marginTop: '64px', // header height
+                        marginBottom: '80px', // footer height
+                      }}
+                    >
+                      <div
+                        className="text-white font-light"
+                        style={{ whiteSpace: 'pre-line', textAlign: 'left', fontSize: fontSize, transition: 'font-size 0.2s' }}
+                      >
+                        {verse.content || 'No content for this verse'}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1304,14 +1360,14 @@ const VerseViewer = ({
                   onClick={handleOpenContribute}
                   className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 text-white shadow-lg flex items-center justify-center hover:scale-105 transition-transform"
                 >
-                  <i className="fas fa-feather"></i>
+                  <i className="fas fa-plus"></i>
                 </button>
               ) : (
                 <div
                   className="w-12 h-12 rounded-full flex items-center justify-center bg-gray-700/40 text-gray-400 cursor-not-allowed relative group"
                   title="Contributions are disabled for this story."
                 >
-                  <i className="fas fa-feather"></i>
+                  <i className="fas fa-plus"></i>
                   <span className="absolute bottom-[-2.2rem] left-1/2 -translate-x-1/2 bg-black/90 text-xs text-white rounded px-2 py-1 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
                     Contributions are disabled for this story.
                   </span>
