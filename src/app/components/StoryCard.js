@@ -34,13 +34,9 @@ export default function StoryCard({
     currentTag,
     onTagSelect,
     isAuthenticated,
-    openAuthModal,
-    onLikeToggle, // Added this prop
-    onSaveToggle  // Added this prop
+    openAuthModal
 }) {
     const { currentUser } = useAuth();
-    const [isLiked, setIsLiked] = useState(story.is_liked_by_user || false);
-    const [isSaved, setIsSaved] = useState(story.is_saved_by_user || false);
     const [isFollowing, setIsFollowing] = useState(story.isFollowing || story.is_following || false);
     const [titleExpanded, setTitleExpanded] = useState(false);
     const [descExpanded, setDescExpanded] = useState(false);
@@ -81,11 +77,9 @@ export default function StoryCard({
         try {
             const fullStory = await storiesApi.getStoryBySlug(story.slug);
             setCurrentStory(fullStory);
-            setIsLiked(fullStory.is_liked_by_user || false);
-            setIsSaved(fullStory.is_saved_by_user || false);
             setIsFollowing(fullStory.isFollowing || fullStory.is_following || false);
         } catch (error) {
-error('Error refetching story:', error);
+            console.error('Error refetching story:', error);
         }
     }, [story.slug]);
 
@@ -125,17 +119,14 @@ error('Error refetching story:', error);
         if (!story) return;
         
         // Always update state based on the latest props
-        setIsLiked(story.is_liked_by_user ?? false);
-        setIsSaved(story.is_saved_by_user ?? false);
         const followingValue = story.isFollowing || story.is_following || false;
         setIsFollowing(followingValue);
         setLocalCommentsCount(story.comments_count || 0);
         setCurrentStory(story);
 
         // If we're missing any interaction state, refetch to ensure accuracy
-        if (!story.hasOwnProperty('is_liked_by_user') || 
-            !story.hasOwnProperty('is_saved_by_user') || 
-            (!story.hasOwnProperty('isFollowing') && !story.hasOwnProperty('is_following'))) {
+        if (!story.hasOwnProperty('isFollowing') && !story.hasOwnProperty('is_following')) {
+            refetchStory();
         }
 
         // Create bubbles around the hologram
@@ -200,7 +191,7 @@ error('Error refetching story:', error);
             const response = await userApi.followUser(username);
             setIsFollowing(response.is_following);
         } catch (error) {
-error('Error following user:', error);
+            console.error('Error following user:', error);
         }
     };
 
@@ -256,7 +247,7 @@ error('Error following user:', error);
                 }
             }, 500);
         } catch (err) {
-error('Failed to delete story:', err);
+            console.error('Failed to delete story:', err);
             alert(`Failed to delete story: ${err.message || err}`);
         } finally {
             setIsDeleting(false);
@@ -478,18 +469,9 @@ error('Failed to delete story:', err);
                         
                         <ActionButtons 
                             story={currentStory}
-                            isLiked={isLiked}
-                            isSaved={isSaved}
                             localCommentsCount={localCommentsCount}
-                            setIsLiked={setIsLiked}
-                            setIsSaved={setIsSaved}
-                            setStory={setCurrentStory}
                             setShowCommentModal={setShowCommentModal}
                             setShowShareModal={setShowShareModal}
-                            isAuthenticated={isAuthenticated}
-                            openAuthModal={openAuthModal}
-                            onLikeToggle={onLikeToggle} // Pass the handler from props
-                            onSaveToggle={onSaveToggle} // Pass the handler from props
                         />
                         
                         <CreatorChip 
@@ -629,13 +611,13 @@ error('Failed to delete story:', err);
                                     document.execCommand('copy');
                                     alert('Link copied to clipboard!');
                                 } catch (err) {
-                        error('Fallback: Oops, unable to copy', err);
+                                    console.error('Fallback: Oops, unable to copy', err);
                                     alert('Unable to copy link. Please copy manually.');
                                 }
                                 document.body.removeChild(textArea);
                             }
                         } catch (error) {
-                error('Error copying to clipboard:', error);
+                            console.error('Error copying to clipboard:', error);
                             alert('Failed to copy link. Please try again.');
                         }
                     }}

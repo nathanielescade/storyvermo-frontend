@@ -1,4 +1,4 @@
-// useMain.js - FIXED VERSION with smooth pagination
+// useMain.js - FIXED VERSION with smooth pagination and persistent interactions
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { storiesApi, userApi } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,9 +16,34 @@ export default function useMain(initialState = null) {
     const [page, setPage] = useState(initialState?.page || 1);
     const [error, setError] = useState(null);
     const [prefetchedStories, setPrefetchedStories] = useState(null);
+    const [storyLikeCounts, setStoryLikeCounts] = useState({}); // Track like counts per story
     const isPrefetchingRef = useRef(false);
 
     const { currentUser, isAuthenticated, refreshAuth } = useAuth();
+
+    // Initialize interaction states from localStorage on mount
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        
+        try {
+            const newLikeCounts = {};
+            
+            // Restore like counts from localStorage
+            stories.forEach(story => {
+                const savedCount = localStorage.getItem(`story_${story.id}_likeCount`);
+                if (savedCount) {
+                    newLikeCounts[story.id] = parseInt(savedCount, 10);
+                }
+            });
+            
+            if (Object.keys(newLikeCounts).length > 0) {
+                setStoryLikeCounts(prev => ({ ...prev, ...newLikeCounts }));
+            }
+        } catch (e) {
+            // localStorage might be unavailable in SSR
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isAuthenticated]);
 
     // Remove client-side fetch on mount; SSR initialState is always used
     // This prevents hydration mismatch and ensures SSR stories are shown
@@ -217,47 +242,23 @@ export default function useMain(initialState = null) {
         }
     }, [stories]);
     
-    // Handle like toggle
-    const handleLikeToggle = useCallback(async (storyId) => {
-        try {
-            const response = await storiesApi.toggleStoryLike(storyId);
-            
-            setStories(prev => prev.map(story => {
-                if (story.id === storyId) {
-                    return {
-                        ...story,
-                        likes_count: response.likes_count,
-                        is_liked_by_user: response.is_liked_by_user
-                    };
-                }
-                return story;
-            }));
-            
-            return response;
-        } catch (error) {
-            return { success: false, message: 'Failed to toggle like' };
-        }
-    }, []);
+    // Get like count for a specific story (with fallback to original count)
+    const getStoryLikeCount = useCallback((storyId, defaultCount = 0) => {
+        return storyLikeCounts[storyId] !== undefined ? storyLikeCounts[storyId] : defaultCount;
+    }, [storyLikeCounts]);
     
-    // Handle save toggle
-    const handleSaveToggle = useCallback(async (storyId) => {
+    // Update like count for a story in global state
+    const updateStoryLikeCount = useCallback((storyId, newCount) => {
+        setStoryLikeCounts(prev => ({
+            ...prev,
+            [storyId]: newCount
+        }));
+        
+        // Also save to localStorage for persistence
         try {
-            const response = await storiesApi.toggleStorySave(storyId);
-            
-            setStories(prev => prev.map(story => {
-                if (story.id === storyId) {
-                    return {
-                        ...story,
-                        saves_count: response.saves_count,
-                        is_saved_by_user: response.is_saved_by_user
-                    };
-                }
-                return story;
-            }));
-            
-            return response;
-        } catch (error) {
-            return { success: false, message: 'Failed to toggle save' };
+            localStorage.setItem(`story_${storyId}_likeCount`, String(newCount));
+        } catch (e) {
+            // localStorage might be unavailable
         }
     }, []);
     
@@ -277,8 +278,9 @@ export default function useMain(initialState = null) {
         handleFetchMore,
         handleFollowUser,
         handleOpenStoryVerses,
-        handleLikeToggle,
-        handleSaveToggle,
-        refreshAuth
+        refreshAuth,
+        storyLikeCounts,
+        getStoryLikeCount,
+        updateStoryLikeCount
     };
 }
