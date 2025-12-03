@@ -21,6 +21,8 @@ export default async function VersesPage() {
     });
     if (res.ok) {
       verses = await res.json();
+      // Shuffle verses for random display
+      verses = verses.sort(() => Math.random() - 0.5);
     } else {
       error = `Failed to fetch verses: ${res.status}`;
     }
