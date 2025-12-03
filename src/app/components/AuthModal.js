@@ -504,7 +504,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
         <div className="p-6 border-b border-transparent bg-gradient-to-r from-transparent via-blue-900/30 to-transparent">
           <div className="flex justify-between items-center">
             <h2 id="authModalTitle" className="text-2xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent font-orbitron">
-              {isLoginMode ? 'LOGIN TO STORYVERM' : 'SIGN UP FOR STORYVERM'}
+              {isLoginMode ? 'LOGIN TO STORYVERMO' : 'SIGN UP FOR STORYVERMO'}
             </h2>
             <button 
               id="closeAuthModal"

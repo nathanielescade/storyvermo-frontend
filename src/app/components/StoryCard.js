@@ -361,8 +361,8 @@ export default function StoryCard({
     // fall back to a relative URL so server render doesn't crash.
     const _origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
     const shareData = {
-        title: story.title || 'StoryVerm',
-        description: story.description || 'Check out this story on StoryVerm',
+        title: story.title || 'StoryVermo',
+        description: story.description || 'Check out this story on StoryVermo',
         url: _origin ? `${_origin}/stories/${story.slug}/` : `/stories/${story.slug}/`
     };
 

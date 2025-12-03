@@ -781,7 +781,7 @@ const VerseViewer = ({
       : `/stories/${encodedSlug}/?verse=${encodedVerseId}`;
 
     const payload = {
-      title: `${story.title || 'StoryVerm'} - Verse ${currentVerseIndex + 1}`,
+      title: `${story.title || 'StoryVermo'} - Verse ${currentVerseIndex + 1}`,
       description: (currentVerse.content || '').slice(0, 240),
       url: verseUrl
     };

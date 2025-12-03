@@ -32,7 +32,7 @@ export default async function VersesPage() {
   }
 
   return (
-    <div className="min-h-screen pt-24 pb-12 bg-black">
+    <div className="pt-24 pb-12 bg-black">
       <div className="px-4 md:px-6 lg:px-8">
         {/* Header outside bordered div */}
         <header className="mb-8 relative z-10">

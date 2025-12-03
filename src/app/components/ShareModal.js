@@ -38,8 +38,8 @@ const ShareModal = ({ isOpen, onClose, shareData, imageUrl, isVerse }) => {
   const handleNativeShare = async () => {
     try {
       const dataToShare = {
-        title: shareData.title || 'StoryVerm',
-        text: shareData.description || 'Check out StoryVerm',
+        title: shareData.title || 'StoryVermo',
+        text: shareData.description || 'Check out StoryVermo',
         url: shareData.url || (typeof window !== 'undefined' ? window.location.origin : ''),
       };
       
@@ -85,8 +85,8 @@ const ShareModal = ({ isOpen, onClose, shareData, imageUrl, isVerse }) => {
   
   const handleSocialShare = (platform) => {
     const url = shareData.url || (typeof window !== 'undefined' ? window.location.origin : '');
-    const title = shareData.title || 'StoryVerm';
-    const text = shareData.description || 'Check out StoryVerm';
+    const title = shareData.title || 'StoryVermo';
+    const text = shareData.description || 'Check out StoryVermo';
     
     const encodedUrl = encodeURIComponent(url);
     const encodedTitle = encodeURIComponent(title);
@@ -287,10 +287,10 @@ const ShareModal = ({ isOpen, onClose, shareData, imageUrl, isVerse }) => {
             {/* Story/Verse Preview - Right Side */}
             <div className="flex-grow">
               <h4 className="text-white font-semibold mb-2 line-clamp-1 text-lg">
-                {shareData.title || 'StoryVerm'}
+                {shareData.title || 'StoryVermo'}
               </h4>
               <p className="text-gray-400 text-sm line-clamp-2">
-                {shareData.description || 'Check out this story on StoryVerm'}
+                {shareData.description || 'Check out this story on StoryVermo'}
               </p>
             </div>
           </div>
@@ -386,7 +386,7 @@ const ShareModal = ({ isOpen, onClose, shareData, imageUrl, isVerse }) => {
           {/* Footer Message */}
           <div className="mt-6 text-center border-t border-blue-900/30 pt-4">
             <p className="text-gray-500 text-xs">
-              Help us grow the StoryVerm community!
+              Help us grow the StoryVermo community!
             </p>
             {imageUrl && (
               <p className="text-gray-600 text-xs mt-1">
