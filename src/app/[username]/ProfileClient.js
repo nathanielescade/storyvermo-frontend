@@ -166,9 +166,9 @@ export default function ProfileClient({ username, initialProfile = null }) {
       setFollowers(response.followers || []);
       setFollowing(response.following || []);
       
-      if (currentUser?.username !== username) {
-        setIsFollowing(!!response.is_following);
-      }
+      // Always update isFollowing from the API response, regardless of whether it's the current user's profile
+      // This ensures the follow button shows the correct state
+      setIsFollowing(!!response.is_following);
     } catch (error) {
 
     } finally {

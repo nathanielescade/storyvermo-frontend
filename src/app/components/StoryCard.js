@@ -177,11 +177,19 @@ export default function StoryCard({
             // If a parent handler is provided, delegate to it so we don't call the
             // API twice (some parents already call userApi.followUser).
             if (typeof onFollowUser === 'function') {
+                // Optimistically update isFollowing immediately
+                setIsFollowing(prev => !prev);
+                
                 // Let parent perform the follow/unfollow action and update global state.
                 // The parent will update the stories array, which will trigger this component's
                 // useEffect to update isFollowing from the new story prop.
-                // DO NOT do an optimistic update here - wait for the parent to update the story prop.
-                await onFollowUser(username);
+                try {
+                    await onFollowUser(username);
+                } catch (error) {
+                    // If parent call fails, revert the optimistic update
+                    setIsFollowing(prev => !prev);
+                    throw error;
+                }
                 // Parent's handleFollowUser will update stories, which triggers our useEffect([story])
                 // which will call setIsFollowing with the correct value from story.is_following
                 return;
