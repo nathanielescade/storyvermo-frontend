@@ -10,48 +10,90 @@ const EnlargeModal = ({
 
     const handleDownloadImage = async () => {
         const coverImageUrl = getCoverImageUrl();
-        if (!coverImageUrl) return;
+        if (!coverImageUrl) {
+            alert('No image available to download');
+            return;
+        }
         
         setIsDownloading(true);
         
         try {
-            // Try to fetch the image as a blob first. Include credentials so
-            // protected/private images that rely on session cookies will work.
-            const response = await fetch(coverImageUrl, { credentials: 'include' });
-            if (!response.ok) throw new Error('Network response was not ok');
+            // Fetch the image as a blob with credentials
+            const response = await fetch(coverImageUrl, { 
+                credentials: 'include',
+                mode: 'cors'
+            });
+            
+            if (!response.ok) throw new Error('Failed to fetch image');
             
             const blob = await response.blob();
             const blobUrl = URL.createObjectURL(blob);
             
-            // Create download link
+            // Create and trigger download
             const link = document.createElement('a');
             link.href = blobUrl;
-            link.download = `${story.title || 'story'}-cover.jpg`;
+            link.download = `${(story.title || 'story').replace(/[^a-z0-9]/gi, '_').toLowerCase()}-cover.jpg`;
+            link.style.display = 'none';
+            
             document.body.appendChild(link);
             link.click();
             
-            // Clean up
+            // Clean up after a short delay
             setTimeout(() => {
                 document.body.removeChild(link);
                 URL.revokeObjectURL(blobUrl);
-                setIsDownloading(false);
             }, 100);
+            
+            // Show success message
+            alert('Image downloaded successfully!');
+            
         } catch (error) {
+            console.error('Download failed:', error);
             
-            // Fallback to direct download — open in new tab. For cross-origin
-            // images, this may still be blocked, but it's a last-resort fallback.
-            const link = document.createElement('a');
-            link.href = coverImageUrl;
-            link.download = `${story.title || 'story'}-cover.jpg`;
-            link.target = '_blank';
-            document.body.appendChild(link);
-            link.click();
-            
-            // Clean up
-            setTimeout(() => {
-                document.body.removeChild(link);
-                setIsDownloading(false);
-            }, 100);
+            // FALLBACK: Try using canvas to convert and download
+            try {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    
+                    canvas.toBlob(function(blob) {
+                        const blobUrl = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.href = blobUrl;
+                        link.download = `${(story.title || 'story').replace(/[^a-z0-9]/gi, '_').toLowerCase()}-cover.jpg`;
+                        link.style.display = 'none';
+                        
+                        document.body.appendChild(link);
+                        link.click();
+                        
+                        setTimeout(() => {
+                            document.body.removeChild(link);
+                            URL.revokeObjectURL(blobUrl);
+                        }, 100);
+                        
+                        alert('Image downloaded successfully!');
+                    }, 'image/jpeg', 0.95);
+                };
+                
+                img.onerror = function() {
+                    alert('Unable to download image. Try right-click > Save image as...');
+                };
+                
+                img.src = coverImageUrl;
+                
+            } catch (canvasError) {
+                console.error('Canvas fallback failed:', canvasError);
+                alert('Unable to download image. Try right-click > Save image as...');
+            }
+        } finally {
+            setIsDownloading(false);
         }
     };
 
@@ -63,9 +105,12 @@ const EnlargeModal = ({
         <>
             <div className="fixed top-4 left-4 right-4 flex justify-between z-[700] pointer-events-none">
                 <button 
-                    onClick={handleDownloadImage}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownloadImage();
+                    }}
                     disabled={isDownloading}
-                    className="w-12 h-12 rounded-full bg-black/60 flex items-center justify-center text-white z-10 hover:bg-black/80 pointer-events-auto disabled:opacity-50"
+                    className="w-12 h-12 rounded-full bg-black/60 flex items-center justify-center text-white z-10 hover:bg-black/80 transition-all pointer-events-auto disabled:opacity-50 disabled:cursor-not-allowed"
                     title={isDownloading ? "Downloading..." : "Download image"}
                 >
                     {isDownloading ? (
@@ -75,22 +120,29 @@ const EnlargeModal = ({
                     )}
                 </button>
                 <button 
-                    onClick={() => setShowEnlargeModal(false)}
-                    className="w-12 h-12 rounded-full bg-black/60 flex items-center justify-center text-white z-10 hover:bg-black/80 pointer-events-auto"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        setShowEnlargeModal(false);
+                    }}
+                    className="w-12 h-12 rounded-full bg-black/60 flex items-center justify-center text-white z-10 hover:bg-black/80 transition-all pointer-events-auto"
+                    title="Close"
                 >
                     <i className="fas fa-times"></i>
                 </button>
             </div>
             
-            <div className="fixed inset-0 bg-black/90 backdrop-blur-lg z-[600] flex items-center justify-center" onClick={() => setShowEnlargeModal(false)}>
-                <div className="relative max-w-4xl max-h-[90vh] w-full" onClick={e => e.stopPropagation()}>
+            <div 
+                className="fixed inset-0 bg-black/90 backdrop-blur-lg z-[600] flex items-center justify-center" 
+                onClick={() => setShowEnlargeModal(false)}
+            >
+                <div className="relative max-w-4xl max-h-[90vh] w-full px-4" onClick={e => e.stopPropagation()}>
                     {coverImageUrl ? (
-                        // FIXED: Replaced Next.js Image with regular img tag for all URL types
                         <div className="relative w-full h-[80vh]">
                             <img 
                                 src={coverImageUrl}
                                 alt={story.title || 'Story cover'}
                                 className="w-full h-full object-contain"
+                                crossOrigin="anonymous"
                             />
                         </div>
                     ) : (

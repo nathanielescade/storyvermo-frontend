@@ -381,7 +381,6 @@ export default function StoryCard({
                         transformStyle: 'preserve-3d',
                         backfaceVisibility: 'hidden',
                         position: 'relative',
-                        // allow normal touch scrolling
                         touchAction: 'auto',
                         userSelect: 'none',
                         WebkitUserSelect: 'none'

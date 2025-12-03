@@ -43,7 +43,7 @@ const Header = ({ openAuthModal }) => {
   }, [showMobileSearch]);
 
   return (
-    <div className="fixed-header">
+    <div className="fixed-header z-10">
       <Logo />
       
       <div className="flex gap-4 items-center ml-auto relative">

@@ -34,6 +34,7 @@ function resolveMomentImageUrl(moment) {
 export async function generateMetadata({ params, searchParams }) {
   try {
     const { slug } = await params;
+    const resolvedSearchParams = await searchParams;
     const story = await storiesApi.getStoryBySlug(slug);
 
     if (!story) {
@@ -80,7 +81,7 @@ export async function generateMetadata({ params, searchParams }) {
     }
 
     // If a verse query param is present, try to return verse-specific metadata
-    const verseParam = searchParams?.verse;
+    const verseParam = resolvedSearchParams?.verse;
     if (verseParam) {
       const verseId = Array.isArray(verseParam) ? verseParam[0] : verseParam;
       const verse = Array.isArray(story.verses)
