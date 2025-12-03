@@ -4,7 +4,8 @@ import { absoluteUrl, siteUrl } from '../../../../lib/api';
 
 // Provide SEO metadata for the /tags/[tag] page so crawlers see useful content.
 export async function generateMetadata({ params }) {
-  const tagSlug = params.tag || '';
+  const resolvedParams = await params;
+  const tagSlug = resolvedParams.tag || '';
   // Normalize a readable tag name from slug
   const prettyTag = (() => {
     try {
@@ -81,8 +82,9 @@ const description = `Discover creative stories and verses inspired by ${prettyTa
 
 // Only render the interactive homepage on this route. Metadata above provides
 // SEO content for crawlers; we avoid adding any server-side visible text here.
-export default function TagPage({ params }) {
-  const tagSlug = params.tag || '';
+export default async function TagPage({ params }) {
+  const resolvedParams = await params;
+  const tagSlug = resolvedParams.tag || '';
   // Normalize tag name from slug
   const tag = (() => {
     try {
