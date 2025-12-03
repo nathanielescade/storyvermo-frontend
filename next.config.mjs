@@ -3,7 +3,7 @@
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '300mb', // match your Nginx & Django limits
+      sizeLimit: '1024mb', // match your Nginx & Django limits
     },
   },
 };
