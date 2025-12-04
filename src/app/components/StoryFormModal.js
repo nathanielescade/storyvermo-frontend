@@ -1296,7 +1296,7 @@ const StoryFormModal = ({
   const modal = (
     <>
       {/* Outer container - handles backdrop and positioning */}
-      <div className={`fixed inset-0 bg-black/90 backdrop-blur-xl z-[500] ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'} transition-opacity duration-300`}>
+      <div className={`fixed inset-0 bg-black/90 backdrop-blur-xl z-[10100] ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'} transition-opacity duration-300`}>
         {/* Inner container - handles transform animation */}
         <div className={`flex flex-col h-full transform transition-transform duration-500 ${isOpen ? 'translate-y-0' : 'translate-y-full'}`}>
           {/* Animated neon border effect */}
