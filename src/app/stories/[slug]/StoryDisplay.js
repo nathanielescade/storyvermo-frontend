@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
 import VerseViewer from '../../components/VerseViewer';
 import StoryCard from '../../components/StoryCard';
@@ -15,7 +16,33 @@ export default function StoryDisplay({ initialStory, slug }) {
   const [initialVerseIndex, setInitialVerseIndex] = useState(0);
   const searchParams = useSearchParams();
   const { currentUser, isAuthenticated, openAuthModal } = useAuth();
-  const { handleLikeToggle, handleSaveToggle, handleUserFollow, handleOpenVerses, handleTagSelect } = useMain();
+  const { handleLikeToggle, handleSaveToggle, handleUserFollow, handleOpenVerses, handleTagSwitch } = useMain();
+
+  const router = useRouter();
+
+  // Handle tag clicks: navigate to tag page and switch the feed tag (like FeedClient)
+  const handleTagSelect = useCallback((tagName) => {
+    if (tagName === 'following' && !isAuthenticated) {
+      // If not authenticated, open auth modal (consistent with FeedClient)
+      try { window.dispatchEvent(new CustomEvent('auth:open', { detail: { type: 'following', data: null } })); } catch (e) {}
+      return;
+    }
+
+    try {
+      const slug = encodeURIComponent(String(tagName).toLowerCase().replace(/\s+/g,'-'));
+      const newUrl = tagName === 'for-you' ? '/' : `/tags/${slug}/`;
+      // Use Next.js client navigation so the app renders the page instead of only changing history
+      try { router.push(newUrl); } catch (e) { window.history.pushState({}, '', newUrl); }
+    } catch (e) {
+      // ignore
+    }
+
+    try {
+      handleTagSwitch(tagName);
+    } catch (e) {
+      // ignore
+    }
+  }, [handleTagSwitch, isAuthenticated, router]);
 
   const wrapperRef = useRef(null);
   const overscrollRef = useRef(0);

@@ -1,14 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { userApi, storiesApi, absoluteUrl } from '../../../lib/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import StoryCard from '../components/StoryCard';
-import WeeklyWinnersBanner from '../components/WeeklyWinnersBanner';
-import UserRankCard from '../components/UserRankCard';
-import WeeklyProgressBar from '../components/WeeklyProgressBar';
 
 // SmartImg: choose native <img> for blob/data URLs (object URLs / previews)
 // and use next/image for regular remote URLs. This avoids next/image errors
@@ -86,8 +84,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
   const [activeTab, setActiveTab] = useState('posts');
   // If we have an initial profile, don't show the loading screen
   const [loading, setLoading] = useState(initialProfile ? false : true);
-  const [badgeModal, setBadgeModal] = useState({ visible: false, badge: null });
-  const [leaderboardModal, setLeaderboardModal] = useState(false);
   const [followersModal, setFollowersModal] = useState({ visible: false, type: 'followers' });
   const [imageModal, setImageModal] = useState({ visible: false, type: null, url: '' });
   
@@ -103,6 +99,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
   const [currentUserFollowing, setCurrentUserFollowing] = useState([]);
   
   const { currentUser, isAuthenticated, openAuthModal } = useAuth();
+  const router = useRouter();
 
   // Helper to safely get the first character of a username (defensive)
   const getInitial = (name, fallback = '') => {
@@ -134,6 +131,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
       const response = await userApi.getFollowing(currentUser.username);
       setCurrentUserFollowing(response.map(user => user.username));
     } catch (error) {
+      console.error('Error fetching following list:', error);
     }
   }, [isAuthenticated, currentUser?.username]);
 
@@ -141,8 +139,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
   const fetchProfile = useCallback(async () => {
     try {
       const response = await userApi.getProfile(username);
-      
-
       
       // Build a robust full-name value from multiple possible API fields
       const first = response.first_name || response.creator_first_name || response.given_name || '';
@@ -155,8 +151,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
         ...response,
         get_full_name: fullName,
       };
-      
-
       
       setUser(userData);
 
@@ -171,7 +165,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
       // This ensures the follow button shows the correct state
       setIsFollowing(!!response.is_following);
     } catch (error) {
-
+      console.error('Error fetching profile:', error);
     } finally {
       // Only clear loading if we didn't already have an initial profile
       if (!initialProfile) setLoading(false);
@@ -190,6 +184,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
         setFollowing(response || []);
       }
     } catch (error) {
+      console.error('Error fetching followers data:', error);
     }
   }, [username]);
 
@@ -253,6 +248,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
         setCurrentUserFollowing(prev => prev.filter(u => u !== username));
       }
     } catch (error) {
+      console.error('Error following user:', error);
     }
   };
 
@@ -283,6 +279,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
       // Broadcast event
       try { window.dispatchEvent(new CustomEvent('user:follow:update', { detail: { username: userToFollow.username, is_following: response.is_following, follower_count: response.follower_count } })); } catch (e) {}
     } catch (error) {
+      console.error('Error following user in modal:', error);
     }
   };
 
@@ -343,6 +340,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
       // Clean up the object URL
       URL.revokeObjectURL(objectUrl);
     } catch (error) {
+      console.error('Error uploading image:', error);
     }
   };
 
@@ -367,6 +365,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
           : story
       ));
     } catch (error) {
+      console.error('Error toggling like:', error);
     }
   };
 
@@ -379,11 +378,37 @@ export default function ProfileClient({ username, initialProfile = null }) {
           : story
       ));
     } catch (error) {
+      console.error('Error toggling save:', error);
     }
   };
 
   const handleDeleteStory = (slug) => {
     setStories(prev => prev.filter(story => story.slug !== slug));
+  };
+
+  // Handle tag clicks from StoryCard/TagsSection: navigate to tag feed
+  const handleTagSelect = (tagName) => {
+    if (!tagName) return;
+
+    if (tagName === 'following' && !isAuthenticated) {
+      try { window.dispatchEvent(new CustomEvent('auth:open', { detail: { type: 'following', data: null } })); } catch (e) {}
+      openAuthModal?.();
+      return;
+    }
+
+    try {
+      const slug = encodeURIComponent(String(tagName).toLowerCase().replace(/\s+/g,'-'));
+      const newUrl = tagName === 'for-you' ? '/' : `/tags/${slug}/`;
+      try { router.push(newUrl); } catch (e) { window.history.pushState({}, '', newUrl); }
+    } catch (e) {
+      // ignore
+    }
+
+    try {
+      window.dispatchEvent(new CustomEvent('tag:switch', { detail: { tag: tagName } }));
+    } catch (e) {
+      // ignore
+    }
   };
 
   // Helper function to get a valid image URL or null
@@ -523,14 +548,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
               <p className="mb-4 max-w-2xl text-gray-300 text-sm sm:text-base">{user.bio}</p>
             )}
             <div className="flex items-center gap-3">
-              {user.rank !== undefined && (
-                <button 
-                  onClick={() => setLeaderboardModal(true)}
-                  className="inline-block px-3 py-1 rounded-full text-white text-xs font-bold bg-gradient-to-r from-cyan-500 to-blue-500"
-                >
-                  Leaderboard Rank: #{user.rank} <i className="fas fa-trophy ml-1"></i>
-                </button>
-              )}
               {/* Action Buttons */}
               {currentUser && currentUser.username === username ? (
                 <Link
@@ -555,77 +572,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
             </div>
           </div>
         </div>
-
-        {/* Weekly Leaderboard Section - HIDDEN but kept for future use */}
-        {user.is_finalized && (
-          <div style={{ display: 'none' }} className="hidden-weekly-banner">
-            <WeeklyWinnersBanner 
-              winners={user.leaderboard_top?.slice(0, 3) || []} 
-              isFinalized={user.is_finalized}
-            />
-          </div>
-        )}
-
-        {/* User Rank Card - HIDDEN but kept for future use */}
-        {currentUser?.username === username && user.rank && (
-          <div style={{ display: 'none' }} className="hidden-user-rank">
-            <UserRankCard
-              rank={user.rank}
-              weeklyScore={user.weekly_score || 0}
-              lifetimeScore={user.lifetime_score || 0}
-              weekNumber={user.week_number || 1}
-              year={user.year || new Date().getFullYear()}
-              totalUsers={user.leaderboard_top?.length || 0}
-            />
-          </div>
-        )}
-
-        {/* Weekly Progress Bar - HIDDEN but kept for future use */}
-        {currentUser?.username === username && (
-          <div style={{ display: 'none' }} className="hidden-weekly-progress">
-            <WeeklyProgressBar
-              weekNumber={user.week_number || 1}
-              year={user.year || new Date().getFullYear()}
-              isFinalized={user.is_finalized}
-            />
-          </div>
-        )}
-
-        {/* Badges Section */}
-        {user.badges && user.badges.length > 0 && (
-          <div className="mb-6">
-            <h3 className="text-lg font-bold mb-3 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500">
-              Badges & Achievements
-            </h3>
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {user.badges.map((badge, index) => {
-                const badgeIconUrl = getImageUrl(badge.icon_url);
-                return (
-                  <div 
-                    key={index} 
-                    className="flex flex-col items-center min-w-[60px] cursor-pointer"
-                    onClick={() => setBadgeModal({ visible: true, badge })}
-                  >
-                    {badgeIconUrl ? (
-                      <SmartImg
-                        src={absoluteUrl(badgeIconUrl)}
-                        alt={badge.name}
-                        width={40}
-                        height={40}
-                        className="rounded-full mb-1"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-white mb-1">
-                        🏅
-                      </div>
-                    )}
-                    <span className="text-xs text-white text-center">{badge.name}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Stats */}
         <div className="flex justify-center md:justify-start gap-8 mb-8">
@@ -1076,6 +1022,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
                         onSaveToggle={handleSaveToggle}
                         onFollowUser={handleFollowUser}
                         onDeleteStory={handleDeleteStory}
+                        onTagSelect={handleTagSelect}
                         isAuthenticated={isAuthenticated}
                         openAuthModal={openAuthModal}
                       />
@@ -1181,110 +1128,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
                   Close
                 </button>
               </div>
-            </div>
-          </div>
-        )}
-
-        {badgeModal.visible && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-            <div className="bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 rounded-3xl border border-cyan-500/40 shadow-2xl p-6 flex flex-col items-center animate-bounce-in max-w-sm w-full mx-4">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-white text-3xl mb-4">
-                {badgeModal.badge?.icon_url ? (
-                  <SmartImg
-                    src={absoluteUrl(badgeModal.badge.icon_url) || ''}
-                    alt={badgeModal.badge.name}
-                    width={64}
-                    height={64}
-                    className="rounded-full"
-                  />
-                ) : (
-                  <span>🏅</span>
-                )}
-              </div>
-              <h2 className="text-xl font-bold mb-2 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500">
-                {badgeModal.badge?.name || 'Badge Unlocked!'}
-              </h2>
-              <p className="text-base text-white text-center mb-4">
-                {badgeModal.badge?.description || ''}
-              </p>
-              <button 
-                onClick={() => setBadgeModal({ visible: false, badge: null })}
-                className="px-8 py-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-medium"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        )}
-
-        {leaderboardModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-            <div className="bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 rounded-3xl border border-cyan-500/40 shadow-2xl p-6 flex flex-col items-center w-full max-w-md mx-4">
-              <h2 className="text-xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500">🏆 Leaderboard</h2>
-              <div className="text-xs text-gray-500 mb-3">Top {user.leaderboard_top?.length || 0} Users</div>
-              {user.leaderboard_top && user.leaderboard_top.length > 0 ? (
-                <div className="flex flex-col gap-2 w-full max-h-96 overflow-y-auto custom-scrollbar">
-                  {user.leaderboard_top.map((entry, index) => {
-                    const profileImageUrl = getImageUrl(entry.profile_image_url);
-                    const isCurrentUser = currentUser?.username === entry.username;
-                    const score = entry.finalized_score || entry.weekly_score || entry.total_engagement || 0;
-                    return (
-                      <Link 
-                        key={`${entry.username}-${entry.rank}-${index}`}
-                        href={`/${entry.username}`}
-                        className={`flex items-center gap-3 py-3 px-4 rounded-2xl transition-colors border ${
-                          isCurrentUser
-                            ? 'bg-cyan-500/20 border-cyan-500/60 ring-1 ring-cyan-500/40'
-                            : 'bg-slate-900/60 hover:bg-slate-800/60 border-cyan-500/20'
-                        }`}
-                      >
-                        <div className="flex items-center justify-center w-8">
-                          {entry.rank === 1 && <span className="text-2xl">🥇</span>}
-                          {entry.rank === 2 && <span className="text-2xl">🥈</span>}
-                          {entry.rank === 3 && <span className="text-2xl">🥉</span>}
-                          {entry.rank > 3 && <span className="font-bold text-white">#{entry.rank}</span>}
-                        </div>
-                        {profileImageUrl ? (
-                          <SmartImg
-                            src={absoluteUrl(profileImageUrl)}
-                            alt={entry.username}
-                            width={32}
-                            height={32}
-                            className="rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-white text-xs font-bold">
-                            {getInitial(entry?.username, '')}
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <span className="font-bold text-white truncate block">{entry.username}</span>
-                          <span className="text-xs text-gray-400">
-                            {entry.display_name && entry.display_name !== entry.username ? entry.display_name : ''}
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-xs text-cyan-400 font-semibold block">⚡ {score}</span>
-                          {entry.lifetime_score && (
-                            <span className="text-xs text-purple-400">✨ {entry.lifetime_score}</span>
-                          )}
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-400">
-                  <p className="mb-2">No leaderboard data available yet</p>
-                  <p className="text-xs">Users will appear as they gain engagement</p>
-                </div>
-              )}
-              <button 
-                onClick={() => setLeaderboardModal(false)}
-                className="mt-4 px-8 py-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-medium hover:from-cyan-400 hover:to-blue-400 transition-all"
-              >
-                Close
-              </button>
             </div>
           </div>
         )}
