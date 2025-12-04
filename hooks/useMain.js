@@ -12,38 +12,12 @@ export default function useMain(initialState = null) {
     const [currentTag, setCurrentTag] = useState(initialState?.currentTag || 'for-you');
     const [currentDimension, setCurrentDimension] = useState('feed');
     const [followingUsers, setFollowingUsers] = useState([]);
-    const [userInteractions, setUserInteractions] = useState({});
     const [page, setPage] = useState(initialState?.page || 1);
     const [error, setError] = useState(null);
     const [prefetchedStories, setPrefetchedStories] = useState(null);
-    const [storyLikeCounts, setStoryLikeCounts] = useState({}); // Track like counts per story
     const isPrefetchingRef = useRef(false);
 
     const { currentUser, isAuthenticated, refreshAuth } = useAuth();
-
-    // Initialize interaction states from localStorage on mount
-    useEffect(() => {
-        if (!isAuthenticated) return;
-        
-        try {
-            const newLikeCounts = {};
-            
-            // Restore like counts from localStorage
-            stories.forEach(story => {
-                const savedCount = localStorage.getItem(`story_${story.id}_likeCount`);
-                if (savedCount) {
-                    newLikeCounts[story.id] = parseInt(savedCount, 10);
-                }
-            });
-            
-            if (Object.keys(newLikeCounts).length > 0) {
-                setStoryLikeCounts(prev => ({ ...prev, ...newLikeCounts }));
-            }
-        } catch (e) {
-            // localStorage might be unavailable in SSR
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isAuthenticated]);
 
     // Remove client-side fetch on mount; SSR initialState is always used
     // This prevents hydration mismatch and ensures SSR stories are shown
@@ -242,26 +216,6 @@ export default function useMain(initialState = null) {
         }
     }, [stories]);
     
-    // Get like count for a specific story (with fallback to original count)
-    const getStoryLikeCount = useCallback((storyId, defaultCount = 0) => {
-        return storyLikeCounts[storyId] !== undefined ? storyLikeCounts[storyId] : defaultCount;
-    }, [storyLikeCounts]);
-    
-    // Update like count for a story in global state
-    const updateStoryLikeCount = useCallback((storyId, newCount) => {
-        setStoryLikeCounts(prev => ({
-            ...prev,
-            [storyId]: newCount
-        }));
-        
-        // Also save to localStorage for persistence
-        try {
-            localStorage.setItem(`story_${storyId}_likeCount`, String(newCount));
-        } catch (e) {
-            // localStorage might be unavailable
-        }
-    }, []);
-    
     return {
         stories,
         loading,
@@ -271,16 +225,12 @@ export default function useMain(initialState = null) {
         currentDimension,
         currentUser,
         followingUsers,
-        userInteractions,
         isAuthenticated,
         error,
         handleTagSwitch,
         handleFetchMore,
         handleFollowUser,
         handleOpenStoryVerses,
-        refreshAuth,
-        storyLikeCounts,
-        getStoryLikeCount,
-        updateStoryLikeCount
+        refreshAuth
     };
 }

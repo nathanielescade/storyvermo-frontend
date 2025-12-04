@@ -23,7 +23,7 @@ const authUtils = {
     // Handle direct user object
     if (resp.username || resp.id || resp.email) {
       return resp;
-    }
+    } 
     
     return null;
   },

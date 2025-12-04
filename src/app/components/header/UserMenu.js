@@ -32,6 +32,13 @@ const UserMenu = ({ openAuthModal }) => {
     }
   };
 
+  // In your logout handler
+// const handleLogout = () => {
+//     localStorage.removeItem('storyLikes');
+//     localStorage.removeItem('storySaves');
+//     localStorage.removeItem('storyLikeCounts');
+// };
+
   // Helper functions
   const getUserInitial = (username) => {
     if (!username || typeof username !== 'string') return '';

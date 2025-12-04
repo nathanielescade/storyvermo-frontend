@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { formatNumber } from '../../../../lib/utils';
 import { storiesApi } from '../../../../lib/api';
+import { useAuth } from '../../../../contexts/AuthContext';
 
 const ActionButtons = ({ 
     story, 
@@ -16,25 +17,34 @@ const ActionButtons = ({
     const [isLoading, setIsLoading] = useState(false);
     const [likeCount, setLikeCount] = useState(story?.likes_count || 0);
 
-    // Initialize state from localStorage on mount
+    const { currentUser } = useAuth();
+
+    // Build per-user storage key prefix. Falls back to 'anon' for unauthenticated users.
+    const userKey = (currentUser && (currentUser.username || currentUser.id)) || 'anon';
+    const keyPrefix = `storyvermo:${userKey}`;
+
+    // Initialize state from localStorage on mount and whenever user changes
     useEffect(() => {
-        if (!story?.id) return;
-        
-        const savedLikes = JSON.parse(localStorage.getItem('storyLikes') || '{}');
-        const savedSaves = JSON.parse(localStorage.getItem('storySaves') || '{}');
-        const savedLikeCounts = JSON.parse(localStorage.getItem('storyLikeCounts') || '{}');
-        
-        // Restore like/save states
-        setIsLiked(savedLikes[story.id] || false);
-        setIsSaved(savedSaves[story.id] || false);
-        
-        // Restore like count from localStorage if it exists, otherwise use API count
-        if (savedLikeCounts[story.id] !== undefined) {
-            setLikeCount(savedLikeCounts[story.id]);
-        } else {
-            setLikeCount(story?.likes_count || 0);
-        }
-    }, [story?.id, story?.likes_count]);
+        if (!story?.id || typeof window === 'undefined') return;
+
+        const safeParse = (val) => {
+            try {
+                return JSON.parse(val || '{}');
+            } catch (e) {
+                return {};
+            }
+        };
+
+        const savedLikes = safeParse(localStorage.getItem(`${keyPrefix}:storyLikes`));
+        const savedSaves = safeParse(localStorage.getItem(`${keyPrefix}:storySaves`));
+        // Restore like/save states (default false). Do NOT persist like counts per-user —
+        // like counts are global and should come from the server.
+        setIsLiked(Boolean(savedLikes[story.id]));
+        setIsSaved(Boolean(savedSaves[story.id]));
+
+        // Use server-provided like count as authoritative when available
+        setLikeCount(story?.likes_count || 0);
+    }, [story?.id, story?.likes_count, keyPrefix]);
 
     const baseButtonClasses = 'w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer relative transition-all duration-200';
     const hoverClasses = 'hover:bg-[#00d4ff]/20 hover:border-[#00d4ff] hover:scale-110';
@@ -58,28 +68,58 @@ const ActionButtons = ({
             setIsLiked(newLikeState);
             setLikeCount(newCount);
             
-            // Persist to localStorage
-            const savedLikes = JSON.parse(localStorage.getItem('storyLikes') || '{}');
-            const savedLikeCounts = JSON.parse(localStorage.getItem('storyLikeCounts') || '{}');
-            
+            // Persist to per-user localStorage
+            const safeParse = (val) => {
+                try { return JSON.parse(val || '{}'); } catch (e) { return {}; }
+            };
+
+            const savedLikes = safeParse(localStorage.getItem(`${keyPrefix}:storyLikes`));
             savedLikes[story.id] = newLikeState;
-            savedLikeCounts[story.id] = newCount;
+            localStorage.setItem(`${keyPrefix}:storyLikes`, JSON.stringify(savedLikes));
             
-            localStorage.setItem('storyLikes', JSON.stringify(savedLikes));
-            localStorage.setItem('storyLikeCounts', JSON.stringify(savedLikeCounts));
-            
-            // Sync with backend API
-            await storiesApi.toggleStoryLike(story.id);
+            // Sync with backend API and prefer server's authoritative values when provided
+            const result = await storiesApi.toggleStoryLike(story.id);
+            try {
+                if (result && typeof result === 'object') {
+                    // If backend returns the liked state, trust it
+                    if (Object.prototype.hasOwnProperty.call(result, 'liked')) {
+                        setIsLiked(Boolean(result.liked));
+                        savedLikes[story.id] = Boolean(result.liked);
+                        localStorage.setItem(`${keyPrefix}:storyLikes`, JSON.stringify(savedLikes));
+                    }
+
+                    // If backend returns updated like count, trust it as authoritative
+                    if (Object.prototype.hasOwnProperty.call(result, 'likes_count')) {
+                        const serverCount = Number(result.likes_count || 0);
+                        setLikeCount(serverCount);
+                    } else if (story && story.slug) {
+                        // If server didn't return the count, try re-fetching the story by slug
+                        try {
+                            const fresh = await storiesApi.getStoryBySlug(story.slug);
+                            if (fresh && Object.prototype.hasOwnProperty.call(fresh, 'likes_count')) {
+                                setLikeCount(Number(fresh.likes_count || 0));
+                            }
+                        } catch (e) {
+                            // ignore - keep optimistic count
+                        }
+                    }
+                }
+            } catch (e) {
+                // If any unexpected shape, silently continue with optimistic state
+            }
         } catch (error) {
             // Revert on error
             setIsLiked(!newLikeState);
             setLikeCount(likeCount);
-            const savedLikes = JSON.parse(localStorage.getItem('storyLikes') || '{}');
-            const savedLikeCounts = JSON.parse(localStorage.getItem('storyLikeCounts') || '{}');
+            const safeParse = (val) => {
+                try { return JSON.parse(val || '{}'); } catch (e) { return {}; }
+            };
+            const savedLikes = safeParse(localStorage.getItem(`${keyPrefix}:storyLikes`));
+            const savedLikeCounts = safeParse(localStorage.getItem(`${keyPrefix}:storyLikeCounts`));
             delete savedLikes[story.id];
             delete savedLikeCounts[story.id];
-            localStorage.setItem('storyLikes', JSON.stringify(savedLikes));
-            localStorage.setItem('storyLikeCounts', JSON.stringify(savedLikeCounts));
+            localStorage.setItem(`${keyPrefix}:storyLikes`, JSON.stringify(savedLikes));
+            localStorage.setItem(`${keyPrefix}:storyLikeCounts`, JSON.stringify(savedLikeCounts));
             console.error('Failed to toggle like:', error);
         } finally {
             setIsLoading(false);
@@ -100,19 +140,25 @@ const ActionButtons = ({
             // Optimistically update UI
             setIsSaved(newSaveState);
             
-            // Persist to localStorage
-            const savedSaves = JSON.parse(localStorage.getItem('storySaves') || '{}');
+            // Persist to per-user localStorage
+            const safeParse = (val) => {
+                try { return JSON.parse(val || '{}'); } catch (e) { return {}; }
+            };
+            const savedSaves = safeParse(localStorage.getItem(`${keyPrefix}:storySaves`));
             savedSaves[story.id] = newSaveState;
-            localStorage.setItem('storySaves', JSON.stringify(savedSaves));
+            localStorage.setItem(`${keyPrefix}:storySaves`, JSON.stringify(savedSaves));
             
             // Sync with backend API
             await storiesApi.toggleStorySave(story.id);
         } catch (error) {
             // Revert on error
             setIsSaved(!newSaveState);
-            const savedSaves = JSON.parse(localStorage.getItem('storySaves') || '{}');
+            const safeParse = (val) => {
+                try { return JSON.parse(val || '{}'); } catch (e) { return {}; }
+            };
+            const savedSaves = safeParse(localStorage.getItem(`${keyPrefix}:storySaves`));
             delete savedSaves[story.id];
-            localStorage.setItem('storySaves', JSON.stringify(savedSaves));
+            localStorage.setItem(`${keyPrefix}:storySaves`, JSON.stringify(savedSaves));
             console.error('Failed to toggle save:', error);
         } finally {
             setIsLoading(false);
