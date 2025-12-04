@@ -197,7 +197,7 @@ export default function StoryDisplay({ initialStory, slug }) {
 
   return (
     <div className="bg-gradient-to-br from-gray-950 to-slate-900  story-detail">
-      <div ref={wrapperRef} className="max-w-4xl mx-auto " style={{ willChange: 'transform', isolation: 'isolate', zIndex: 'auto' }}>
+      <div ref={wrapperRef} className="max-w-4xl mx-auto " style={{ }}>
         <StoryCard 
           story={story} 
           onLikeToggle={handleLikeToggle}

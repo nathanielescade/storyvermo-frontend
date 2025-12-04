@@ -103,7 +103,7 @@ const EnlargeModal = ({
 
     return (
         <>
-            <div className="fixed top-4 left-4 right-4 flex justify-between z-[700] pointer-events-none">
+            <div className="fixed top-4 left-4 right-4 flex justify-between z-[10101] pointer-events-none">
                 <button 
                     onClick={(e) => {
                         e.stopPropagation();
@@ -132,7 +132,7 @@ const EnlargeModal = ({
             </div>
             
             <div 
-                className="fixed inset-0 bg-black/90 backdrop-blur-lg z-[600] flex items-center justify-center" 
+                className="fixed inset-0 bg-black/90 backdrop-blur-lg z-[10100] flex items-center justify-center" 
                 onClick={() => setShowEnlargeModal(false)}
             >
                 <div className="relative max-w-4xl max-h-[90vh] w-full px-4" onClick={e => e.stopPropagation()}>

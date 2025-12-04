@@ -19,16 +19,11 @@ const CommentModal = ({
   const [loadingReplies, setLoadingReplies] = useState({});
   const [error, setError] = useState('');
   const [modalPosition, setModalPosition] = useState(0); // 0 = closed, 1 = open
-  const [isDragging, setIsDragging] = useState(false);
-  const [startY, setStartY] = useState(0);
-  const [currentY, setCurrentY] = useState(0);
-  const [isMobile, setIsMobile] = useState(false);
   const [newCommentId, setNewCommentId] = useState(null); // Track newly added comment
   
   const replyInputRef = useRef(null);
   const modalRef = useRef(null);
   const contentRef = useRef(null);
-  const dragHandleRef = useRef(null);
   const commentRefs = useRef({}); // Refs for each comment
   const commentTextareaRef = useRef(null);
   const replyTextareaRef = useRef(null);
@@ -57,24 +52,16 @@ const CommentModal = ({
     return 'Unknown';
   };
 
-  // Check if mobile
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
   // Handle modal open/close animation
   useEffect(() => {
     if (isOpen) {
       setModalPosition(1);
+      // Lock body scroll when modal opens
+      document.body.style.overflow = 'hidden';
     } else {
       setModalPosition(0);
+      // Unlock body scroll when modal closes
+      document.body.style.overflow = '';
     }
   }, [isOpen]);
 
@@ -96,14 +83,13 @@ const CommentModal = ({
     if (isOpen && post?.slug) {
       fetchCommentsData();
     } else {
-      // Reset state when modal closes
-      setComments([]);
+      // Only reset form fields when modal closes, NOT the comments
       setNewComment('');
       setReplyingTo(null);
       setReplyContent('');
-      setExpandedReplies({});
       setError('');
       setNewCommentId(null);
+      // Keep expandedReplies and loadingReplies for when modal reopens
     }
   }, [isOpen, post?.slug]);
 
@@ -130,6 +116,7 @@ const CommentModal = ({
       setError('');
       
       const response = await commentsApi.fetchComments(post.slug);
+      console.log('📝 Fetched comments response:', response);
       
       // Handle different response formats
       let commentsArray = [];
@@ -141,6 +128,14 @@ const CommentModal = ({
         commentsArray = response.comments;
       }
       
+      console.log('📝 Comments array:', commentsArray);
+      console.log('📝 First comment:', commentsArray[0]);
+      
+      // Ensure each comment has a replies array (may be populated if backend returns them)
+      commentsArray = commentsArray.map(comment => ({
+        ...comment,
+        replies: comment.replies || []  // Initialize empty replies array
+      }));
 
       // Sort comments by score (engagement + recency) and then by creation time
       const sortedComments = [...commentsArray].sort((a, b) => {
@@ -156,8 +151,10 @@ const CommentModal = ({
         return new Date(b.created_at) - new Date(a.created_at);
       });
 
+      console.log('📝 Sorted comments:', sortedComments);
       setComments(sortedComments);
     } catch (error) {
+      console.error('❌ Error fetching comments:', error);
       setError('Failed to load comments. Please try again.');
       setComments([]);
     } finally {
@@ -266,12 +263,14 @@ const CommentModal = ({
       
       const newReply = await commentsApi.createComment(replyData);
       
-      // Update the parent comment with the new reply
+      // Update the parent comment with the new reply - add to top
       const updatedComments = comments.map(comment => {
         if (comment.public_id === parentComment.public_id) {
+          // Add new reply to the very top of replies list
+          const updatedReplies = comment.replies ? [newReply, ...comment.replies] : [newReply];
           return {
             ...comment,
-            replies: [newReply, ...(comment.replies || [])],
+            replies: updatedReplies,
             reply_count: (comment.reply_count || 0) + 1
           };
         }
@@ -296,8 +295,13 @@ const CommentModal = ({
       setReplyingTo(null);
       setReplyContent('');
       
-      // Set the new comment ID to scroll to it
-      setNewCommentId(newReply.public_id);
+      // Scroll to the parent comment so user can see the new reply in context
+      setTimeout(() => {
+        commentRefs.current[parentComment.public_id]?.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start' 
+        });
+      }, 100);
       
       // Update comment count in parent component
       updateCommentCount(post.slug, 1);
@@ -320,6 +324,7 @@ const CommentModal = ({
     
     const commentId = comment.public_id;
     
+    // If already expanded, just collapse it
     if (expandedReplies[commentId]) {
       setExpandedReplies(prev => ({
         ...prev,
@@ -345,7 +350,7 @@ const CommentModal = ({
         repliesArray = response.replies;
       }
       
-      
+      // Update the comment with the fetched replies AND mark as expanded
       const updatedComments = comments.map(c => {
         if (c.public_id === commentId) {
           return {
@@ -422,84 +427,36 @@ const CommentModal = ({
     return baseScore + recencyScore + engagementScore + newCommentBoost;
   };
 
-  // Drag handlers for mobile
-  const handleDragStart = (e) => {
-    if (!isMobile) return;
-    setIsDragging(true);
-    setStartY(e.touches[0].clientY);
-    setCurrentY(0);
-  };
-
-  const handleDragMove = (e) => {
-    if (!isDragging || !isMobile) return;
-    
-    const deltaY = e.touches[0].clientY - startY; // Positive for downward drag
-    setCurrentY(deltaY);
-  };
-
-  const handleDragEnd = () => {
-    if (!isDragging || !isMobile) return;
-    
-    setIsDragging(false);
-    
-    // Only close if dragged downward more than 50px
-    if (currentY > 50) {
-      onClose();
-    } else {
-      setCurrentY(0);
-    }
-  };
-
-  // Calculate modal styles based on position and dragging
+  // Calculate modal styles based on position
   const getModalStyle = () => {
-    if (isMobile) {
-      return {
-        transform: `translateY(${modalPosition === 0 ? '100%' : '0%'}) translateY(${isDragging ? Math.min(currentY, 100) : 0}px)`,
-        transition: isDragging ? 'none' : 'transform 0.3s ease-out'
-      };
-    } else {
-      return {
-        transform: modalPosition === 0 ? 'scale(0.9)' : 'scale(1)',
-        opacity: modalPosition,
-        transition: 'all 0.3s ease-out'
-      };
-    }
+    return {
+      transform: modalPosition === 0 ? 'scale(0.9)' : 'scale(1)',
+      opacity: modalPosition,
+      transition: 'all 0.3s ease-out'
+    };
   };
 
   if (!isOpen) return null;
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-start md:items-center justify-center bg-black/80 backdrop-blur-lg"
+      className="fixed inset-0 z-[10100] flex items-center justify-center bg-black/80 backdrop-blur-lg overflow-hidden"
       onClick={onClose}
     >
       {/* Modal container */}
       <div 
         ref={modalRef}
-        className={`relative w-full h-full ${isMobile ? 'max-w-md pb-6' : 'max-w-2xl'} bg-gradient-to-br from-gray-900 to-black rounded-t-2xl md:rounded-2xl border border-cyan-500/30 shadow-2xl overflow-hidden flex flex-col transform transition-all duration-300 scale-95 animate-scaleIn`}
-        style={{ ...getModalStyle(), height: isMobile ? '100dvh' : '100vh', maxHeight: isMobile ? '100dvh' : '100vh' }}
+        className="relative w-full h-full max-w-2xl bg-gradient-to-br from-gray-900 to-black rounded-2xl border border-cyan-500/30 shadow-2xl overflow-hidden flex flex-col transform transition-all duration-300 scale-95 animate-scaleIn"
+        style={{ ...getModalStyle(), height: '100vh', maxHeight: '100vh' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Animated neon border effect */}
-        <div className="absolute inset-0 rounded-t-2xl md:rounded-2xl overflow-hidden pointer-events-none">
-          <div className="absolute inset-0 rounded-t-2xl md:rounded-2xl border-2 border-cyan-500/30 animate-pulse"></div>
-          <div className="absolute inset-0 rounded-t-2xl md:rounded-2xl border-2 border-purple-500/20 animate-pulse" style={{ animationDelay: '0.5s' }}></div>
-          <div className="absolute inset-0 rounded-t-2xl md:rounded-2xl border-2 border-pink-500/10 animate-pulse" style={{ animationDelay: '1s' }}></div>
+        <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
+          <div className="absolute inset-0 rounded-2xl border-2 border-cyan-500/30 animate-pulse"></div>
+          <div className="absolute inset-0 rounded-2xl border-2 border-purple-500/20 animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+          <div className="absolute inset-0 rounded-2xl border-2 border-pink-500/10 animate-pulse" style={{ animationDelay: '1s' }}></div>
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/10 to-transparent h-px w-full animate-pulse"></div>
         </div>
-        
-        {/* Drag handle (mobile only) */}
-        {isMobile && (
-          <div 
-            ref={dragHandleRef}
-            className="flex justify-center pt-3 pb-2 relative z-10 cursor-grab active:cursor-grabbing"
-            onTouchStart={handleDragStart}
-            onTouchMove={handleDragMove}
-            onTouchEnd={handleDragEnd}
-          >
-            <div className="w-12 h-1.5 bg-gray-600 rounded-full"></div>
-          </div>
-        )}
         
         {/* Header */}
         <div className="relative z-10 flex items-center justify-between px-6 py-4 border-b border-cyan-500/30 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md">
@@ -536,7 +493,7 @@ const CommentModal = ({
         )}
         
         {/* Post Preview */}
-        <div className="p-6 border-b border-cyan-500/20 bg-black/30 relative z-10">
+        <div className="py-2 px-6 border-b border-cyan-500/20 bg-black/30 relative z-10">
           <div className="flex items-start space-x-3">
             <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-white font-bold overflow-hidden">
               {(() => {
@@ -551,7 +508,7 @@ const CommentModal = ({
                     />
                   );
                 }
-                return getDisplayName(creator)?.charAt(0).toUpperCase() || 'U';
+                return (creator.first_name?.charAt(0) || getDisplayName(creator)?.charAt(0) || 'U').toUpperCase();
               })()}
             </div>
             <div className="min-w-0">
@@ -564,7 +521,7 @@ const CommentModal = ({
         {/* Comments Section */}
         <div 
           ref={contentRef}
-          className="flex-1 overflow-y-auto scrollbar-thin p-6 space-y-6 relative z-10"
+          className="flex-1 overflow-y-auto scrollbar-thin p-6 space-y-6 relative z-10 overscroll-contain"
         >
           {loading ? (
             <div className="flex justify-center items-center h-full">
@@ -592,7 +549,7 @@ const CommentModal = ({
                           className="w-full h-full object-cover rounded-full"
                         />
                       ) : (
-                        getDisplayName(comment.author)?.charAt(0).toUpperCase() || 'U'
+                        (comment.author?.first_name?.charAt(0) || getDisplayName(comment.author)?.charAt(0) || 'U').toUpperCase()
                       )}
                     </div>
                     <div className="flex-1">
@@ -700,7 +657,7 @@ const CommentModal = ({
                                       className="w-full h-full object-cover rounded-full"
                                     />
                                   ) : (
-                                    getDisplayName(reply.author)?.charAt(0).toUpperCase() || 'U'
+                                    (reply.author?.first_name?.charAt(0) || getDisplayName(reply.author)?.charAt(0) || 'U').toUpperCase()
                                   )}
                                 </div>
                                 <div className="flex-1">

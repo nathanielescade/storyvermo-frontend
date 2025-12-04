@@ -145,7 +145,7 @@ const DiscoverModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[10100] flex items-center justify-center p-4">
       {/* Overlay */}
       <div 
         className="fixed inset-0 bg-black/90 backdrop-blur-lg"

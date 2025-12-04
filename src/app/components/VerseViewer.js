@@ -919,7 +919,7 @@ const VerseViewer = ({
   if (!isOpen || !story) return null;
 
   const viewer = (
-    <div className={`fixed inset-0 z-[201] bg-gradient-to-br ${defaultTheme.gradient} ${defaultTheme.shadow} transition-all duration-1000 rounded-3xl border ${defaultTheme.border}`} style={{overflow: 'hidden'}}>
+    <div className={`fixed inset-0 z-[10100] bg-gradient-to-br ${defaultTheme.gradient} ${defaultTheme.shadow} transition-all duration-1000 rounded-3xl border ${defaultTheme.border}`} style={{overflow: 'hidden'}}>
       {/* Glassy border and subtle vignette, matching ContributeModal */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute inset-0 rounded-3xl border-2 border-cyan-500/30 animate-pulse"></div>

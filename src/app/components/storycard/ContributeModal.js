@@ -214,7 +214,7 @@ const ContributeModal = ({
     if (!showContributeModal) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-lg z-[600] flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-lg z-[10100] flex items-center justify-center">
             <div className="w-full max-w-5xl max-h-[95vh] bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 rounded-3xl border border-cyan-500/40 shadow-2xl overflow-visible transform scale-100 transition-all duration-500 relative flex flex-col">
                 <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
                     <div className="absolute inset-0 rounded-3xl border-2 border-cyan-500/30 animate-pulse"></div>
