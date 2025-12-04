@@ -9,6 +9,7 @@ const DiscoverModal = ({ isOpen, onClose }) => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [followingStates, setFollowingStates] = useState({}); // Track loading per user
   const modalRef = useRef(null);
   const router = useRouter();
 
@@ -36,14 +37,12 @@ const DiscoverModal = ({ isOpen, onClose }) => {
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
       document.addEventListener('mousedown', handleClickOutside);
-      // Prevent body scroll when modal is open
       document.body.style.overflow = 'hidden';
     }
 
     return () => {
       document.removeEventListener('keydown', handleEscape);
       document.removeEventListener('mousedown', handleClickOutside);
-      // Restore body scroll when modal is closed
       document.body.style.overflow = 'auto';
     };
   }, [isOpen, onClose]);
@@ -63,6 +62,7 @@ const DiscoverModal = ({ isOpen, onClose }) => {
         setUsers([]);
       }
     } catch (error) {
+      console.error('Error fetching recommended users:', error);
       setError('Failed to load users. Please try again later.');
       setUsers([]);
     } finally {
@@ -70,22 +70,33 @@ const DiscoverModal = ({ isOpen, onClose }) => {
     }
   };
 
-  // Toggle follow status for a user (use userApi.followUser which handles CSRF)
+  // 🔥 FIXED: Toggle follow status - No localStorage, proper backend sync
   const toggleFollowUser = async (username, userIndex) => {
+    // Prevent double-clicks
+    if (followingStates[username]) return;
+
     const prevUsers = [...users];
     try {
+      // Set loading state for this specific user
+      setFollowingStates(prev => ({ ...prev, [username]: true }));
+
       // Optimistic UI update
       const updatedUsers = [...users];
+      const currentStatus = updatedUsers[userIndex].is_following;
       updatedUsers[userIndex] = {
         ...updatedUsers[userIndex],
-        is_following: !updatedUsers[userIndex].is_following
+        is_following: !currentStatus
       };
       setUsers(updatedUsers);
 
-      // Call centralized API helper
+      console.log(`🔄 Toggling follow for ${username}. Current: ${currentStatus}, New: ${!currentStatus}`);
+
+      // Call backend API
       const data = await userApi.followUser(username);
 
-      // If backend returned explicit status, apply it
+      console.log('✅ Follow API response:', data);
+
+      // Update with actual server response
       if (data && typeof data.is_following !== 'undefined') {
         const finalUsers = [...updatedUsers];
         finalUsers[userIndex] = {
@@ -95,8 +106,17 @@ const DiscoverModal = ({ isOpen, onClose }) => {
         setUsers(finalUsers);
       }
     } catch (error) {
+      console.error('❌ Error toggling follow:', error);
       // Revert optimistic update on error
       setUsers(prevUsers);
+      alert('Failed to update follow status. Please try again.');
+    } finally {
+      // Clear loading state
+      setFollowingStates(prev => {
+        const newState = { ...prev };
+        delete newState[username];
+        return newState;
+      });
     }
   };
 
@@ -104,23 +124,13 @@ const DiscoverModal = ({ isOpen, onClose }) => {
   const navigateToProfile = (username) => {
     try {
       router.push(`/${username}`);
-      onClose(); // Close modal after navigation
+      onClose();
     } catch (e) {
+      console.error('Navigation error:', e);
     }
   };
 
-  // Helper function to get CSRF token
-  const getCookie = (name) => {
-    if (typeof document === 'undefined') return '';
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) return parts.pop().split(';').shift();
-    return '';
-  };
-
-  // Don't render on server
   if (typeof window === 'undefined') return null;
-
   if (!isOpen) return null;
 
   return (
@@ -131,13 +141,12 @@ const DiscoverModal = ({ isOpen, onClose }) => {
         onClick={onClose}
       ></div>
 
-      {/* Modal themed like ContributeModal */}
-  <div className="w-full max-w-5xl max-h-[95vh] bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 rounded-3xl border border-cyan-500/40 shadow-2xl overflow-hidden transform scale-100 transition-all duration-500 relative flex flex-col z-[10000]">
+      {/* Modal */}
+      <div ref={modalRef} className="w-full max-w-5xl max-h-[95vh] bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 rounded-3xl border border-cyan-500/40 shadow-2xl overflow-hidden transform scale-100 transition-all duration-500 relative flex flex-col z-[10000]">
         <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
           <div className="absolute inset-0 rounded-3xl border-2 border-cyan-500/30 animate-pulse"></div>
           <div className="absolute inset-0 rounded-3xl border-2 border-purple-500/20 animate-pulse" style={{ animationDelay: '0.5s' }}></div>
           <div className="absolute inset-0 rounded-3xl border-2 border-pink-500/10 animate-pulse" style={{ animationDelay: '1s' }}></div>
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/10 to-transparent h-px w-full animate-pulse"></div>
         </div>
 
         {/* Header */}
@@ -185,72 +194,82 @@ const DiscoverModal = ({ isOpen, onClose }) => {
             </div>
           ) : users.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-6">
-              {users.map((user, index) => (
-                <div 
-                  key={user.id || user.username}
-                  className="group relative rounded-xl p-6 border border-gray-700/30 hover:border-purple-500/40 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/10 hover:-translate-y-1 flex flex-col items-center text-center cursor-pointer bg-gradient-to-br from-slate-800/40 to-slate-900/40"
-                  onClick={() => navigateToProfile(user.username)}
-                >
-                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 rounded-t-xl transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+              {users.map((user, index) => {
+                const isFollowLoading = followingStates[user.username];
+                
+                return (
+                  <div 
+                    key={user.id || user.username}
+                    className="group relative rounded-xl p-6 border border-gray-700/30 hover:border-purple-500/40 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/10 hover:-translate-y-1 flex flex-col items-center text-center cursor-pointer bg-gradient-to-br from-slate-800/40 to-slate-900/40"
+                    onClick={() => navigateToProfile(user.username)}
+                  >
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 rounded-t-xl transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
 
-                  <div className="relative mb-5">
-                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center font-bold text-2xl text-white ring-2 ring-gray-800 group-hover:ring-cyan-400 transition-all duration-300 shadow-lg overflow-hidden">
-                      {/* FIXED: Replaced Next.js Image with regular img tag */}
-                      {user.profile_image_url ? (
-                        <img
-                          src={absoluteUrl(user.profile_image_url)}
-                          alt={user.username}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <span>{user.username.charAt(0).toUpperCase()}</span>
+                    <div className="relative mb-5">
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center font-bold text-2xl text-white ring-2 ring-gray-800 group-hover:ring-cyan-400 transition-all duration-300 shadow-lg overflow-hidden">
+                        {user.profile_image_url ? (
+                          <img
+                            src={absoluteUrl(user.profile_image_url)}
+                            alt={user.username}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span>{user.username.charAt(0).toUpperCase()}</span>
+                        )}
+                      </div>
+                      <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-emerald-500 border-2 border-gray-900 shadow-lg"></div>
+                    </div>
+
+                    <div className="w-full mb-4">
+                      <div className="text-white font-bold text-lg mb-1 truncate">{user.display_name || user.username}</div>
+                      <div className="text-slate-400 text-sm mb-3">@{user.username}</div>
+                      {user.bio && (
+                        <p className="text-slate-300 text-sm mb-4 line-clamp-2">{user.bio}</p>
                       )}
                     </div>
-                    <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-emerald-500 border-2 border-gray-900 shadow-lg"></div>
-                  </div>
 
-                  <div className="w-full mb-4">
-                    <div className="text-white font-bold text-lg mb-1 truncate">{user.display_name || user.username}</div>
-                    <div className="text-slate-400 text-sm mb-3">@{user.username}</div>
-                    {user.bio && (
-                      <p className="text-slate-300 text-sm mb-4 line-clamp-2">{user.bio}</p>
-                    )}
-                  </div>
-
-                  <div className="flex justify-around gap-2 w-full mb-5 pb-5 border-b border-gray-800/20">
-                    <div className="flex-1">
-                      <div className="text-white font-bold text-lg">{user.follower_count || user.followers_count || 0}</div>
-                      <div className="text-slate-400 text-xs uppercase tracking-wide">Followers</div>
+                    <div className="flex justify-around gap-2 w-full mb-5 pb-5 border-b border-gray-800/20">
+                      <div className="flex-1">
+                        <div className="text-white font-bold text-lg">{user.follower_count || user.followers_count || 0}</div>
+                        <div className="text-slate-400 text-xs uppercase tracking-wide">Followers</div>
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-white font-bold text-lg">{user.story_count || user.stories_count || 0}</div>
+                        <div className="text-slate-400 text-xs uppercase tracking-wide">Stories</div>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <div className="text-white font-bold text-lg">{user.story_count || user.stories_count || 0}</div>
-                      <div className="text-slate-400 text-xs uppercase tracking-wide">Stories</div>
-                    </div>
-                  </div>
 
-                  <button 
-                    className={`w-full py-3 px-4 rounded-2xl font-semibold transition-all duration-300 ${
-                      user.is_following 
-                        ? 'bg-gray-800/60 text-slate-200 hover:bg-gray-700 border border-gray-700/50' 
-                        : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-400 hover:to-blue-400 shadow-lg shadow-cyan-500/30 hover:scale-105 border border-cyan-500/30'
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      toggleFollowUser(user.username, index);
-                    }}
-                  >
-                    {user.is_following ? (
-                      <>
-                        <i className="fas fa-check mr-2"></i>Following
-                      </>
-                    ) : (
-                      <>
-                        <i className="fas fa-plus mr-2"></i>Follow
-                      </>
-                    )}
-                  </button>
-                </div>
-              ))}
+                    {/* 🔥 FIXED: Follow button with loading state, no localStorage */}
+                    <button 
+                      className={`w-full py-3 px-4 rounded-2xl font-semibold transition-all duration-300 ${
+                        user.is_following 
+                          ? 'bg-gray-800/60 text-slate-200 hover:bg-gray-700 border border-gray-700/50' 
+                          : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-400 hover:to-blue-400 shadow-lg shadow-cyan-500/30 hover:scale-105 border border-cyan-500/30'
+                      } ${isFollowLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFollowUser(user.username, index);
+                      }}
+                      disabled={isFollowLoading}
+                      aria-label={isFollowLoading ? 'Loading...' : (user.is_following ? 'Unfollow' : 'Follow')}
+                    >
+                      {isFollowLoading ? (
+                        <>
+                          <i className="fas fa-spinner fa-spin mr-2"></i>Loading...
+                        </>
+                      ) : user.is_following ? (
+                        <>
+                          <i className="fas fa-check mr-2"></i>Following
+                        </>
+                      ) : (
+                        <>
+                          <i className="fas fa-plus mr-2"></i>Follow
+                        </>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-16">
@@ -266,7 +285,7 @@ const DiscoverModal = ({ isOpen, onClose }) => {
           )}
         </div>
 
-        {/* Footer (sticky) similar to Contribute modal for actions if needed in future */}
+        {/* Footer */}
         <div className="relative z-10 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md border-t border-gray-800/50 px-8 py-4" style={{ position: 'sticky', bottom: 0 }}>
           <div className="flex justify-end gap-4">
             <button onClick={onClose} className="px-6 py-2 bg-gray-800/60 hover:bg-gray-700/60 text-gray-300 rounded-2xl font-medium transition-all duration-300 border border-gray-700/50 hover:border-gray-600/50">Close</button>
@@ -274,7 +293,6 @@ const DiscoverModal = ({ isOpen, onClose }) => {
         </div>
 
         <style jsx global>{`
-          /* Scrollbar Styling */
           .custom-scrollbar::-webkit-scrollbar {
             width: 8px;
           }
@@ -282,7 +300,6 @@ const DiscoverModal = ({ isOpen, onClose }) => {
           .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(71,85,105,0.4); border-radius: 10px; transition: background 0.3s ease; }
           .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(71,85,105,0.7); }
 
-          /* Line clamp utility */
           .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         `}</style>
       </div>

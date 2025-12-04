@@ -479,7 +479,9 @@ export default function StoryCard({
                             localCommentsCount={localCommentsCount}
                             setShowCommentModal={setShowCommentModal}
                             setShowShareModal={setShowShareModal}
-                            
+                            isAuthenticated={isAuthenticated}
+                            openAuthModal={openAuthModal}
+                            onStoryUpdate={refetchStory}
                         />
                         
                         <CreatorChip 

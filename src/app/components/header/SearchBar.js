@@ -1,8 +1,9 @@
-// components/header/SearchBar.jsx
+// components/header/SearchBar.jsx - FIXED: Backend storage, no localStorage
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { searchApi } from '../../../../lib/api';
+import { searchApi, searchHistoryApi } from '../../../../lib/api';
 import debounce from 'lodash/debounce';
+import { useAuth } from '../../../../contexts/AuthContext';
 
 const SearchBar = ({ 
   isMobile = false, 
@@ -11,6 +12,7 @@ const SearchBar = ({
   onSearchSubmit 
 }) => {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const [recentSearches, setRecentSearches] = useState([]);
   const [results, setResults] = useState({
@@ -25,13 +27,25 @@ const SearchBar = ({
   const searchInputRef = useRef(null);
   const searchContainerRef = useRef(null);
 
-  // Load recent searches from localStorage on mount
+  // 🔥 FIXED: Load recent searches from BACKEND on mount
   useEffect(() => {
-    const savedSearches = localStorage.getItem('recentSearches');
-    if (savedSearches) {
-      setRecentSearches(JSON.parse(savedSearches));
-    }
-  }, []);
+    const loadRecentSearches = async () => {
+      if (!isAuthenticated) {
+        setRecentSearches([]);
+        return;
+      }
+      
+      try {
+        const searches = await searchHistoryApi.getRecent();
+        setRecentSearches(Array.isArray(searches) ? searches : []);
+      } catch (error) {
+        console.error('Failed to load search history:', error);
+        setRecentSearches([]);
+      }
+    };
+    
+    loadRecentSearches();
+  }, [isAuthenticated]);
 
   // Auto-focus when component mounts (desktop only)
   useEffect(() => {
@@ -89,6 +103,7 @@ const SearchBar = ({
 
       setResults(newResults);
     } catch (error) {
+      console.error('Search error:', error);
       setResults(prev => ({ ...prev, loading: false }));
     }
   }, 120);
@@ -113,6 +128,7 @@ const SearchBar = ({
         }
       }
     } catch (e) {
+      console.error('Navigation error:', e);
     } finally {
       setShowSuggestions(false);
       setActiveSuggestionIndex(-1);
@@ -157,24 +173,49 @@ const SearchBar = ({
     }
   };
 
-  const handleSearch = (e) => {
+  // 🔥 FIXED: Save search to BACKEND instead of localStorage
+  const handleSearch = async (e) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
-      // Add to recent searches
-      const newSearches = [searchQuery, ...recentSearches.filter(s => s !== searchQuery)].slice(0, 5);
-      setRecentSearches(newSearches);
-      localStorage.setItem('recentSearches', JSON.stringify(newSearches));
+    const trimmedQuery = searchQuery.trim();
+    
+    if (!trimmedQuery) return;
+    
+    try {
+      // Save to backend if authenticated
+      if (isAuthenticated) {
+        await searchHistoryApi.save(trimmedQuery);
+        
+        // Update local state optimistically
+        setRecentSearches(prev => {
+          const filtered = prev.filter(s => s !== trimmedQuery);
+          return [trimmedQuery, ...filtered].slice(0, 10);
+        });
+      }
       
       // Navigate to search page
-      router.push(`/search?q=${encodeURIComponent(searchQuery)}`);
+      router.push(`/search?q=${encodeURIComponent(trimmedQuery)}`);
+      setShowSuggestions(false);
+      if (isMobile && onClose) onClose();
+    } catch (error) {
+      console.error('Failed to save search:', error);
+      // Still navigate even if save fails
+      router.push(`/search?q=${encodeURIComponent(trimmedQuery)}`);
       setShowSuggestions(false);
       if (isMobile && onClose) onClose();
     }
   };
 
-  const clearRecentSearches = () => {
-    setRecentSearches([]);
-    localStorage.removeItem('recentSearches');
+  // 🔥 FIXED: Clear searches from BACKEND
+  const clearRecentSearches = async () => {
+    if (!isAuthenticated) return;
+    
+    try {
+      await searchHistoryApi.clear();
+      setRecentSearches([]);
+    } catch (error) {
+      console.error('Failed to clear search history:', error);
+      alert('Failed to clear search history. Please try again.');
+    }
   };
 
   // Clean up debounce on unmount
@@ -227,6 +268,13 @@ const SearchBar = ({
           {showSuggestions && (results.stories.length > 0 || results.creators.length > 0 || results.verses.length > 0) && (
             <div className="absolute left-0 right-0 mt-2 bg-slate-900 border border-gray-700 rounded-2xl shadow-xl z-50 max-h-72 overflow-auto">
               <div className="p-2">
+                {results.loading && (
+                  <div className="p-4 text-center text-gray-400">
+                    <i className="fas fa-spinner fa-spin mr-2"></i>
+                    Searching...
+                  </div>
+                )}
+                
                 {results.stories.slice(0,5).map((s, i) => (
                   <div 
                     key={`s-${s.id || s.slug || i}`} 
@@ -250,7 +298,9 @@ const SearchBar = ({
                       navigateToSuggestion({ ...c, type: 'creator' }); 
                     }}
                   >
-                    <div className="text-sm font-semibold text-white">{c.display_name || c.username}</div>
+                    {/* FIXED: Show full name as primary, username as secondary small text */}
+                    <div className="text-sm font-semibold text-white">{c.display_name || c.first_name || c.last_name ? `${c.first_name || ''} ${c.last_name || ''}`.trim() : c.username}</div>
+                    <div className="text-xs text-gray-400">@{c.username}</div>
                     <div className="text-xs text-gray-400">Creator</div>
                   </div>
                 ))}
@@ -272,36 +322,47 @@ const SearchBar = ({
             </div>
           )}
           
-          {/* Recent Searches dropdown (only when input is focused and not showing suggestions) */}
-          {!showSuggestions && inputFocused && (
-            <div className="search-dropdown">
-              <div className="search-section">
-                <div className="search-section-title">
-                  <h3 className="flex items-center gap-1">
+          {/* Recent Searches dropdown (only when input is focused and authenticated) */}
+          {!showSuggestions && inputFocused && isAuthenticated && recentSearches.length > 0 && (
+            <div className="search-dropdown absolute left-0 right-0 mt-2 bg-slate-900 border border-gray-700 rounded-2xl shadow-xl z-50 max-h-60 overflow-auto">
+              <div className="search-section p-2">
+                <div className="search-section-title flex justify-between items-center mb-2 px-2">
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-gray-300">
                     <i className="fas fa-history"></i> Recent Searches
                   </h3>
                   <button 
-                    className="search-clear"
+                    className="search-clear text-xs text-gray-400 hover:text-white"
                     onClick={clearRecentSearches}
                   >
                     Clear
                   </button>
                 </div>
-                <div className="space-y-1 max-h-40 overflow-y-auto">
+                <div className="space-y-1">
                   {recentSearches.map((search, index) => (
                     <div 
                       key={index} 
-                      className="search-item"
+                      className="search-item p-2 rounded hover:bg-slate-800 cursor-pointer text-sm text-white"
                       onClick={() => {
                         setSearchQuery(search);
                         router.push(`/search?q=${encodeURIComponent(search)}`);
+                        setInputFocused(false);
+                        if (isMobile && onClose) onClose();
                       }}
                     >
+                      <i className="fas fa-clock mr-2 text-gray-500"></i>
                       {search}
                     </div>
                   ))}
                 </div>
               </div>
+            </div>
+          )}
+          
+          {/* Message for non-authenticated users */}
+          {!showSuggestions && inputFocused && !isAuthenticated && (
+            <div className="absolute left-0 right-0 mt-2 bg-slate-900 border border-gray-700 rounded-2xl shadow-xl z-50 p-4 text-center">
+              <i className="fas fa-user-lock text-3xl text-gray-600 mb-2"></i>
+              <p className="text-sm text-gray-400">Sign in to see your search history</p>
             </div>
           )}
         </div>

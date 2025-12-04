@@ -1,4 +1,4 @@
-// CreatorChip.js - Enhanced with loading state animation and tooltip
+// CreatorChip.js - FIXED: No localStorage, proper backend integration
 import React, { useState, useEffect } from 'react';
 import { formatTimeAgo } from '../../../../lib/utils';
 import { useAuth } from '../../../../contexts/AuthContext';
@@ -6,8 +6,8 @@ import { useAuth } from '../../../../contexts/AuthContext';
 const CreatorChip = ({ 
     story, 
     isOwner, 
-    isFollowing,
-    handleFollow, 
+    isFollowing: initialIsFollowing,  // Receive from parent
+    handleFollow,  // Parent handles the API call
     handleOpenVerses,
     isViewerOpening = false,
     getCreatorDisplayName, 
@@ -17,20 +17,28 @@ const CreatorChip = ({
 }) => {
     const { currentUser } = useAuth();
     const [showTooltip, setShowTooltip] = useState(false);
+    const [isFollowing, setIsFollowing] = useState(initialIsFollowing || false);
+    const [isFollowLoading, setIsFollowLoading] = useState(false);
+    
     const creatorUsername = getCreatorUsername();
     const isSelf = !!(currentUser && currentUser.username && currentUser.username === creatorUsername);
     
-    // Check if user has seen the tooltip before
+    // Update local state when prop changes (after parent refetches)
     useEffect(() => {
-        const hasSeenTooltip = localStorage.getItem('hasSeenVersesButtonTooltip');
+        setIsFollowing(initialIsFollowing || false);
+    }, [initialIsFollowing]);
+    
+    // Tooltip logic - using sessionStorage instead of localStorage
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        
+        const hasSeenTooltip = sessionStorage.getItem('hasSeenVersesButtonTooltip');
         if (!hasSeenTooltip) {
-            // Show tooltip after a brief delay
             const timer = setTimeout(() => {
                 setShowTooltip(true);
-                // Auto-hide after 4 seconds
                 const hideTimer = setTimeout(() => {
                     setShowTooltip(false);
-                    localStorage.setItem('hasSeenVersesButtonTooltip', 'true');
+                    sessionStorage.setItem('hasSeenVersesButtonTooltip', 'true');
                 }, 4000);
                 return () => clearTimeout(hideTimer);
             }, 500);
@@ -41,14 +49,34 @@ const CreatorChip = ({
     const handleFollowClick = async (e) => {
         e.preventDefault();
         e.stopPropagation();
-        await handleFollow(e, creatorUsername);
+        
+        if (isFollowLoading) return;
+        
+        try {
+            setIsFollowLoading(true);
+            
+            // Optimistic UI update
+            setIsFollowing(prev => !prev);
+            
+            // Call parent handler which calls the API
+            await handleFollow(e, creatorUsername);
+            
+            // Parent will update story.is_following, which will trigger our useEffect
+        } catch (error) {
+            // Revert on error
+            setIsFollowing(prev => !prev);
+            console.error('Follow error:', error);
+        } finally {
+            setIsFollowLoading(false);
+        }
     };
     
     const handleVersesClick = () => {
-        // Dismiss tooltip when button is clicked
         if (showTooltip) {
             setShowTooltip(false);
-            localStorage.setItem('hasSeenVersesButtonTooltip', 'true');
+            if (typeof window !== 'undefined') {
+                sessionStorage.setItem('hasSeenVersesButtonTooltip', 'true');
+            }
         }
         handleOpenVerses();
     };
@@ -244,7 +272,6 @@ const CreatorChip = ({
                     animation: gradientSwirl 5s ease-in-out infinite;
                 }
                 
-                /* Tooltip Styles */
                 .verses-tooltip {
                     position: absolute;
                     bottom: calc(100% + 8px);
@@ -293,12 +320,19 @@ const CreatorChip = ({
                         </div>
                     </a>
                     
+                    {/* 🔥 FIXED: Show button based on state, not localStorage */}
                     {!isOwner && !isFollowing && !isSelf && creatorUsername !== 'anonymous' && (
                         <button 
-                            className="follow-button absolute bottom-0 right-0 bg-transparent border-2 rounded-full w-6 h-6 flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors"
+                            className={`follow-button absolute bottom-0 right-0 bg-transparent border-2 rounded-full w-6 h-6 flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors ${isFollowLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                             onClick={handleFollowClick}
+                            disabled={isFollowLoading}
+                            aria-label={isFollowLoading ? 'Following...' : 'Follow'}
                         >
-                            <i className="fas fa-plus text-white font-extrabold text-xl"></i>
+                            {isFollowLoading ? (
+                                <i className="fas fa-spinner fa-spin text-white text-sm"></i>
+                            ) : (
+                                <i className="fas fa-plus text-white font-extrabold text-xl"></i>
+                            )}
                         </button>
                     )}
                 </div>
@@ -318,7 +352,6 @@ const CreatorChip = ({
 
                 <div className="flex items-center gap-2 pl-2 pr-1">
                     <div className="relative" style={{ display: 'inline-block' }}>
-                        {/* Tooltip */}
                         {showTooltip && (
                             <div className="verses-tooltip">
                                 <span className="verses-tooltip-icon">👆</span>
