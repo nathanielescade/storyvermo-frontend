@@ -98,12 +98,23 @@ const DiscoverModal = ({ isOpen, onClose }) => {
 
       // Update with actual server response
       if (data && typeof data.is_following !== 'undefined') {
-        const finalUsers = [...updatedUsers];
-        finalUsers[userIndex] = {
-          ...finalUsers[userIndex],
-          is_following: data.is_following
-        };
-        setUsers(finalUsers);
+        // If we successfully followed the user, remove them from recommendations
+        if (data.is_following) {
+          setUsers(prev => prev.filter(u => u.username !== username));
+        } else {
+          const finalUsers = [...updatedUsers];
+          finalUsers[userIndex] = {
+            ...finalUsers[userIndex],
+            is_following: data.is_following,
+            followers_count: typeof data.follower_count !== 'undefined' ? data.follower_count : finalUsers[userIndex].followers_count
+          };
+          setUsers(finalUsers);
+        }
+
+        // Broadcast so other components can sync
+        try {
+          window.dispatchEvent(new CustomEvent('user:follow:update', { detail: { username, is_following: data.is_following, follower_count: data.follower_count } }));
+        } catch (e) {}
       }
     } catch (error) {
       console.error('❌ Error toggling follow:', error);

@@ -73,6 +73,8 @@ export function SearchClient() {
   
   // New state for story feed modal
   const [storyFeedModal, setStoryFeedModal] = useState({ visible: false, initialIndex: 0 });
+  // Ref for the modal feed container so we can scroll to the clicked index
+  const feedContainerRef = useRef(null);
 
   // Set isMounted to true when component mounts
   useEffect(() => {
@@ -206,6 +208,27 @@ export function SearchClient() {
     setStoryFeedModal({ visible: true, initialIndex: index });
   };
 
+  // When the feed modal opens, scroll the feed to the initial index
+  useEffect(() => {
+    if (!storyFeedModal.visible) return;
+
+    // slight delay to allow children to render
+    const t = setTimeout(() => {
+      try {
+        if (!feedContainerRef.current) return;
+        const children = feedContainerRef.current.querySelectorAll(':scope > *');
+        const el = children[storyFeedModal.initialIndex];
+        if (el && el.scrollIntoView) {
+          el.scrollIntoView({ block: 'center' });
+        }
+      } catch (e) {
+        // ignore
+      }
+    }, 60);
+
+    return () => clearTimeout(t);
+  }, [storyFeedModal.visible, storyFeedModal.initialIndex]);
+
   // Handle story interactions
   const handleLikeToggle = async (slug) => {
     try {
@@ -251,12 +274,16 @@ export function SearchClient() {
 
     try {
       const data = await userApi.followUser(userId);
-      // Update creators state if needed
+      // Update creators state with both is_following and follower_count
       setResults(prev => ({
         ...prev,
         creators: prev.creators.map(creator => 
           creator.username === userId 
-            ? { ...creator, is_following: typeof data?.is_following !== 'undefined' ? data.is_following : !creator.is_following }
+            ? { 
+                ...creator, 
+                is_following: typeof data?.is_following !== 'undefined' ? data.is_following : !creator.is_following,
+                followers_count: typeof data?.follower_count !== 'undefined' ? data.follower_count : creator.followers_count
+              }
             : creator
         )
       }));
@@ -368,7 +395,20 @@ export function SearchClient() {
                           </div>
                         )}
                         <div className="p-4">
-                          <h3 className="font-bold mb-2 truncate text-white group-hover:text-cyan-300 transition-colors">{story.title}</h3>
+                          <h3
+                            className="text-sm font-semibold mb-2 text-white group-hover:text-cyan-300 transition-colors"
+                            style={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              whiteSpace: 'normal',
+                              overflowWrap: 'anywhere',
+                              maxHeight: '3rem'
+                            }}
+                          >
+                            {story.title}
+                          </h3>
                           <div className="flex gap-3 text-sm text-gray-400">
                             <span><i className="fas fa-heart mr-1 text-cyan-500"></i>{story.likes_count || 0}</span>
                             <span><i className="fas fa-comment mr-1 text-purple-500"></i>{story.comments_count || 0}</span>
@@ -515,9 +555,20 @@ export function SearchClient() {
                         </div>
 
                         <div className="p-4">
-                          <div className="text-sm text-gray-400 mb-1">{displayStoryTitle}</div>
-                          <div className="text-white font-semibold mb-1 text-lg leading-tight">{displayTitle}</div>
-                          <div className="text-xs text-gray-400 mb-2">in <span className="text-indigo-300">{displayStoryTitle}</span></div>
+                          <div
+                            className="text-sm font-semibold mb-1 leading-tight text-white"
+                            style={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              whiteSpace: 'normal',
+                              overflowWrap: 'anywhere',
+                              maxHeight: '3rem'
+                            }}
+                          >
+                            {displayTitle}
+                          </div>
                         </div>
                       </Link>
                     );
@@ -539,76 +590,81 @@ export function SearchClient() {
             )}
 
             {/* Creators Tab */}
-            {activeTab === 'creators' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {results.loading ? (
-                // Show skeletons while loading
-                [...Array(6)].map((_, i) => (
-                  <CreatorSkeleton key={`skeleton-${i}`} />
-                ))
-                ) : results.creators.length > 0 ? (
-                results.creators.map((creator, index) => (
-                  <div
-                    key={creator.id || creator.username}
-                    className="flex items-center p-4 bg-slate-900/60 rounded-2xl border border-cyan-500/20 hover:border-cyan-500/40 transition-all duration-300 cursor-pointer group"
-                    onClick={() => router.push(`/${creator.username}`)}
-                  >
-                      {creator.profile_image_url ? (
-                        <img
-                          src={absoluteUrl(creator.profile_image_url)}
-                          alt={creator.username}
-                          className="w-16 h-16 rounded-full border-2 border-cyan-500/30"
-                        />
-                      ) : (
-                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center border-2 border-cyan-500/30">
-                          <span className="text-2xl font-bold text-cyan-500">
-                            {(() => {
-                              const displayName = creator.account_type === 'brand' && creator.brand_name
-                                ? creator.brand_name
-                                : creator.username;
-                              return displayName[0].toUpperCase();
-                            })()}
-                          </span>
-                        </div>
-                      )}
-                      <div className="ml-4 flex-1">
-                        <h3 className="font-semibold text-white group-hover:text-cyan-300 transition-colors">
-                          {creator.account_type === 'brand' && creator.brand_name
-                            ? creator.brand_name
-                            : creator.username}
-                        </h3>
-                        <p className="text-sm text-slate-400">{creator.followers_count || 0} followers</p>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleFollowUser(creator.username);
-                          }}
-                          className={`mt-2 px-4 py-1 rounded-full text-sm ${
-                            creator.is_following
-                              ? 'bg-transparent border border-cyan-500 text-cyan-500 hover:bg-cyan-500/10'
-                              : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:opacity-90'
-                          } transition-all`}
-                        >
-                          {creator.is_following ? 'Following' : 'Follow'}
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                ) : query ? (
-                  <div className="col-span-full text-center py-12 text-slate-400">
-                    <i className="fas fa-search text-4xl mb-4 text-cyan-500/50" />
-                    <h3 className="text-xl font-semibold mb-2 text-white">No creators found</h3>
-                    <p>Try searching with different keywords</p>
-                  </div>
-                ) : (
-                  <div className="col-span-full text-center py-12 text-slate-400">
-                    <i className="fas fa-search text-4xl mb-4 text-cyan-500/50" />
-                    <h3 className="text-xl font-semibold mb-2 text-white">Search for creators</h3>
-                    <p>Use the search bar in the header to find creators</p>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* Creators Tab */}
+{activeTab === 'creators' && (
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {results.loading ? (
+      // Show skeletons while loading
+      [...Array(6)].map((_, i) => (
+        <CreatorSkeleton key={`skeleton-${i}`} />
+      ))
+    ) : results.creators.length > 0 ? (
+      results.creators.map((creator, index) => (
+        <div
+          key={creator.id || creator.username}
+          className="flex items-center p-4 bg-slate-900/60 rounded-2xl border border-cyan-500/20 hover:border-cyan-500/40 transition-all duration-300 cursor-pointer group"
+          onClick={() => router.push(`/${creator.username}`)}
+        >
+          {creator.profile_image_url ? (
+            <img
+              src={absoluteUrl(creator.profile_image_url)}
+              alt={creator.username}
+              className="w-16 h-16 rounded-full border-2 border-cyan-500/30"
+            />
+          ) : (
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center border-2 border-cyan-500/30">
+              <span className="text-2xl font-bold text-cyan-500">
+                {(() => {
+                  const displayName = creator.account_type === 'brand' && creator.brand_name
+                    ? creator.brand_name
+                    : creator.username;
+                  return displayName[0].toUpperCase();
+                })()}
+              </span>
+            </div>
+          )}
+          <div className="ml-4 flex-1">
+            {/* FIXED: Show full name as primary, username as secondary small text */}
+            <h3 className="font-semibold text-white group-hover:text-cyan-300 transition-colors">
+              {creator.first_name || creator.last_name 
+                ? `${creator.first_name || ''} ${creator.last_name || ''}`.trim() 
+                : (creator.account_type === 'brand' && creator.brand_name 
+                  ? creator.brand_name 
+                  : creator.username)}
+            </h3>
+            <p className="text-xs text-slate-400">@{creator.username}</p>
+            <p className="text-sm text-slate-400">{creator.followers_count || 0} followers</p>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleFollowUser(creator.username);
+              }}
+              className={`mt-2 px-4 py-1 rounded-full text-sm ${
+                creator.is_following
+                  ? 'bg-transparent border border-cyan-500 text-cyan-500 hover:bg-cyan-500/10'
+                  : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:opacity-90'
+              } transition-all`}
+            >
+              {creator.is_following ? 'Following' : 'Follow'}
+            </button>
+          </div>
+        </div>
+      ))
+    ) : query ? (
+      <div className="col-span-full text-center py-12 text-slate-400">
+        <i className="fas fa-search text-4xl mb-4 text-cyan-500/50" />
+        <h3 className="text-xl font-semibold mb-2 text-white">No creators found</h3>
+        <p>Try searching with different keywords</p>
+      </div>
+    ) : (
+      <div className="col-span-full text-center py-12 text-slate-400">
+        <i className="fas fa-search text-4xl mb-4 text-cyan-500/50" />
+        <h3 className="text-xl font-semibold mb-2 text-white">Search for creators</h3>
+        <p>Use the search bar in the header to find creators</p>
+      </div>
+    )}
+  </div>
+)}
           </div>
         )}
       </div>
@@ -630,7 +686,7 @@ export function SearchClient() {
               {/* Add left padding on md+ to move the feed away from the sidebar (sidebar width = 280px) */}
               <div className="w-full md:pl-[280px]">
                 {/* Reuse the homepage "image-feed" container so StoryCard renders the same size */}
-                <div className="image-feed">
+                <div className="image-feed" ref={feedContainerRef}>
                   {activeTab === 'stories' && results.stories.map((story, index) => (
                     <StoryCard
                       key={story.slug || index}

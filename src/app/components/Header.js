@@ -12,13 +12,10 @@ import UserMenu from './header/UserMenu';
 const Header = ({ openAuthModal }) => {
   const { isAuthenticated } = useAuth();
   const [showMobileSearch, setShowMobileSearch] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const mobileSearchBarRef = useRef(null);
 
-  // Mark component as mounted to prevent hydration mismatches
+  // Handle click outside to close mobile search and scroll
   useEffect(() => {
-    setMounted(true);
-    
     const handleClickOutside = (event) => {
       // Close mobile search bar when clicking outside
       if (showMobileSearch && mobileSearchBarRef.current && !mobileSearchBarRef.current.contains(event.target)) {
@@ -52,9 +49,7 @@ const Header = ({ openAuthModal }) => {
           <SearchBar />
         </div>
         
-        {mounted && (
-          <NotificationBell />
-        )}
+        <NotificationBell />
         
         {/* Search icon for mobile */}
         <button 
@@ -65,12 +60,7 @@ const Header = ({ openAuthModal }) => {
         </button>
         
         {/* User menu or login button */}
-        {mounted ? (
-          <UserMenu openAuthModal={openAuthModal} />
-        ) : (
-          // Placeholder div during server rendering to maintain layout
-          <div className="w-20 h-10"></div>
-        )}
+        <UserMenu openAuthModal={openAuthModal} />
       </div>
       
       {/* Search bar for mobile - appears when toggled */}

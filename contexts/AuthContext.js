@@ -117,17 +117,18 @@ export function AuthProvider({ children }) {
   
   const [loading, setLoading] = useState(false);
 
-  // Simplified auth verification with timeout
+  // Simplified auth verification with timeout — runs in background without blocking UI
   useEffect(() => {
     let mounted = true;
     let timeoutId;
     
     const verifyAuth = async () => {
       try {
+        // Set a timeout so we don't wait forever
         timeoutId = setTimeout(() => {
           if (mounted) {
-            // Timeout reached, keep current state
             clearTimeout(timeoutId);
+            // Don't update state on timeout, keep current state from localStorage
           }
         }, 3000);
         
@@ -175,21 +176,22 @@ export function AuthProvider({ children }) {
       } catch (error) {
         clearTimeout(timeoutId);
         if (mounted) {
-          setCurrentUser(null);
-          setIsAuthenticated(false);
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('currentUser');
-            localStorage.removeItem('isAuthenticated');
-          }
+          // On error, keep current localStorage state (don't clear it)
+          // This allows the app to continue working with cached auth state
         }
       }
     };
 
-    verifyAuth();
+    // Start verification in background without blocking
+    // Use setTimeout to defer it so it doesn't block initial render
+    const deferredVerify = setTimeout(() => {
+      if (mounted) verifyAuth();
+    }, 0);
     
     return () => {
       mounted = false;
       clearTimeout(timeoutId);
+      clearTimeout(deferredVerify);
     };
   }, []);
 

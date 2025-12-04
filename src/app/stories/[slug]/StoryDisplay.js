@@ -22,27 +22,49 @@ export default function StoryDisplay({ initialStory, slug }) {
   const wheelTimeoutRef = useRef(null);
   const touchStartRef = useRef(null);
 
-  // Optional: Add real-time updates or refetch logic here if needed
+  // Refetch story client-side to get current user's like/save state
   useEffect(() => {
-    if (!initialStory) {
-      // Fetch client-side if no initial data
-      storiesApi.getStoryBySlug(slug).then(data => {
-        if (data) setStory(data);
-        else notFound();
-      }).catch(err => {
-        notFound();
-      });
+    let mounted = true;
+
+    const refetchStory = async () => {
+      try {
+        const data = await storiesApi.getStoryBySlug(slug);
+        if (mounted && data) {
+          setStory(data);
+        }
+      } catch (err) {
+        // Keep current story if refetch fails
+      }
+    };
+
+    // Always refetch to get current user's auth state (like/save status)
+    // This ensures the ActionButtons show the correct filled/unfilled state
+    if (slug) {
+      refetchStory();
     }
-    // If we have a verse query param, open the verse viewer and scroll to that verse
+
+    return () => {
+      mounted = false;
+    };
+  }, [slug, isAuthenticated]);
+
+  // Handle verse query param
+  useEffect(() => {
+    if (!story) return;
+
     const verseParam = searchParams?.get ? searchParams.get('verse') : null;
-    if (verseParam && story) {
+    if (verseParam) {
       // Find index of verse by id/public_id/slug
-      const idx = (story.verses || []).findIndex(v => String(v.id) === String(verseParam) || String(v.public_id) === String(verseParam) || String(v.slug) === String(verseParam));
+      const idx = (story.verses || []).findIndex(v => 
+        String(v.id) === String(verseParam) || 
+        String(v.public_id) === String(verseParam) || 
+        String(v.slug) === String(verseParam)
+      );
       const indexToOpen = idx >= 0 ? idx : 0;
       setInitialVerseIndex(indexToOpen);
       setShowVerseViewer(true);
     }
-  }, [initialStory, slug, searchParams, story]);
+  }, [story, searchParams]);
 
   // Overscroll "stretch" effect handlers (wheel + touch)
   useEffect(() => {
@@ -131,7 +153,6 @@ export default function StoryDisplay({ initialStory, slug }) {
       window.removeEventListener('touchmove', onTouchMove);
       window.removeEventListener('touchend', onTouchEnd);
       clearTimeout(wheelTimer);
-      if (wheelTimeoutRef.current) clearTimeout(wheelTimeoutRef.current);
     };
   }, []);
 

@@ -13,10 +13,22 @@ const ActionButtons = ({
     openAuthModal,
     onStoryUpdate // Callback to refresh parent component
 }) => {
-    // State for like and save - initialized from story prop
-    const [isLiked, setIsLiked] = useState(false);
-    const [isSaved, setIsSaved] = useState(false);
-    const [likesCount, setLikesCount] = useState(0);
+    // Helper to extract liked/saved status and counts from story
+    const getInitialState = (storyData) => {
+        if (!storyData) return { liked: false, saved: false, count: 0 };
+        
+        const likedStatus = storyData.user_has_liked || storyData.is_liked || storyData.isLiked || storyData.is_liked_by_user || false;
+        const savedStatus = storyData.user_has_saved || storyData.is_saved || storyData.isSaved || storyData.is_saved_by_user || false;
+        const likesCount = storyData.likes_count || 0;
+        
+        return { liked: likedStatus, saved: savedStatus, count: likesCount };
+    };
+    
+    // Initialize state directly from story prop - no wait for effect
+    const initial = getInitialState(story);
+    const [isLiked, setIsLiked] = useState(initial.liked);
+    const [isSaved, setIsSaved] = useState(initial.saved);
+    const [likesCount, setLikesCount] = useState(initial.count);
     
     // Loading states to prevent double-clicks
     const [isLikeLoading, setIsLikeLoading] = useState(false);
@@ -24,30 +36,11 @@ const ActionButtons = ({
 
     // Update state when story prop changes (e.g., after refetch)
     useEffect(() => {
-        if (story) {
-            // Check multiple possible field names from backend
-            const likedStatus = story.user_has_liked || story.is_liked || story.isLiked || story.is_liked_by_user || false;
-            const savedStatus = story.user_has_saved || story.is_saved || story.isSaved || story.is_saved_by_user || false;
-            
-            console.log('🔍 Story interaction data:', {
-                storyId: story.id,
-                user_has_liked: story.user_has_liked,
-                is_liked: story.is_liked,
-                isLiked: story.isLiked,
-                is_liked_by_user: story.is_liked_by_user,
-                user_has_saved: story.user_has_saved,
-                is_saved: story.is_saved,
-                isSaved: story.isSaved,
-                is_saved_by_user: story.is_saved_by_user,
-                finalLikedStatus: likedStatus,
-                finalSavedStatus: savedStatus
-            });
-            
-            setIsLiked(likedStatus);
-            setIsSaved(savedStatus);
-            setLikesCount(story.likes_count || 0);
-        }
-    }, [story, story?.id, story?.user_has_liked, story?.user_has_saved]);
+        const initial = getInitialState(story);
+        setIsLiked(initial.liked);
+        setIsSaved(initial.saved);
+        setLikesCount(initial.count);
+    }, [story]);
 
     // Toggle like - calls backend API
     const handleLikeClick = async (e) => {

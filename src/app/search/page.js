@@ -4,8 +4,11 @@ import { SearchClient } from './SearchClient';
 // Force dynamic so search queries can be reflected in metadata
 export const dynamic = 'force-dynamic';
 
-export function generateMetadata({ searchParams }) {
-  const q = (searchParams?.q || '').toString().trim();
+export async function generateMetadata({ searchParams }) {
+  // `searchParams` may be a promise-like proxy in Next.js dynamic routes —
+  // await it before accessing properties to avoid sync dynamic API errors.
+  const params = await searchParams;
+  const q = (params?.q || '').toString().trim();
   const hasQuery = q.length > 0;
 
   const title = hasQuery ? `Search results for "${q}" — StoryVermo` : 'Search — StoryVermo';

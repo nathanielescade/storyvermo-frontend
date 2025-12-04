@@ -1,11 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
 import { storiesApi } from '../../../lib/api';
 import StoryCard from '../components/StoryCard';
 import AuthModal from '../components/AuthModal';
+
+const StorySkeleton = () => (
+  <div className="rounded-2xl overflow-hidden bg-slate-900/60 border border-cyan-500/20">
+    <div className="w-full h-40 bg-slate-800 animate-pulse"></div>
+    <div className="p-3">
+      <div className="h-5 bg-slate-800 rounded w-3/4 animate-pulse mb-2"></div>
+      <div className="flex gap-3">
+        <div className="h-4 bg-slate-800 rounded w-12 animate-pulse"></div>
+        <div className="h-4 bg-slate-800 rounded w-12 animate-pulse"></div>
+        <div className="h-4 bg-slate-800 rounded w-12 animate-pulse"></div>
+      </div>
+    </div>
+  </div>
+);
 
 const SavedPageClient = () => {
   const router = useRouter();
@@ -14,6 +28,8 @@ const SavedPageClient = () => {
   const [loading, setLoading] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalContext, setAuthModalContext] = useState(null);
+  const [storyFeedModal, setStoryFeedModal] = useState({ visible: false, initialIndex: 0 });
+  const feedContainerRef = useRef(null);
 
   // Fetch saved stories when component mounts
   useEffect(() => {
@@ -22,15 +38,18 @@ const SavedPageClient = () => {
       return;
     }
 
-      const fetchSavedStories = async () => {
+    const fetchSavedStories = async () => {
       try {
         const stories = await storiesApi.getSavedStories();
         setSavedStories(stories);
       } catch (error) {
+        console.error('Error fetching saved stories:', error);
       } finally {
         setLoading(false);
       }
-    };    fetchSavedStories();
+    };
+
+    fetchSavedStories();
   }, [isAuthenticated]);
 
   const openAuthModal = (action, context) => {
@@ -51,10 +70,47 @@ const SavedPageClient = () => {
     try {
       await storiesApi.toggleSaveBySlug(story.slug);
     } catch (error) {
+      console.error('Error toggling save:', error);
       // Revert on error
       setSavedStories(prev => [...prev, story]);
     }
   };
+
+  // Handle like toggle for saved stories (update local state)
+  const handleLikeToggle = async (slug) => {
+    try {
+      await storiesApi.toggleLike(slug);
+      setSavedStories(prev => prev.map(s => s.slug === slug ? ({
+        ...s,
+        isLiked: !s.isLiked,
+        likes_count: s.isLiked ? (s.likes_count || 0) - 1 : (s.likes_count || 0) + 1
+      }) : s));
+    } catch (e) {
+      console.error('Error toggling like:', e);
+    }
+  };
+
+  // Handle clicking a story card to open feed modal at that index
+  const handleStoryClick = (e, index) => {
+    e && e.preventDefault && e.preventDefault();
+    setStoryFeedModal({ visible: true, initialIndex: index });
+  };
+
+  // When the feed modal opens, scroll to the initial index
+  useEffect(() => {
+    if (!storyFeedModal.visible) return;
+    const t = setTimeout(() => {
+      try {
+        if (!feedContainerRef.current) return;
+        const children = feedContainerRef.current.querySelectorAll(':scope > *');
+        const el = children[storyFeedModal.initialIndex];
+        if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
+      } catch (e) {
+        console.error('Error scrolling to story:', e);
+      }
+    }, 60);
+    return () => clearTimeout(t);
+  }, [storyFeedModal.visible, storyFeedModal.initialIndex]);
 
   // If not authenticated, show login prompt
   if (!isAuthenticated) {
@@ -82,10 +138,10 @@ const SavedPageClient = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 pt-24 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 pt-24 px-4">
       <div className="max-w-6xl mx-auto">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">Your Saved Stories</h1>
+        <div className="mb-8 p-6 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md rounded-2xl border border-cyan-500/30">
+          <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 mb-2">Your Saved Stories</h1>
           <p className="text-gray-400">Stories you&apos;ve bookmarked for later</p>
         </div>
 
@@ -96,18 +152,36 @@ const SavedPageClient = () => {
             <p>Loading your saved stories...</p>
           </div>
         ) : savedStories.length > 0 ? (
-          // Grid of saved stories
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          // Grid of saved stories (match search page grid)
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {savedStories.map((story, index) => (
-              <StoryCard
+              <div
                 key={story.id}
-                story={story}
-                index={index}
-                viewType="feed"
-                isAuthenticated={isAuthenticated}
-                openAuthModal={openAuthModal}
-                onSaveToggle={() => handleSaveToggle(story)}
-              />
+                onClick={(e) => handleStoryClick(e, index)}
+                className="cursor-pointer group"
+              >
+                <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900/60 to-indigo-900/60 border border-cyan-500/20 hover:border-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02]">
+                  {story.cover_image_url ? (
+                    <img
+                      src={story.cover_image_url}
+                      alt={story.title}
+                      className="w-full h-40 object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-40 bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center">
+                      <i className="fas fa-image text-4xl text-white/20"></i>
+                    </div>
+                  )}
+                  <div className="p-4">
+                    <h3 className="font-bold mb-2 truncate text-white group-hover:text-cyan-300 transition-colors">{story.title}</h3>
+                    <div className="flex gap-3 text-sm text-gray-400">
+                      <span><i className="fas fa-heart mr-1 text-cyan-500"></i>{story.likes_count || 0}</span>
+                      <span><i className="fas fa-comment mr-1 text-purple-500"></i>{story.comments_count || 0}</span>
+                      <span><i className="fas fa-share mr-1 text-blue-500"></i>{story.shares_count || 0}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         ) : (
@@ -133,6 +207,39 @@ const SavedPageClient = () => {
         onClose={() => setShowAuthModal(false)}
         context={authModalContext}
       />
+      
+      {/* Story Feed Modal (reused) */}
+      {storyFeedModal.visible && (
+        <div className="fixed inset-0 z-[9999] bg-black">
+          <button
+            onClick={() => setStoryFeedModal({ visible: false, initialIndex: 0 })}
+            className="fixed top-4 right-4 z-[10000] w-12 h-12 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+          >
+            <i className="fas fa-times text-xl"></i>
+          </button>
+
+          <div className="h-full overflow-y-auto">
+            <div className="flex justify-center md:justify-start h-full">
+              <div className="w-full md:pl-[280px]">
+                <div className="image-feed" ref={feedContainerRef}>
+                  {savedStories.map((story, index) => (
+                    <StoryCard
+                      key={story.slug || index}
+                      story={story}
+                      index={index}
+                      viewType="feed"
+                      onLikeToggle={() => handleLikeToggle(story.slug)}
+                      onSaveToggle={() => handleSaveToggle(story)}
+                      isAuthenticated={isAuthenticated}
+                      openAuthModal={openAuthModal}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

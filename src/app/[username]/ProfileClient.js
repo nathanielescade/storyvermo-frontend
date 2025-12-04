@@ -93,6 +93,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
   
   // New state for story feed modal
   const [storyFeedModal, setStoryFeedModal] = useState({ visible: false, initialIndex: 0 });
+  const feedContainerRef = useRef(null);
   
   // Refs for file inputs
   const profileFileInputRef = useRef(null);
@@ -207,6 +208,27 @@ export default function ProfileClient({ username, initialProfile = null }) {
     }
   }, [followersModal.visible, followersModal.type, fetchFollowersData]);
 
+  // When feed modal opens, scroll the feed to the requested initial index
+  useEffect(() => {
+    if (storyFeedModal.visible && feedContainerRef.current) {
+      // small delay to ensure children are rendered
+      const t = setTimeout(() => {
+        try {
+          const idx = Number(storyFeedModal.initialIndex) || 0;
+          const children = feedContainerRef.current.querySelectorAll(':scope > *');
+          if (children && children.length > idx) {
+            const el = children[idx];
+            el?.scrollIntoView({ behavior: 'auto', block: 'center' });
+          }
+        } catch (e) {
+          // ignore
+        }
+      }, 60);
+
+      return () => clearTimeout(t);
+    }
+  }, [storyFeedModal.visible, storyFeedModal.initialIndex]);
+
   const handleFollow = async () => {
     if (!isAuthenticated) {
       openAuthModal();
@@ -216,10 +238,14 @@ export default function ProfileClient({ username, initialProfile = null }) {
     try {
       const response = await userApi.followUser(username);
       setIsFollowing(response.is_following);
-      setFollowers(prev => response.is_following 
+      // Update follower list and user follower count
+      setFollowers(prev => response.is_following
         ? [...prev, currentUser]
         : prev.filter(f => f.username !== currentUser.username)
       );
+      setUser(prev => ({ ...prev, followers_count: typeof response.follower_count !== 'undefined' ? response.follower_count : (prev.followers_count || 0) + (response.is_following ? 1 : -1) }));
+      // Broadcast event so other components can update
+      try { window.dispatchEvent(new CustomEvent('user:follow:update', { detail: { username, is_following: response.is_following, follower_count: response.follower_count } })); } catch (e) {}
       // Update current user's following list
       if (response.is_following) {
         setCurrentUserFollowing(prev => [...prev, username]);
@@ -246,6 +272,16 @@ export default function ProfileClient({ username, initialProfile = null }) {
       } else {
         setCurrentUserFollowing(prev => prev.filter(u => u !== userToFollow.username));
       }
+      // If the modal lists include this user, update their follower_count and is_following
+      setFollowers(prev => prev.map(f => f.username === userToFollow.username ? ({ ...f, is_following: response.is_following, followers_count: typeof response.follower_count !== 'undefined' ? response.follower_count : f.followers_count }) : f));
+      setFollowing(prev => prev.map(f => f.username === userToFollow.username ? ({ ...f, is_following: response.is_following, followers_count: typeof response.follower_count !== 'undefined' ? response.follower_count : f.followers_count }) : f));
+      // If the user we followed/unfollowed is the profile being viewed, update count too
+      if (userToFollow.username === username) {
+        setUser(prev => ({ ...prev, followers_count: typeof response.follower_count !== 'undefined' ? response.follower_count : prev.followers_count }));
+        setIsFollowing(response.is_following);
+      }
+      // Broadcast event
+      try { window.dispatchEvent(new CustomEvent('user:follow:update', { detail: { username: userToFollow.username, is_following: response.is_following, follower_count: response.follower_count } })); } catch (e) {}
     } catch (error) {
     }
   };
@@ -671,7 +707,20 @@ export default function ProfileClient({ username, initialProfile = null }) {
                         </div>
                       )}
                       <div className="p-3">
-                        <h3 className="font-bold mb-1 truncate text-white group-hover:text-cyan-300 transition-colors">{story.title}</h3>
+                        <h3
+                          className="text-sm font-semibold mb-1 text-white group-hover:text-cyan-300 transition-colors"
+                          style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                            whiteSpace: 'normal',
+                            overflowWrap: 'anywhere',
+                            maxHeight: '3rem'
+                          }}
+                        >
+                          {story.title}
+                        </h3>
                         <div className="flex gap-3 text-sm text-gray-400">
                           <span><i className="fas fa-heart mr-1 text-cyan-500"></i>{story.likes_count || 0}</span>
                           <span><i className="fas fa-comment mr-1 text-purple-500"></i>{story.comments_count || 0}</span>
@@ -781,9 +830,20 @@ export default function ProfileClient({ username, initialProfile = null }) {
                       </div>
 
                       <div className="p-4">
-                        <div className="text-sm text-gray-400 mb-1">{displayStoryTitle}</div>
-                        <div className="text-white font-semibold mb-1 text-lg leading-tight">{displayTitle}</div>
-                        <div className="text-xs text-gray-400 mb-2">in <span className="text-indigo-300">{displayStoryTitle}</span></div>
+                        <div
+                          className="text-sm font-semibold mb-1 leading-tight text-white"
+                          style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                            whiteSpace: 'normal',
+                            overflowWrap: 'anywhere',
+                            maxHeight: '3rem'
+                          }}
+                        >
+                          {displayTitle}
+                        </div>
                       </div>
                     </Link>
                   );
@@ -884,11 +944,20 @@ export default function ProfileClient({ username, initialProfile = null }) {
                         </div>
 
                         <div className="p-4">
-                          <div className="text-sm text-gray-400 mb-1">{displayStoryTitle}</div>
-                          <div className="text-white font-semibold mb-1 text-lg leading-tight">{displayTitle}</div>
-                          <div className="text-xs text-orange-400 mb-2">
-                            <i className="fas fa-handshake mr-1"></i>Contributed to <span className="text-indigo-300">{displayStoryTitle}</span>
-                          </div>
+                          <div
+                            className="text-sm font-semibold mb-1 leading-tight text-white"
+                            style={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              whiteSpace: 'normal',
+                              overflowWrap: 'anywhere',
+                              maxHeight: '3rem'
+                            }}
+                          >
+                              {displayTitle}
+                            </div>
                         </div>
                       </Link>
                     );
@@ -931,7 +1000,20 @@ export default function ProfileClient({ username, initialProfile = null }) {
                           </div>
                         )}
                         <div className="p-3">
-                          <h3 className="font-bold mb-1 truncate text-white group-hover:text-cyan-300 transition-colors">{story.title}</h3>
+                          <h3
+                            className="text-sm font-semibold mb-1 text-white group-hover:text-cyan-300 transition-colors"
+                            style={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              whiteSpace: 'normal',
+                              overflowWrap: 'anywhere',
+                              maxHeight: '3rem'
+                            }}
+                          >
+                            {story.title}
+                          </h3>
                           <div className="flex gap-3 text-sm text-gray-400">
                             <span><i className="fas fa-heart mr-1 text-cyan-500"></i>{story.likes_count || 0}</span>
                             <span><i className="fas fa-comment mr-1 text-purple-500"></i>{story.comments_count || 0}</span>
@@ -983,7 +1065,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
                 {/* Add left padding on md+ to move the feed away from the sidebar (sidebar width = 280px) */}
                 <div className="w-full md:pl-[280px]">
                   {/* Reuse the homepage "image-feed" container so StoryCard renders the same size without changing StoryCard itself */}
-                  <div className="image-feed">
+                  <div className="image-feed" ref={feedContainerRef}>
                     {stories.map((story, index) => (
                       <StoryCard
                         key={story.slug || index}

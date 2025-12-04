@@ -23,14 +23,18 @@ const NotificationBell = () => {
   const [previewLoading, setPreviewLoading] = useState(false);
   const notificationRef = useRef(null);
 
-  // Fetch unread count on mount and subscribe to updates
+  // Fetch unread count on mount and whenever authenticated status changes
+  // This runs immediately without waiting for isAuthenticated to be true
   useEffect(() => {
     let mounted = true;
-    if (!isAuthenticated) {
-      setUnreadCount(0);
-      return;
-    }
+    
     const fetchUnreadCount = async () => {
+      // Skip if not authenticated
+      if (!isAuthenticated) {
+        if (mounted) setUnreadCount(0);
+        return;
+      }
+      
       try {
         let data = null;
         try { 
@@ -48,25 +52,37 @@ const NotificationBell = () => {
           else if (data.notifications) count = (data.notifications.filter ? data.notifications.filter(n => !n.is_read).length : 0);
           else if (data.results) count = (data.results.filter ? data.results.filter(n => !n.is_read).length : 0);
         }
+        
+        // If no count found, try fetching full notifications list
         if (!count) {
           try {
             const full = await notificationsApi.getNotifications();
             const list = full?.notifications ?? full?.results ?? (Array.isArray(full) ? full : []);
             count = list.filter(n => !n.is_read).length;
           } catch (e) {
+            // ignore
           }
         }
+        
         if (mounted) setUnreadCount(count);
       } catch (err) {
+        if (mounted) setUnreadCount(0);
       }
     };
+    
+    // Fetch immediately when authenticated
     fetchUnreadCount();
+    
+    // Also set up polling every 30 seconds
     const intervalId = setInterval(fetchUnreadCount, 30000);
+    
+    // Listen for custom event updates (real-time from other components)
     const handleCountUpdate = (event) => {
       const newCount = typeof event.detail === 'number' ? event.detail : 0;
-      setUnreadCount(newCount);
+      if (mounted) setUnreadCount(newCount);
     };
     window.addEventListener('notifications:count:update', handleCountUpdate);
+    
     return () => {
       mounted = false;
       clearInterval(intervalId);
