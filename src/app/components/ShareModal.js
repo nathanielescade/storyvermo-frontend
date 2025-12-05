@@ -237,7 +237,7 @@ const ShareModal = ({ isOpen, onClose, shareData, imageUrl, isVerse }) => {
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-lg z-[5000] flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-lg z-[10102] flex items-center justify-center p-4">
       <div 
         ref={modalRef} 
         className="bg-gradient-to-br from-gray-900 to-black border border-neon-blue/30 rounded-2xl w-full max-w-md overflow-hidden transform transition-all duration-300 scale-95 animate-scaleIn"

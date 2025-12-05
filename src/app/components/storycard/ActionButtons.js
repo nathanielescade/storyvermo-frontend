@@ -11,7 +11,8 @@ const ActionButtons = ({
     setShowShareModal,
     isAuthenticated,
     openAuthModal,
-    onStoryUpdate // Callback to refresh parent component
+    onStoryUpdate, // Callback to refresh parent component
+    onLikeBurst // Optional callback to trigger a visual burst when liking
 }) => {
     // Helper to extract liked/saved status and counts from story
     const getInitialState = (storyData) => {
@@ -71,6 +72,10 @@ const ActionButtons = ({
 
             // Optimistic UI update (instant visual change)
             setIsLiked(!wasLiked);
+            // Trigger optional visual burst only when liking (not unliking)
+            if (!wasLiked) {
+                try { onLikeBurst && onLikeBurst(); } catch (e) { /* ignore */ }
+            }
             setLikesCount(prev => wasLiked ? prev - 1 : prev + 1);
 
             // Call backend API
@@ -163,8 +168,8 @@ const ActionButtons = ({
     const loadingClasses = 'opacity-50 cursor-not-allowed';
 
     // Compute classes so we can remove transition while the action is loading (makes fill instant)
-    const likeButtonClasses = `${baseButtonClasses} ${hoverClasses} ${isLiked ? activeClasses : inactiveClasses} ${isLikeLoading ? 'transition-none' : ''} ${isLikeLoading ? loadingClasses : ''}`;
-    const saveButtonClasses = `${baseButtonClasses} ${hoverClasses} ${isSaved ? activeClasses : inactiveClasses} ${isSaveLoading ? 'transition-none' : ''} ${isSaveLoading ? loadingClasses : ''}`;
+    const likeButtonClasses = `${baseButtonClasses} ${hoverClasses} ${isLiked ? activeClasses : inactiveClasses} ${isLikeLoading ? 'transition-none' : ''}`;
+    const saveButtonClasses = `${baseButtonClasses} ${hoverClasses} ${isSaved ? activeClasses : inactiveClasses} ${isSaveLoading ? 'transition-none' : ''}`;
 
     return (
         <div className="flex justify-between mb-3 w-full gap-2">
@@ -175,8 +180,8 @@ const ActionButtons = ({
                 role="button"
                 tabIndex={0}
                 aria-label={isLiked ? "Unlike story" : "Like story"}
-                aria-disabled={isLikeLoading}
-                onKeyPress={(e) => e.key === 'Enter' && !isLikeLoading && handleLikeClick(e)}
+                aria-busy={isLikeLoading}
+                onKeyPress={(e) => e.key === 'Enter' && handleLikeClick(e)}
             >
                 <i className={`${getIconClass('fa-heart', isLiked)} ${isLiked ? 'animate-pulse' : ''}`}></i>
                 <div className="absolute -bottom-1 -right-1 bg-[#ff6b35] text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[18px] text-center z-10 transition-all duration-200">
@@ -230,8 +235,8 @@ const ActionButtons = ({
                 role="button"
                 tabIndex={0}
                 aria-label={isSaved ? "Remove from saved" : "Save story"}
-                aria-disabled={isSaveLoading}
-                onKeyPress={(e) => e.key === 'Enter' && !isSaveLoading && handleSaveClick(e)}
+                aria-busy={isSaveLoading}
+                onKeyPress={(e) => e.key === 'Enter' && handleSaveClick(e)}
             >
                 <i className={`${getIconClass('fa-bookmark', isSaved)} ${isSaved ? 'animate-pulse' : ''}`}></i>
                 {/* Debug indicator - remove in production */}

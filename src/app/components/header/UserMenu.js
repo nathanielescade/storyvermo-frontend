@@ -4,17 +4,16 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../../contexts/AuthContext';
 
-const UserMenu = ({ openAuthModal }) => {
+const UserMenu = ({ openAuthModal, isOpen = false, onOpen, onClose }) => {
   const { currentUser, isAuthenticated, logout } = useAuth();
   const router = useRouter();
-  const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef(null);
 
   // Handle click outside to close menu
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
-        setShowUserMenu(false);
+        onClose?.();
       }
     };
 
@@ -22,7 +21,7 @@ const UserMenu = ({ openAuthModal }) => {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, []);
+  }, [onClose]);
 
   const handleLogout = async () => {
     try {
@@ -61,7 +60,13 @@ const UserMenu = ({ openAuthModal }) => {
         <>
           <button 
             className="w-10 h-10 rounded-full bg-gradient-to-r from-accent-orange to-neon-pink flex items-center justify-center text-white font-bold text-lg shadow-[0_0_15px_rgba(255,107,53,0.7)] transition-transform hover:scale-105 overflow-hidden"
-            onClick={() => setShowUserMenu(!showUserMenu)}
+            onClick={() => {
+              if (isOpen) {
+                onClose?.();
+              } else {
+                onOpen?.();
+              }
+            }}
           >
             {getProfileImageUrl(currentUser) ? (
               // FIXED: Replaced Next.js Image with regular img tag
@@ -74,7 +79,7 @@ const UserMenu = ({ openAuthModal }) => {
               getUserInitial(getUsername(currentUser))
             )}
           </button>
-          <div className={`absolute right-0 mt-2 w-56 bg-gradient-to-b from-gray-900 to-black border border-neon-blue/30 rounded-lg shadow-lg z-50 overflow-hidden ${showUserMenu ? '' : 'hidden'}`}>
+          <div className={`absolute right-0 mt-2 w-56 bg-gradient-to-b from-gray-900 to-black border border-neon-blue/30 rounded-lg shadow-lg z-50 overflow-hidden ${isOpen ? '' : 'hidden'}`}>
             <div className="p-3 border-b border-neon-blue/20">
               <p className="text-white font-medium">{getUsername(currentUser)}</p>
               <p className="text-gray-400 text-sm">{getUserEmail(currentUser)}</p>
@@ -94,19 +99,19 @@ const UserMenu = ({ openAuthModal }) => {
               <span>Saved</span>
             </Link>
             <div className="border-t border-neon-blue/20 my-1" />
-            <Link href="/about" className="w-full text-left px-4 py-2 text-gray-300 hover:text-white hover:bg-neon-blue/10 transition-colors flex items-center gap-2">
+            <Link href="/about" className="w-full text-left px-4 py-2 text-gray-300 hover:text-white hover:bg-neon-blue/10 transition-colors flex items-center gap-2" onClick={() => onClose?.()}>
               <i className="fas fa-info-circle"></i>
               <span>About</span>
             </Link>
-            <Link href="/contact" className="w-full text-left px-4 py-2 text-gray-300 hover:text-white hover:bg-neon-blue/10 transition-colors flex items-center gap-2">
+            <Link href="/contact" className="w-full text-left px-4 py-2 text-gray-300 hover:text-white hover:bg-neon-blue/10 transition-colors flex items-center gap-2" onClick={() => onClose?.()}>
               <i className="fas fa-envelope"></i>
               <span>Contact</span>
             </Link>
-            <Link href="/terms" className="w-full text-left px-4 py-2 text-gray-300 hover:text-white hover:bg-neon-blue/10 transition-colors flex items-center gap-2">
+            <Link href="/terms" className="w-full text-left px-4 py-2 text-gray-300 hover:text-white hover:bg-neon-blue/10 transition-colors flex items-center gap-2" onClick={() => onClose?.()}>
               <i className="fas fa-file-contract"></i>
               <span>Terms</span>
             </Link>
-            <Link href="/privacy" className="w-full text-left px-4 py-2 text-gray-300 hover:text-white hover:bg-neon-blue/10 transition-colors flex items-center gap-2">
+            <Link href="/privacy" className="w-full text-left px-4 py-2 text-gray-300 hover:text-white hover:bg-neon-blue/10 transition-colors flex items-center gap-2" onClick={() => onClose?.()}>
               <i className="fas fa-user-shield"></i>
               <span>Privacy</span>
             </Link>
@@ -125,15 +130,21 @@ const UserMenu = ({ openAuthModal }) => {
           <button
             className="w-10 h-10 rounded-full bg-gradient-to-r from-accent-orange to-neon-pink flex items-center justify-center text-white text-xl shadow-[0_0_15px_rgba(255,107,53,0.7)] transition-transform hover:scale-105"
             aria-label="Open menu"
-            onClick={() => setShowUserMenu(!showUserMenu)}
+            onClick={() => {
+              if (isOpen) {
+                onClose?.();
+              } else {
+                onOpen?.();
+              }
+            }}
           >
             <i className="fas fa-bars"></i>
           </button>
-          <div className={`absolute right-0 mt-2 w-56 bg-gradient-to-b from-gray-900 to-black border border-neon-blue/30 rounded-lg shadow-lg z-50 overflow-hidden ${showUserMenu ? '' : 'hidden'}`}>
+          <div className={`absolute right-0 mt-2 w-56 bg-gradient-to-b from-gray-900 to-black border border-neon-blue/30 rounded-lg shadow-lg z-50 overflow-hidden ${isOpen ? '' : 'hidden'}`}>
             <button
               className="w-full text-left px-4 py-3 text-white hover:bg-neon-blue/10 transition-colors flex items-center gap-2 bg-transparent border-0"
               onClick={() => {
-                setShowUserMenu(false);
+                onClose?.();
                 if (openAuthModal) {
                   openAuthModal();
                 } else {

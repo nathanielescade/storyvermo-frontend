@@ -225,6 +225,12 @@ export function AuthProvider({ children }) {
           updateAuthState(user);
           // Small delay to ensure cookies are set
           await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // Emit auth:success event so FeedClient and other components can refresh
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('auth:success', { detail: { user } }));
+          }
+          
           return { success: true, user };
         }
       }
@@ -271,6 +277,12 @@ export function AuthProvider({ children }) {
         if (user) {
           updateAuthState(user);
           await new Promise(resolve => setTimeout(resolve, 100));
+          
+          // Emit auth:success event so FeedClient and other components can refresh
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('auth:success', { detail: { user } }));
+          }
+          
           return { success: true, user };
         }
       }
@@ -284,6 +296,12 @@ export function AuthProvider({ children }) {
             const user = authUtils.normalizeUserFromResponse(check);
             if (user) {
               updateAuthState(user);
+              
+              // Emit auth:success event
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('auth:success', { detail: { user } }));
+              }
+              
               return { success: true, user };
             }
           } catch (e) {

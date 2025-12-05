@@ -72,6 +72,50 @@ export default function StoryCard({
     const hologramRef = useRef(null);
     const dropdownRef = useRef(null);
 
+    // Trigger a short burst of extra bubbles in the hologram (e.g., when user likes)
+    const triggerLikeBurst = useCallback(() => {
+        const node = hologramRef.current;
+        if (!node) return;
+
+        const burstCount = 12;
+        const created = [];
+
+        for (let i = 0; i < burstCount; i++) {
+            const heart = document.createElement('div');
+            heart.className = 'like-burst-heart';
+            
+            const size = Math.random() * 10 + 8; // 8-18px (smaller)
+            heart.style.fontSize = `${size}px`;
+            heart.innerHTML = '<i class="fas fa-heart"></i>';
+            
+            // Use varied colors for each heart
+            const colors = ['#ff6b35', '#ff0080', '#00d4ff', '#9d00ff', '#ff6b35'];
+            heart.style.color = colors[Math.floor(Math.random() * colors.length)];
+
+            // Position near the like icon (left side of hologram) with some spread
+            const left = 10 + Math.random() * 15; // 10-25% (near left where like icon is)
+            const top = 30 + Math.random() * 40; // 30-70% (vertically centered)
+            heart.style.position = 'absolute';
+            heart.style.left = `${left}%`;
+            heart.style.top = `${top}%`;
+            heart.style.pointerEvents = 'none';
+            heart.style.zIndex = '1';
+
+            // Short, snappy animation so they disappear quickly
+            const duration = (Math.random() * 0.8) + 0.8; // ~0.8 - 1.6s
+            const delay = Math.random() * 0.12;
+            heart.style.animation = `bubble-float ${duration}s ease-out ${delay}s forwards`;
+
+            node.appendChild(heart);
+            created.push(heart);
+        }
+
+        // Remove them after ~2s
+        setTimeout(() => {
+            created.forEach(h => h && h.remove());
+        }, 2000);
+    }, []);
+
     // Function to refetch story data - MUST be before first useEffect that calls it
     const refetchStory = useCallback(async () => {
         try {
@@ -494,6 +538,7 @@ export default function StoryCard({
                             isAuthenticated={isAuthenticated}
                             openAuthModal={openAuthModal}
                             onStoryUpdate={refetchStory}
+                            onLikeBurst={triggerLikeBurst}
                         />
                         
                         <CreatorChip 

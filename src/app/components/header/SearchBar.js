@@ -7,6 +7,7 @@ import { useAuth } from '../../../../contexts/AuthContext';
 
 const SearchBar = ({ 
   isMobile = false, 
+  shouldFocus = false,
   onClose, 
   initialQuery = '',
   onSearchSubmit 
@@ -47,14 +48,20 @@ const SearchBar = ({
     loadRecentSearches();
   }, [isAuthenticated]);
 
-  // Auto-focus when component mounts (desktop only)
+  // Auto-focus when component mounts (desktop only, or mobile with shouldFocus)
   useEffect(() => {
     if (!isMobile && searchInputRef.current) {
       setTimeout(() => {
         searchInputRef.current.focus();
       }, 100);
     }
-  }, [isMobile]);
+    
+    if (isMobile && shouldFocus && searchInputRef.current) {
+      setTimeout(() => {
+        searchInputRef.current.focus();
+      }, 50);
+    }
+  }, [isMobile, shouldFocus]);
 
   // Handle search input changes with auto-suggest
   const handleSearchInput = (e) => {

@@ -215,6 +215,27 @@ export default function useMain(initialState = null) {
             window.location.href = `/stories/${story.slug}/verses/`;
         }
     }, [stories]);
+
+    // Refresh current stories WITHOUT full page reload - called after login to update like/save status
+    const refreshStories = useCallback(async () => {
+        if (stories.length === 0) return; // Nothing to refresh
+        
+        try {
+            const params = { page: 1 };
+            if (currentTag !== 'for-you') params.tag = currentTag;
+            
+            const result = await storiesApi.getPaginatedStories(params);
+            const freshStories = result.results || [];
+            
+            if (freshStories.length > 0) {
+                // Update stories with fresh data while preserving scroll position
+                setStories(freshStories);
+                setHasNext(result.next !== null);
+            }
+        } catch (error) {
+            // Silently fail - don't disrupt user experience
+        }
+    }, [currentTag, stories.length]);
     
     return {
         stories,
@@ -231,6 +252,7 @@ export default function useMain(initialState = null) {
         handleFetchMore,
         handleFollowUser,
         handleOpenStoryVerses,
+        refreshStories,
         refreshAuth
     };
 }

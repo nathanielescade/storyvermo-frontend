@@ -14,10 +14,9 @@ import {
 } from '../../../../lib/leaderboardNotifications';
 import LeaderboardNotificationDisplay from '../LeaderboardNotificationDisplay';
 
-const NotificationBell = () => {
+const NotificationBell = ({ isOpen = false, onOpen, onClose }) => {
   const { isAuthenticated } = useAuth();
   const router = useRouter();
-  const [showNotifications, setShowNotifications] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notificationsPreview, setNotificationsPreview] = useState([]);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -91,7 +90,7 @@ const NotificationBell = () => {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    if (!showNotifications) return;
+    if (!isOpen) return;
     let mounted = true;
     setPreviewLoading(true);
     (async () => {
@@ -114,7 +113,7 @@ const NotificationBell = () => {
       }
     })();
     return () => { mounted = false; };
-  }, [showNotifications, isAuthenticated]);
+  }, [isOpen, isAuthenticated]);
 
   const markAsRead = async (id) => {
     try {
@@ -145,7 +144,13 @@ const NotificationBell = () => {
           aria-label="Notifications" 
           type="button" 
           style={{ position: 'relative', zIndex: '1500', overflow: 'visible' }}
-          onClick={() => setShowNotifications(!showNotifications)}
+          onClick={() => {
+            if (isOpen) {
+              onClose?.();
+            } else {
+              onOpen?.();
+            }
+          }}
         >
           <i className="fas fa-bell text-white text-xl"></i>
         </button>
@@ -164,7 +169,7 @@ const NotificationBell = () => {
             maxWidth: '420px', 
             position: 'fixed', 
             zIndex: '9999',
-            display: showNotifications ? 'flex' : 'none',
+            display: isOpen ? 'flex' : 'none',
             flexDirection: 'column',
             maxHeight: '80vh'
           }}
@@ -190,7 +195,7 @@ const NotificationBell = () => {
                         notification={n}
                         onMarkAsRead={markAsRead}
                         onNavigate={(path) => {
-                          setShowNotifications(false);
+                          onClose?.();
                           router.push(path);
                         }}
                       />
@@ -207,7 +212,7 @@ const NotificationBell = () => {
                       onClick={async (e) => {
                         e.stopPropagation();
                         if (!n.is_read) await markAsRead(n.id);
-                        setShowNotifications(false);
+                        onClose?.();
                         router.push('/');
                       }}
                     >
@@ -263,7 +268,7 @@ const NotificationBell = () => {
             )}
           </div>
           <div className="notification-footer" style={{ padding: '12px', borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', flex: 'none' }}>
-            <Link href="/notifications" onClick={() => setShowNotifications(false)} className="notification-view-all" style={{ cursor: 'pointer', color: '#fff', textAlign: 'center', padding: '12px', display: 'block', margin: '0', borderRadius: '8px', background: 'linear-gradient(90deg, rgba(0,212,255,0.3) 0%, rgba(155,223,248,0.3) 100%)', transition: 'all 0.2s ease', fontWeight: '600', textShadow: '0 0 10px rgba(155,223,248,0.5)', border: '1px solid rgba(155,223,248,0.4)', boxShadow: '0 0 15px rgba(155,223,248,0.15)' }}>
+            <Link href="/notifications" onClick={() => onClose?.()} className="notification-view-all" style={{ cursor: 'pointer', color: '#fff', textAlign: 'center', padding: '12px', display: 'block', margin: '0', borderRadius: '8px', background: 'linear-gradient(90deg, rgba(0,212,255,0.3) 0%, rgba(155,223,248,0.3) 100%)', transition: 'all 0.2s ease', fontWeight: '600', textShadow: '0 0 10px rgba(155,223,248,0.5)', border: '1px solid rgba(155,223,248,0.4)', boxShadow: '0 0 15px rgba(155,223,248,0.15)' }}>
               <i className="fas fa-bell" style={{ marginRight: '8px' }}></i>View all notifications
             </Link>
           </div>

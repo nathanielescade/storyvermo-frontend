@@ -12,6 +12,8 @@ import UserMenu from './header/UserMenu';
 const Header = ({ openAuthModal }) => {
   const { isAuthenticated } = useAuth();
   const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
   const mobileSearchBarRef = useRef(null);
 
   // Handle click outside to close mobile search and scroll
@@ -49,25 +51,50 @@ const Header = ({ openAuthModal }) => {
           <SearchBar />
         </div>
         
-        <NotificationBell />
-        
         {/* Search icon for mobile */}
         <button 
           className="search-toggle w-10 h-10 rounded-full bg-gradient-to-r from-neon-blue to-neon-purple flex items-center justify-center shadow-[0_0_15px_rgba(0,212,255,0.7)] transition-transform hover:scale-105 md:hidden"
-          onClick={() => setShowMobileSearch(!showMobileSearch)}
+          onClick={() => {
+            setShowMobileSearch(!showMobileSearch);
+            // Close other panels when opening search
+            if (!showMobileSearch) {
+              setShowNotifications(false);
+              setShowUserMenu(false);
+            }
+          }}
         >
           <i className="fas fa-search text-white text-xl"></i>
         </button>
         
+        <NotificationBell 
+          isOpen={showNotifications}
+          onOpen={() => {
+            setShowNotifications(true);
+            setShowMobileSearch(false);
+            setShowUserMenu(false);
+          }}
+          onClose={() => setShowNotifications(false)}
+        />
+        
         {/* User menu or login button */}
-        <UserMenu openAuthModal={openAuthModal} />
+        <UserMenu 
+          openAuthModal={openAuthModal}
+          isOpen={showUserMenu}
+          onOpen={() => {
+            setShowUserMenu(true);
+            setShowMobileSearch(false);
+            setShowNotifications(false);
+          }}
+          onClose={() => setShowUserMenu(false)}
+        />
       </div>
       
       {/* Search bar for mobile - appears when toggled */}
       {showMobileSearch && (
         <div className="search-bar-mobile absolute top-16 left-4 right-4 z-50 animate-fadeIn" ref={mobileSearchBarRef}>
           <SearchBar 
-            isMobile={true} 
+            isMobile={true}
+            shouldFocus={true}
             onClose={() => setShowMobileSearch(false)} 
           />
         </div>

@@ -22,6 +22,7 @@ export default function FeedClient({ initialState }) {
     handleOpenStoryVerses,
     isAuthenticated,
     refreshAuth,
+    refreshStories,
     error,
     prefetchNext
   } = useMain(initialState);
@@ -70,6 +71,19 @@ export default function FeedClient({ initialState }) {
   // NOTE: previous buffering logic (storiesBuffer) was removed because buffered
   // stories were never rendered/merged into main `stories`. This avoids
   // duplicate fetches and simplifies preload behavior.
+
+  // Listen for successful login/signup and refresh stories with updated auth status
+  useEffect(() => {
+    const handleAuthSuccess = () => {
+      // Delay slightly to allow server-side state to stabilize
+      setTimeout(() => {
+        refreshStories();
+      }, 150);
+    };
+
+    window.addEventListener('auth:success', handleAuthSuccess);
+    return () => window.removeEventListener('auth:success', handleAuthSuccess);
+  }, [refreshStories]);
 
   // Handle tag option click with authentication check
   const handleTagOptionClick = useCallback(async (tagName) => {
