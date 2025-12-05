@@ -30,7 +30,7 @@ const ConfirmationDialog = ({ isOpen, title, message, onConfirm, onCancel }) => 
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[1000] flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[10101] flex items-center justify-center p-4">
       <div className="bg-gradient-to-br from-slate-900 to-indigo-900 border border-purple-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl shadow-purple-500/20">
         <h3 className="text-xl font-bold text-white mb-3">{title}</h3>
         <p className="text-gray-300 mb-6">{message}</p>
@@ -173,7 +173,6 @@ const VerseItem = memo(({
               <div key={imgIndex} className="relative group">
                 {typeof image === 'string' ? (
                   <div className="relative w-full h-36">
-                    {/* FIXED: Replaced Next.js Image with regular img tag */}
                     <img 
                       src={image} 
                       alt={title ? `${title} - Moment ${imgIndex + 1}` : `Moment ${imgIndex + 1}`} 
@@ -186,7 +185,6 @@ const VerseItem = memo(({
                   </div>
                 ) : (
                   <div className="relative w-full h-36">
-                    {/* FIXED: Replaced Next.js Image with regular img tag */}
                     <img 
                       src={image.preview || image.url || image.file_url || (image.file ? URL.createObjectURL(image.file) : '')} 
                       alt={title ? `${title} - Moment ${imgIndex + 1}` : `Moment ${imgIndex + 1}`} 
@@ -380,6 +378,17 @@ const StoryFormModal = ({
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Prevent background scrolling when modal is open and restore on close
+  useEffect(() => {
+    const originalOverflow = typeof document !== 'undefined' ? document.body.style.overflow : '';
+    if (isOpen && typeof document !== 'undefined') {
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      if (typeof document !== 'undefined') document.body.style.overflow = originalOverflow || '';
+    };
+  }, [isOpen]);
   
   const [imagePreview, setImagePreview] = useState(editingStory?.cover_image?.file_url || null);
   const [imageFile, setImageFile] = useState(null);
@@ -721,6 +730,69 @@ const StoryFormModal = ({
     await proceedWithPublish();
   };
 
+  // Optimized upload function with progress tracking
+  const uploadImageWithProgress = async (file, onProgress) => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      
+      // Progress tracking
+      xhr.upload.addEventListener('progress', (event) => {
+        if (event.lengthComputable && onProgress) {
+          const percentComplete = (event.loaded / event.total) * 100;
+          onProgress(percentComplete);
+        }
+      });
+      
+      // Handle response
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const response = JSON.parse(xhr.responseText);
+            resolve(response);
+          } catch (e) {
+            reject(new Error('Invalid response format'));
+          }
+        } else {
+          let errorMessage = `Upload failed with status ${xhr.status}`;
+          try {
+            const errorResponse = JSON.parse(xhr.responseText);
+            errorMessage = errorResponse.error || errorMessage;
+          } catch (e) {
+            // Ignore parsing errors
+          }
+          reject(new Error(errorMessage));
+        }
+      });
+      
+      // Handle errors
+      xhr.addEventListener('error', () => {
+        reject(new Error('Network error during upload'));
+      });
+      
+      // Prepare form data
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('alt_text', file.name || '');
+      
+      // Get auth token
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      
+      // Open request
+      xhr.open('POST', '/api/images/', true);
+      
+      // Set headers
+      if (token) {
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      }
+      
+      // Include credentials
+      xhr.withCredentials = true;
+      
+      // Send request
+      xhr.send(formData);
+    });
+  };
+
   const proceedWithPublish = async () => {
     setShowEmptyVerseConfirmation(false);
     setLoading(true);
@@ -732,83 +804,83 @@ const StoryFormModal = ({
         throw new Error('You must be logged in to perform this action');
       }
 
-      // Helper function to upload a single image with better error handling
-      const uploadImage = async (file) => {
-        try {
-          // Create FormData properly
-          const formData = new FormData();
-          formData.append('file', file);  // Backend expects 'file' field
-          formData.append('alt_text', file.name || '');
+      // Prepare all images for upload (cover and verse images)
+      const allImagesToUpload = [];
       
-          // Get auth token
-          const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-          
-
-      
-          const res = await fetch('/api/images/', {
-            method: 'POST',
-            headers: {
-              // DON'T set Content-Type - let browser set it with boundary for multipart
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-            },
-            credentials: 'include', // Important for session auth
-            body: formData
-          });
-      
-          if (!res.ok) {
-            const errorText = await res.text();
-            let errorData;
-            try {
-              errorData = JSON.parse(errorText);
-            } catch {
-              errorData = { error: errorText };
-            }
-            
-         
-            
-            throw new Error(errorData.error || `Upload failed: ${res.statusText}`);
+      // Add cover image if exists
+      if (imageFile) {
+        allImagesToUpload.push({
+          file: imageFile,
+          type: 'cover',
+          onProgress: (percent) => {
+            // Update UI with progress if needed
+            console.log(`Cover image upload: ${percent.toFixed(0)}%`);
           }
+        });
+      }
       
-          const data = await res.json();
-          return data;
-          
-        } catch (error) {
-          throw error;
-        }
-      };
-
-      // Upload all verse images first and collect their public_ids
-      const versesWithUploadedImages = await Promise.all(
-        verses.map(async (verse) => {
-          const uploadedImageIds = [];
-          
-          for (const img of verse.imageIds || []) {
-            if (img && (img.file instanceof File || img instanceof File)) {
-              const file = img.file instanceof File ? img.file : img;
-              try {
-                const result = await uploadImage(file);
-                uploadedImageIds.push(result.public_id);
-              } catch (uploadErr) {
-                throw uploadErr;
+      // Add verse images
+      verses.forEach((verse, verseIndex) => {
+        (verse.imageIds || []).forEach((img, imgIndex) => {
+          if (img && (img.file instanceof File || img instanceof File)) {
+            const file = img.file instanceof File ? img.file : img;
+            allImagesToUpload.push({
+              file: file,
+              type: 'verse',
+              verseIndex,
+              imgIndex,
+              onProgress: (percent) => {
+                // Update UI with progress if needed
+                console.log(`Verse ${verseIndex + 1}, Image ${imgIndex + 1} upload: ${percent.toFixed(0)}%`);
               }
-            } else if (typeof img === 'string') {
-              uploadedImageIds.push(img);
-            } else if (img && img.public_id) {
-              uploadedImageIds.push(img.public_id);
+            });
+          }
+        });
+      });
+
+      // Upload all images in parallel with progress tracking
+      const uploadPromises = allImagesToUpload.map(img => 
+        uploadImageWithProgress(img.file, img.onProgress)
+      );
+      
+      const uploadResults = await Promise.all(uploadPromises);
+      
+      // Process upload results and map to original images
+      let resultIndex = 0;
+      let finalCoverImageId = coverImageId;
+      
+      // Process cover image result
+      if (imageFile) {
+        finalCoverImageId = uploadResults[resultIndex].public_id;
+        resultIndex++;
+      }
+      
+      // Process verse images and update verses with uploaded image IDs
+      const updatedVerses = verses.map(verse => {
+        const uploadedImageIds = [];
+        
+        // Copy existing image IDs (strings or objects with public_id)
+        (verse.imageIds || []).forEach(img => {
+          if (typeof img === 'string') {
+            uploadedImageIds.push(img);
+          } else if (img && img.public_id) {
+            uploadedImageIds.push(img.public_id);
+          } else if (img && (img.file instanceof File || img instanceof File)) {
+            // This is a newly uploaded file
+            if (resultIndex < uploadResults.length) {
+              uploadedImageIds.push(uploadResults[resultIndex].public_id);
+              resultIndex++;
             }
           }
-          
-          return {
-            content: (verse.content || '').trim(),
-            image_ids: uploadedImageIds,
-            order: verse.order || 0,
-            // Include the verse ID if it's an existing verse
-            ...(verse.slug && { id: verse.slug })
-          };
-        })
-      );
+        });
+        
+        return {
+          ...verse,
+          uploadedImageIds
+        };
+      });
 
-      // Prepare story payload with tags
+      // Prepare story payload
       const storyPayload = {
         title: title.trim(),
         description: description.trim(),
@@ -817,23 +889,12 @@ const StoryFormModal = ({
         creator: currentUser.id || currentUser.pk || currentUser.username
       };
 
-      // Handle cover image
-      let finalCoverImageId = coverImageId;
-      
-      if (imageFile) {
-        try {
-          const result = await uploadImage(imageFile);
-          finalCoverImageId = result.public_id;
-        } catch (uploadErr) {
-          throw uploadErr;
-        }
-      }
-      
       // Add cover image to payload if we have one
       if (finalCoverImageId) {
         storyPayload.cover_image_public_id = finalCoverImageId;
       }
 
+      // Create or update story
       let savedStory;
       if (editingStory) {
         savedStory = await storiesApi.updateStory(editingStory.slug, storyPayload);
@@ -841,52 +902,48 @@ const StoryFormModal = ({
         savedStory = await storiesApi.createStory(storyPayload);
       }
 
-      // After creating/updating the story, handle verses
-      const createdVerses = [];
+      // Prepare verses for creation/update
       const storyIdentifier = savedStory?.public_id || savedStory?.id || savedStory?.slug;
+      
+      // Create/update verses in parallel
+      const versePromises = updatedVerses.map(async (verse, index) => {
+        const verseData = {
+          story: storyIdentifier,
+          content: (verse.content || '').trim(),
+          order: verse.order || index + 1,
+          image_ids: verse.uploadedImageIds || []
+        };
 
-      if (Array.isArray(versesWithUploadedImages) && storyIdentifier) {
-        for (let i = 0; i < versesWithUploadedImages.length; i++) {
-          const v = versesWithUploadedImages[i];
-          try {
-            const verseData = {
-              story: storyIdentifier,
-              content: v.content || '',
-              order: v.order || i + 1,
-              image_ids: v.image_ids || []
-            };
-
-            let verseResponse;
-            
-            // Check if this is an existing verse or a new one
-            if (v.id && editingStory) {
-              // This is an existing verse, update it
-              verseResponse = await versesApi.updateVerse(v.id, verseData);
-            } else {
-              // This is a new verse, create it
-              verseResponse = await versesApi.createVerse(verseData);
-            }
-
-            // Create moments for each image id
-            const imageIds = v.image_ids || [];
-            if (Array.isArray(imageIds) && imageIds.length > 0 && verseResponse) {
-              for (let m = 0; m < imageIds.length; m++) {
-                try {
-                  await momentsApi.createMoment({
-                    verse: verseResponse.public_id || verseResponse.id,
-                    image_id: imageIds[m],
-                    order: m + 1
-                  });
-                } catch (momentErr) {
-                }
-              }
-            }
-
-            createdVerses.push(verseResponse);
-          } catch (verseErr) {
-          }
+        let verseResponse;
+        
+        // Check if this is an existing verse or a new one
+        if (verse.slug && editingStory) {
+          // This is an existing verse, update it
+          verseResponse = await versesApi.updateVerse(verse.slug, verseData);
+        } else {
+          // This is a new verse, create it
+          verseResponse = await versesApi.createVerse(verseData);
         }
-      }
+
+        // Create moments for each image in parallel
+        const imageIds = verse.uploadedImageIds || [];
+        if (imageIds.length > 0) {
+          const momentPromises = imageIds.map((imageId, m) => 
+            momentsApi.createMoment({
+              verse: verseResponse.public_id || verseResponse.id,
+              image_id: imageId,
+              order: m + 1
+            })
+          );
+          
+          await Promise.all(momentPromises);
+        }
+
+        return verseResponse;
+      });
+
+      // Wait for all verses to be created/updated
+      const createdVerses = await Promise.all(versePromises);
 
       // Attach created verses to savedStory for immediate UI update
       if (createdVerses.length > 0) {
@@ -902,10 +959,9 @@ const StoryFormModal = ({
         onUpdateStory(savedStory, !editingStory);
       }
 
-      // Notify server-side proxy to trigger revalidation and indexing without exposing the secret to the client.
+      // Notify server-side proxy to trigger revalidation and indexing
       try {
         const csrf = getCsrfToken();
-        // Fire-and-forget but log results for debugging
         fetch('/api/publish-proxy', {
           method: 'POST',
           credentials: 'include',
@@ -915,9 +971,8 @@ const StoryFormModal = ({
           },
           body: JSON.stringify({ slug: savedStory?.slug })
         })
-          .then(async (r) => {
-          })
       } catch (e) {
+        console.error('Failed to notify publish proxy:', e);
       }
 
       setTimeout(() => {
@@ -930,8 +985,9 @@ const StoryFormModal = ({
           // Fallback to editingStory.slug if savedStory doesn't have slug
           router.push(`/stories/${editingStory.slug}`);
         }
-      }, 2000);
+      }, 1500); // Reduced timeout for faster feedback
     } catch (err) {
+      console.error('Publish error:', err);
       
       // Provide user-friendly error messages
       let errorMessage = 'An error occurred while saving the story. Please try again.';
@@ -940,6 +996,8 @@ const StoryFormModal = ({
         errorMessage = 'Upload permission denied. Please try refreshing the page and logging in again.';
       } else if (err.message.includes('Session expired') || err.message.includes('401')) {
         errorMessage = 'Your session has expired. Please refresh the page and try again.';
+      } else if (err.message.includes('Network error')) {
+        errorMessage = 'Network error during upload. Please check your connection and try again.';
       } else if (err.message) {
         errorMessage = err.message;
       }
@@ -1042,7 +1100,6 @@ const StoryFormModal = ({
         setError(`Invalid files: ${invalidFiles.join(', ')}`);
         return;
       }
-      
       
       // Pass both files and previews to the parent component
       handleVerseImageUpload(verseId, imagePreviews);
@@ -1164,7 +1221,6 @@ const StoryFormModal = ({
           {imagePreview ? (
             <>
               <div className="relative w-full h-full">
-                {/* FIXED: Replaced Next.js Image with regular img tag */}
                 <img 
                   src={imagePreview} 
                   alt={title ? `${title} - Cover image` : 'Cover image'} 
@@ -1310,7 +1366,7 @@ const StoryFormModal = ({
           <ModalHeader />
           
           {/* Content area - now properly scrollable */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto touch-auto overscroll-contain modal-scroll">
             <div className="p-8">
               {error && (
                 <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 text-red-200 mb-6">
@@ -1517,6 +1573,10 @@ const StoryFormModal = ({
 
         .animate-fade-in-down {
           animation: fadeInDown 0.3s ease-out forwards;
+        }
+        /* Enable smooth momentum scrolling on iOS/touch devices for the modal content */
+        .modal-scroll {
+          -webkit-overflow-scrolling: touch;
         }
       `}</style>
     </>

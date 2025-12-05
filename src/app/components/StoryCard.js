@@ -149,6 +149,18 @@ export default function StoryCard({
         };
     }, [story, refetchStory]);
 
+    // Keep a global reference used by the VerseViewer in sync so the viewer
+    // always reads the latest story even if it previously cached one on open.
+    useEffect(() => {
+        if (typeof window !== 'undefined' && currentStory) {
+            try {
+                window.__fullStoryForViewer = currentStory;
+            } catch (e) {
+                // ignore
+            }
+        }
+    }, [currentStory]);
+
     // Close dropdown when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {

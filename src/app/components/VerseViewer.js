@@ -1046,10 +1046,7 @@ const VerseViewer = ({
                                 className="w-full h-full object-contain"
                                 onError={(e) => { e.currentTarget.style.display = 'none'; }}
                               />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
-                              
-                              {/* Focus indicator overlay */}
-                              <div className={`absolute inset-0 bg-black/20 transition-opacity duration-300 ${focusMode ? 'opacity-0' : 'opacity-100'}`}></div>
+                              {/* Removed dimming overlays so images always display at original brightness, independent of focusMode */}
                             </div>
                           ) : moment && moment.content ? (
                             <div className="w-full h-full flex items-center justify-center p-8">
