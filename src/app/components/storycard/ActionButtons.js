@@ -60,12 +60,16 @@ const ActionButtons = ({
             return;
         }
 
+        // Capture previous state so we can correctly revert on error
+        const wasLiked = isLiked;
+        const prevLikesCount = likesCount;
+
         try {
+            // Mark loading first so UI can apply immediate fill without transition
             setIsLikeLoading(true);
             console.log('👍 Toggling like for story:', story.id, 'Current state:', isLiked);
 
-            // Optimistic UI update
-            const wasLiked = isLiked;
+            // Optimistic UI update (instant visual change)
             setIsLiked(!wasLiked);
             setLikesCount(prev => wasLiked ? prev - 1 : prev + 1);
 
@@ -76,7 +80,7 @@ const ActionButtons = ({
             // Update with actual server response
             const newLikedStatus = response.is_liked || response.isLiked || response.user_has_liked || !wasLiked;
             setIsLiked(newLikedStatus);
-            setLikesCount(response.likes_count || likesCount);
+            setLikesCount(typeof response.likes_count !== 'undefined' ? response.likes_count : prevLikesCount);
 
             // Optionally refresh parent component
             if (onStoryUpdate) {
@@ -85,11 +89,11 @@ const ActionButtons = ({
 
         } catch (error) {
             console.error('❌ Error toggling like:', error);
-            
-            // Revert optimistic update on error
-            setIsLiked(!isLiked);
-            setLikesCount(prev => isLiked ? prev + 1 : prev - 1);
-            
+
+            // Revert optimistic update on error using captured values
+            setIsLiked(wasLiked);
+            setLikesCount(prevLikesCount);
+
             alert('Failed to update like. Please try again.');
         } finally {
             setIsLikeLoading(false);
@@ -114,12 +118,13 @@ const ActionButtons = ({
             return;
         }
 
+        const wasSaved = isSaved;
         try {
+            // Mark loading so fill is applied instantly without transition
             setIsSaveLoading(true);
             console.log('🔖 Toggling save for story:', story.id, 'Current state:', isSaved);
 
-            // Optimistic UI update
-            const wasSaved = isSaved;
+            // Optimistic UI update (instant)
             setIsSaved(!wasSaved);
 
             // Call backend API
@@ -137,10 +142,10 @@ const ActionButtons = ({
 
         } catch (error) {
             console.error('❌ Error toggling save:', error);
-            
+
             // Revert optimistic update on error
-            setIsSaved(!isSaved);
-            
+            setIsSaved(wasSaved);
+
             alert('Failed to update save status. Please try again.');
         } finally {
             setIsSaveLoading(false);
@@ -157,11 +162,15 @@ const ActionButtons = ({
     const activeClasses = 'bg-[#ff6b35]/20 border-2 border-[#ff6b35]';
     const loadingClasses = 'opacity-50 cursor-not-allowed';
 
+    // Compute classes so we can remove transition while the action is loading (makes fill instant)
+    const likeButtonClasses = `${baseButtonClasses} ${hoverClasses} ${isLiked ? activeClasses : inactiveClasses} ${isLikeLoading ? 'transition-none' : ''} ${isLikeLoading ? loadingClasses : ''}`;
+    const saveButtonClasses = `${baseButtonClasses} ${hoverClasses} ${isSaved ? activeClasses : inactiveClasses} ${isSaveLoading ? 'transition-none' : ''} ${isSaveLoading ? loadingClasses : ''}`;
+
     return (
         <div className="flex justify-between mb-3 w-full gap-2">
             {/* LIKE button - Connected to backend */}
             <div 
-                className={`${baseButtonClasses} ${hoverClasses} ${isLiked ? activeClasses : inactiveClasses} ${isLikeLoading ? loadingClasses : ''}`}
+                className={likeButtonClasses}
                 onClick={handleLikeClick}
                 role="button"
                 tabIndex={0}
@@ -216,7 +225,7 @@ const ActionButtons = ({
 
             {/* SAVE button - Connected to backend */}
             <div 
-                className={`${baseButtonClasses} ${hoverClasses} ${isSaved ? activeClasses : inactiveClasses} ${isSaveLoading ? loadingClasses : ''}`}
+                className={saveButtonClasses}
                 onClick={handleSaveClick}
                 role="button"
                 tabIndex={0}
