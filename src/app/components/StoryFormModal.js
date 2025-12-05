@@ -906,7 +906,16 @@ const StoryFormModal = ({
       const storyIdentifier = savedStory?.public_id || savedStory?.id || savedStory?.slug;
       
       // Create/update verses in parallel
-      const versePromises = updatedVerses.map(async (verse, index) => {
+      // For new stories, skip verses that are completely empty (no content and no images)
+      const versesToProcess = (editingStory)
+        ? updatedVerses
+        : updatedVerses.filter(verse => {
+          const hasContent = (verse.content || '').trim() !== '';
+          const hasImages = (verse.uploadedImageIds || []).length > 0;
+          return hasContent || hasImages;
+        });
+
+      const versePromises = versesToProcess.map(async (verse, index) => {
         const verseData = {
           story: storyIdentifier,
           content: (verse.content || '').trim(),
