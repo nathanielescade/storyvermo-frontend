@@ -137,37 +137,12 @@ export async function GET() {
     }
 
     // ============================================================================
-    // FETCH ALL USERS/CREATORS (NEW!)
+    // FETCH ALL USERS/CREATORS
     // ============================================================================
     console.log('👥 Fetching all users...');
     
     try {
-      // Option 1: Try to get leaderboard (contains all active users)
-      const leaderboard = await safeFetch(`${API_URL}/api/profiles/leaderboard/`);
-      
-      if (leaderboard && Array.isArray(leaderboard.leaderboard)) {
-        console.log(`✅ Found ${leaderboard.leaderboard.length} users from leaderboard`);
-        
-        leaderboard.leaderboard.forEach((entry) => {
-          const username = entry?.user?.username;
-          if (username) {
-            const profileUrl = `${SITE_URL}/${encodeURIComponent(username)}`;
-            if (!seen.has(profileUrl)) {
-              urls.push({ 
-                loc: profileUrl, 
-                priority: '0.6', 
-                changefreq: 'weekly',
-                lastmod: formatDate(entry?.user?.date_joined || entry?.user?.created_at)
-              });
-              seen.add(profileUrl);
-            }
-          }
-        });
-      } else {
-        console.log('⚠️  No leaderboard data found');
-      }
-
-      // Option 2: Try to get recommended creators (backup)
+      // Fetch recommended creators
       const creators = await safeFetch(`${API_URL}/api/stories/recommended_creators/`);
       
       if (Array.isArray(creators) && creators.length > 0) {
@@ -235,7 +210,7 @@ export async function GET() {
           changefreq: 'daily' 
         });
 
-        // Add creator profile (in case they weren't in leaderboard)
+        // Add creator profile
         const creator = story?.creator;
         const username = creator?.username;
         
@@ -268,7 +243,7 @@ export async function GET() {
             }
           }
 
-          // Add verse author (in case they're different from story creator)
+          // Add verse author
           const verseAuthor = verse?.author;
           const verseAuthorUsername = verseAuthor?.username;
           
