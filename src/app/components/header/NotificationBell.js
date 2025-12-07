@@ -4,15 +4,6 @@ import { useAuth } from '../../../../contexts/AuthContext';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { notificationsApi } from '../../../../lib/api';
-import {
-  isLeaderboardNotification,
-  isAchievementNotification,
-  isInactivityNotification,
-  formatNotificationDisplay,
-  getNotificationRoute,
-  getNotificationTypeConfig
-} from '../../../../lib/leaderboardNotifications';
-import LeaderboardNotificationDisplay from '../LeaderboardNotificationDisplay';
 
 const NotificationBell = ({ isOpen = false, onOpen, onClose }) => {
   const { isAuthenticated } = useAuth();
@@ -23,7 +14,6 @@ const NotificationBell = ({ isOpen = false, onOpen, onClose }) => {
   const notificationRef = useRef(null);
 
   // Fetch unread count on mount and whenever authenticated status changes
-  // This runs immediately without waiting for isAuthenticated to be true
   useEffect(() => {
     let mounted = true;
     
@@ -136,6 +126,46 @@ const NotificationBell = ({ isOpen = false, onOpen, onClose }) => {
     }
   };
 
+  const getNotificationIcon = (notification) => {
+    const notificationType = notification?.notification_type || notification?.type || 'SYSTEM';
+    
+    switch (notificationType) {
+      case 'FOLLOW':
+        return '👤';
+      case 'LIKE':
+        return '❤️';
+      case 'COMMENT':
+        return '💬';
+      case 'MENTION':
+        return '@';
+      case 'STORY':
+        return '📖';
+      case 'VERSE':
+        return '✨';
+      case 'SHARE':
+        return '🔗';
+      case 'SAVE':
+        return '💾';
+      case 'WELCOME':
+        return '🎉';
+      case 'SYSTEM':
+        return '⭐';
+      default:
+        return '📬';
+    }
+  };
+
+  const getNotificationRoute = (notification) => {
+    if (notification.story) {
+      return `/story/${notification.story.id}`;
+    } else if (notification.verse) {
+      return `/verse/${notification.verse.id}`;
+    } else if (notification.sender) {
+      return `/profile/${notification.sender.id}`;
+    }
+    return '/notifications';
+  };
+
   return (
     <div className="notification-bell-wrapper relative" style={{ position: 'relative', display: 'inline-block' }}>
       <div style={{ position: 'relative' }}>
@@ -187,55 +217,6 @@ const NotificationBell = ({ isOpen = false, onOpen, onClose }) => {
               <div className="text-center py-4 text-gray-400">No notifications yet</div>
             ) : (
               notificationsPreview.slice(0,5).map(n => {
-                // Check if this is a leaderboard or achievement notification
-                if (isLeaderboardNotification(n) || isAchievementNotification(n)) {
-                  return (
-                    <div key={n.id} onClick={(e) => e.stopPropagation()}>
-                      <LeaderboardNotificationDisplay
-                        notification={n}
-                        onMarkAsRead={markAsRead}
-                        onNavigate={(path) => {
-                          onClose?.();
-                          router.push(path);
-                        }}
-                      />
-                    </div>
-                  );
-                }
-
-                // Handle inactivity notifications specially
-                if (isInactivityNotification(n)) {
-                  return (
-                    <div
-                      key={n.id}
-                      className="px-2 py-2 rounded cursor-pointer transition-all mb-1 hover:bg-slate-700/40 bg-slate-800/30 border border-slate-700/40"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        if (!n.is_read) await markAsRead(n.id);
-                        onClose?.();
-                        router.push('/');
-                      }}
-                    >
-                      <div className="flex items-center gap-2">
-                        {/* Icon */}
-                        <span className="text-base shrink-0">{getNotificationTypeConfig(n.notification_type).icon}</span>
-
-                        {/* Title - single line */}
-                        <span className="text-sm font-medium text-white truncate flex-1">{n.title}</span>
-
-                        {/* Unread Indicator */}
-                        {!n.is_read && (
-                          <div className="shrink-0 w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                        )}
-                      </div>
-                    </div>
-                  );
-                }
-
-                // Format and display all other notification types
-                const displayData = formatNotificationDisplay(n);
-                if (!displayData) return null;
-
                 return (
                   <div
                     key={n.id}
@@ -246,16 +227,16 @@ const NotificationBell = ({ isOpen = false, onOpen, onClose }) => {
                       
                       // Navigate to appropriate location
                       const route = getNotificationRoute(n);
-                      setShowNotifications(false);
+                      onClose?.();
                       router.push(route);
                     }}
                   >
                     <div className="flex items-center gap-2">
                       {/* Icon */}
-                      <span className="text-base shrink-0">{displayData.icon}</span>
+                      <span className="text-base shrink-0">{getNotificationIcon(n)}</span>
 
                       {/* Title - single line */}
-                      <span className="text-sm font-medium text-white truncate flex-1">{displayData.title}</span>
+                      <span className="text-sm font-medium text-white truncate flex-1">{n.message || n.title}</span>
 
                       {/* Unread Indicator */}
                       {!n.is_read && (

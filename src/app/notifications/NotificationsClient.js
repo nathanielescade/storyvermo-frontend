@@ -1,19 +1,10 @@
-"use client";
+'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { notificationsApi } from '../../../lib/api';
 import { useAuth } from '../../../contexts/AuthContext';
-import {
-  isLeaderboardNotification,
-  isAchievementNotification,
-  isInactivityNotification,
-  formatNotificationDisplay,
-  getNotificationRoute,
-  getNotificationTypeConfig
-} from '../../../lib/leaderboardNotifications';
-import LeaderboardNotificationDisplay from '../components/LeaderboardNotificationDisplay';
 
 export function NotificationsClient() {
   const [notifications, setNotifications] = useState([]);
@@ -154,12 +145,11 @@ export function NotificationsClient() {
       }
     }
 
-    // Get target URL using the new routing logic
-    const targetUrl = getNotificationRoute(notification);
-    
-    // Navigate if we have a valid URL
-    if (targetUrl) {
-      router.push(targetUrl);
+    // Navigate to related content if available
+    if (notification.story) {
+      router.push(`/story/${notification.story.id}`);
+    } else if (notification.verse) {
+      router.push(`/verse/${notification.verse.id}`);
     }
   };
 
@@ -184,27 +174,7 @@ export function NotificationsClient() {
 
   const getNotificationIcon = (notification) => {
     const notificationType = notification?.notification_type || notification?.type || 'SYSTEM';
-    const config = getNotificationTypeConfig(notificationType);
     const iconClasses = "w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold text-white";
-    
-    // Special handling for leaderboard/achievement
-    if (isLeaderboardNotification(notification) || isAchievementNotification(notification)) {
-      const rank = notification.rank || notification.position;
-      const getMedalEmoji = (r) => {
-        if (!r) return '📊';
-        if (r === 1) return '🏆';
-        if (r === 2) return '🥈';
-        if (r === 3) return '🥉';
-        if (r <= 10) return '🏅';
-        return '📈';
-      };
-      
-      return (
-        <div className={`${iconClasses} bg-gradient-to-r from-cyan-500 to-blue-600`}>
-          {getMedalEmoji(rank)}
-        </div>
-      );
-    }
 
     // Type-based icons
     switch (notificationType) {
@@ -260,12 +230,6 @@ export function NotificationsClient() {
         return (
           <div className={`${iconClasses} bg-gradient-to-r from-cyan-400 to-blue-500`}>
             🎉
-          </div>
-        );
-      case 'ACHIEVEMENT':
-        return (
-          <div className={`${iconClasses} bg-gradient-to-r from-yellow-400 to-amber-500`}>
-            🏆
           </div>
         );
       case 'SYSTEM':
@@ -386,180 +350,85 @@ export function NotificationsClient() {
           </div>
         ) : (
           <div className="space-y-3 max-h-[calc(100vh-180px)] overflow-y-auto pb-10 custom-scrollbar">
-            {notifications.map((notification, index) => {
-              // Special rendering for leaderboard/achievement notifications
-              if (isLeaderboardNotification(notification) || isAchievementNotification(notification)) {
-                return (
-                  <div
-                    key={notification.id}
-                    onClick={() => handleNotificationClick(notification)}
-                    className={`p-4 rounded-2xl cursor-pointer transition-all hover:bg-slate-800/50 ${
-                      !notification.is_read ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border-l-4 border-cyan-500' : 'bg-slate-900/60 backdrop-blur-sm'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      {getNotificationIcon(notification)}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start">
-                          <h3 className="text-lg font-bold text-white">
-                            {notification.title || 'Leaderboard Update'}
-                          </h3>
-                          <span className="text-sm text-gray-400 ml-2 whitespace-nowrap">
-                            {notification.time_ago}
-                          </span>
-                        </div>
-                        <p className="text-sm text-cyan-300 mt-2">
-                          {notification.message}
-                        </p>
-                        {notification.rank && (
-                          <div className="mt-3 flex items-center gap-2">
-                            <span className="text-xs bg-cyan-500/20 px-2 py-1 rounded">Rank #{notification.rank}</span>
-                            {notification.score && (
-                              <span className="text-xs bg-blue-500/20 px-2 py-1 rounded">⚡ {notification.score} pts</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      {!notification.is_read && (
-                        <div className="ml-2 mt-1">
-                          <div className="w-3 h-3 rounded-full bg-cyan-500"></div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              }
-
-              // Special rendering for inactivity notifications
-              if (isInactivityNotification(notification)) {
-                const config = getNotificationTypeConfig(notification.notification_type);
-                return (
-                  <div
-                    key={notification.id}
-                    onClick={() => handleNotificationClick(notification)}
-                    className={`p-4 rounded-2xl cursor-pointer transition-all hover:bg-slate-800/50 ${
-                      !notification.is_read ? 'bg-slate-900/60 border-l-4 border-cyan-500' : 'bg-slate-900/60 backdrop-blur-sm'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold text-white bg-gradient-to-r from-blue-500 to-cyan-500">
-                        {config.icon}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start">
-                          <h3 className="text-lg font-bold text-white">
-                            {notification.title || 'Activity Reminder'}
-                          </h3>
-                          <span className="text-sm text-gray-400 ml-2 whitespace-nowrap">
-                            {notification.time_ago}
-                          </span>
-                        </div>
-                        <p className="text-sm text-cyan-300 mt-2">
-                          {notification.message}
-                        </p>
-                        <div className="mt-3">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push('/');
-                            }}
-                            className="text-xs bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-3 py-1.5 rounded-lg hover:opacity-90 transition-opacity"
-                          >
-                            Create Story
-                          </button>
-                        </div>
-                      </div>
-                      {!notification.is_read && (
-                        <div className="ml-2 mt-1">
-                          <div className="w-3 h-3 rounded-full bg-cyan-500"></div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              }
-
-              // Regular notification rendering
-              return (
-                <div
-                  key={notification.id}
-                  onClick={() => handleNotificationClick(notification)}
-                  className={`p-4 rounded-2xl cursor-pointer transition-all hover:bg-slate-800/50 flex flex-col gap-3 ${
-                    !notification.is_read ? 'bg-slate-900/60 border-l-4 border-cyan-500' : 'bg-slate-900/60 backdrop-blur-sm'
-                  }`}
-                >
-                  {/* Time - Top Right */}
-                  <div className="flex justify-end">
-                    <span className="text-sm text-gray-400 whitespace-nowrap">
-                      {notification.time_ago}
-                    </span>
-                  </div>
+            {notifications.map((notification) => (
+              <div
+                key={notification.id}
+                onClick={() => handleNotificationClick(notification)}
+                className={`p-4 rounded-2xl cursor-pointer transition-all hover:bg-slate-800/50 flex flex-col gap-3 ${
+                  !notification.is_read ? 'bg-slate-900/60 border-l-4 border-cyan-500' : 'bg-slate-900/60 backdrop-blur-sm'
+                }`}
+              >
+                {/* Time - Top Right */}
+                <div className="flex justify-end">
+                  <span className="text-sm text-gray-400 whitespace-nowrap">
+                    {notification.time_ago}
+                  </span>
+                </div>
+                
+                {/* Main Content Row */}
+                <div className="flex items-start gap-3">
+                  {/* Notification Icon */}
+                  {getNotificationIcon(notification)}
                   
-                  {/* Main Content Row */}
-                  <div className="flex items-start gap-3">
-                    {/* Notification Icon */}
-                    {getNotificationIcon(notification)}
+                  {/* Notification Content - Full Width */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-bold text-white break-words">
+                      {notification.message || notification.title}
+                    </h3>
                     
-                    {/* Notification Content - Full Width */}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-bold text-white break-words">
-                        {notification.message || notification.title}
-                      </h3>
-                      
-                      {/* Sender Info */}
-                      {notification.sender && (
-                        <div className="flex items-center mt-3">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-white font-bold mr-3 shrink-0">
-                            {getDisplayName(notification.sender).charAt(0).toUpperCase()}
-                          </div>
-                          <span className="text-gray-400 break-words">From: {getDisplayName(notification.sender)}</span>
+                    {/* Sender Info */}
+                    {notification.sender && (
+                      <div className="flex items-center mt-3">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-r from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-white font-bold mr-3 shrink-0">
+                          {getDisplayName(notification.sender).charAt(0).toUpperCase()}
                         </div>
-                      )}
-                      
-                      {/* Content Preview */}
-                      {(notification.story || notification.verse) && (
-                        <div className="flex gap-3 mt-3 md:flex-row flex-col">
-                          <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0">
-                            {notification.story?.cover_image ? (
-                              // FIXED: Replaced Next.js Image with regular img tag
-                              <img 
-                                src={getImageUrl(notification.story.cover_image)} 
-                                alt={notification.story.title} 
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full bg-gradient-to-r from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-white">
-                                📖
-                              </div>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-white break-words">
-                              {notification.verse ? notification.verse.title : notification.story.title}
-                            </h4>
-                            <p className="text-sm text-gray-400 line-clamp-2 break-words">
-                              {notification.verse 
-                                ? (notification.verse.description || "A verse in this story")
-                                : (notification.story?.description || notification.story?.summary || `A story by ${getDisplayName(notification.story?.creator) || "Unknown"}`)
-                              }
-                            </p>
-                            {notification.verse && (
-                              <p className="text-xs text-gray-500 mt-1">From story: {notification.verse.story_title}</p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                        <span className="text-gray-400 break-words">From: {getDisplayName(notification.sender)}</span>
+                      </div>
+                    )}
                     
-                    {!notification.is_read && (
-                      <div className="shrink-0">
-                        <div className="w-3 h-3 rounded-full bg-cyan-500"></div>
+                    {/* Content Preview */}
+                    {(notification.story || notification.verse) && (
+                      <div className="flex gap-3 mt-3 md:flex-row flex-col">
+                        <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0">
+                          {notification.story?.cover_image ? (
+                            // FIXED: Replaced Next.js Image with regular img tag
+                            <img 
+                              src={getImageUrl(notification.story.cover_image)} 
+                              alt={notification.story.title} 
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-r from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-white">
+                              📖
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-white break-words">
+                            {notification.verse ? notification.verse.title : notification.story.title}
+                          </h4>
+                          <p className="text-sm text-gray-400 line-clamp-2 break-words">
+                            {notification.verse 
+                              ? (notification.verse.description || "A verse in this story")
+                              : (notification.story?.description || notification.story?.summary || `A story by ${getDisplayName(notification.story?.creator) || "Unknown"}`)
+                            }
+                          </p>
+                          {notification.verse && (
+                            <p className="text-xs text-gray-500 mt-1">From story: {notification.verse.story_title}</p>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
+                  
+                  {!notification.is_read && (
+                    <div className="shrink-0">
+                      <div className="w-3 h-3 rounded-full bg-cyan-500"></div>
+                    </div>
+                  )}
                 </div>
-              );
-            })}
+              </div>
+            ))}
             {loadingMore && (
               <div className="space-y-3 mt-4">
                 {[...Array(3)].map((_, i) => (
