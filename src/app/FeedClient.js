@@ -6,17 +6,6 @@ import StoryCard from './components/StoryCard';
 import useMain from '../../hooks/useMain';
 import { useAuth } from '../../contexts/AuthContext';
 
-// Helper to strip verses from stories in feed view to prevent verse images from loading
-// Verses will be fetched fresh when user opens the VerseViewer
-const stripVersesForFeedView = (stories) => {
-  return stories.map(story => {
-    // Only strip verses for feed display; keep all other data
-    // This prevents verse images from being preloaded when not needed
-    const { verses, ...storyWithoutVerses } = story;
-    return storyWithoutVerses;
-  });
-};
-
 export default function FeedClient({ initialState }) {
   const {
     stories,
@@ -43,9 +32,9 @@ export default function FeedClient({ initialState }) {
   const sentinelRef = useRef(null);
   const observerRef = useRef(null);
 
-  // Memoize stories without verses for feed display
-  // This prevents verse data (and thus verse images) from being rendered
-  const feedStories = useMemo(() => stripVersesForFeedView(stories), [stories]);
+  // Use stories as-is - moment images are already stripped on the API side
+  // Verses with metadata are kept for displaying counts in creator chip
+  const feedStories = useMemo(() => stories, [stories]);
 
 
   // Prefetch sentinel: prefetch next page when user approaches the end of

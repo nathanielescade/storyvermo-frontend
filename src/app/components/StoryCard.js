@@ -168,10 +168,9 @@ export default function StoryCard({
         setLocalCommentsCount(story.comments_count || 0);
         setCurrentStory(story);
 
-        // If we're missing any interaction state, refetch to ensure accuracy
-        if (!story.hasOwnProperty('isFollowing') && !story.hasOwnProperty('is_following')) {
-            refetchStory();
-        }
+        // DO NOT refetch on mount - verses are excluded from paginated lists for performance
+        // Verses will be fetched when user explicitly opens the VerseViewer
+        // The story metadata (following, counts, etc) is already in the paginated response
 
         // Create bubbles around the hologram
         const node = hologramRef.current;
@@ -191,7 +190,7 @@ export default function StoryCard({
                 existingBubbles.forEach(bubble => bubble.remove());
             }
         };
-    }, [story, refetchStory]);
+    }, [story]);
 
     // Keep a global reference used by the VerseViewer in sync so the viewer
     // always reads the latest story even if it previously cached one on open.
