@@ -26,6 +26,8 @@ const NotificationBell = ({ isOpen = false, onOpen, onClose }) => {
   // This runs immediately without waiting for isAuthenticated to be true
   useEffect(() => {
     let mounted = true;
+    let lastFetchTime = 0;
+    const MIN_FETCH_INTERVAL = 5000; // Debounce: don't fetch more than once per 5 seconds
     
     const fetchUnreadCount = async () => {
       // Skip if not authenticated
@@ -33,6 +35,13 @@ const NotificationBell = ({ isOpen = false, onOpen, onClose }) => {
         if (mounted) setUnreadCount(0);
         return;
       }
+      
+      // Debounce: prevent rapid repeated calls
+      const now = Date.now();
+      if (now - lastFetchTime < MIN_FETCH_INTERVAL) {
+        return;
+      }
+      lastFetchTime = now;
       
       try {
         let data = null;

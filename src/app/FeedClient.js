@@ -1,10 +1,21 @@
 // FeedClient.js
 'use client';
 
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import StoryCard from './components/StoryCard';
 import useMain from '../../hooks/useMain';
 import { useAuth } from '../../contexts/AuthContext';
+
+// Helper to strip verses from stories in feed view to prevent verse images from loading
+// Verses will be fetched fresh when user opens the VerseViewer
+const stripVersesForFeedView = (stories) => {
+  return stories.map(story => {
+    // Only strip verses for feed display; keep all other data
+    // This prevents verse images from being preloaded when not needed
+    const { verses, ...storyWithoutVerses } = story;
+    return storyWithoutVerses;
+  });
+};
 
 export default function FeedClient({ initialState }) {
   const {
@@ -31,6 +42,10 @@ export default function FeedClient({ initialState }) {
   const feedRef = useRef(null);
   const sentinelRef = useRef(null);
   const observerRef = useRef(null);
+
+  // Memoize stories without verses for feed display
+  // This prevents verse data (and thus verse images) from being rendered
+  const feedStories = useMemo(() => stripVersesForFeedView(stories), [stories]);
 
 
   // Prefetch sentinel: prefetch next page when user approaches the end of
@@ -190,10 +205,10 @@ export default function FeedClient({ initialState }) {
           </div>
         ) : (
           <>
-            {stories.map((story, index) => (
+            {feedStories.map((story, index) => (
               <div key={getStoryKey(story, index)}>
                 {/* Insert prefetch sentinel a few items before the end to warm next page early */}
-                {index === Math.max(0, stories.length - 5) && (
+                {index === Math.max(0, feedStories.length - 5) && (
                   <div ref={sentinelRef} style={{ height: '1px', width: '100%' }} aria-hidden />
                 )}
                 <StoryCard 

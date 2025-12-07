@@ -461,6 +461,8 @@ export default function StoryCard({
                                 src={coverImageUrl} 
                                 alt={story.title || 'Story cover'} 
                                 className="scene-bg w-full h-full "
+                                loading="lazy"
+                                decoding="async"
                             />
                         </div>
                     ) : (
