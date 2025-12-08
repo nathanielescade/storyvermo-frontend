@@ -1165,7 +1165,7 @@ const VerseViewer = ({
                   </div>
                 </a>
                 {/* Follow button overlay on avatar (same style & behavior as CreatorChip) */}
-                {getAuthorUsername() && !isFollowing && String(getUserId(currentVerse?.author || story?.creator || '')) !== String(currentUser?.public_id) && (
+                {getAuthorUsername() && getAuthorUsername() !== 'anonymous' && !isFollowing && String(getUserId(currentVerse?.author || story?.creator || '')) !== String(currentUser?.public_id) && (
                   <button
                     onClick={(e) => {
                       e.preventDefault();
@@ -1186,9 +1186,12 @@ const VerseViewer = ({
                           // Do not revert isFollowing
                         });
                     }}
-                    className="follow-button absolute bottom-0 right-0 bg-transparent border-2 rounded-full w-6 h-6 flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors"
+                    className="follow-button absolute bottom-0 right-0 rounded-full flex items-center justify-center shadow-lg transition-all hover:bg-blue-600 bg-transparent border-2 border-white w-6 h-6"
                     aria-label="Follow"
                     title="Follow"
+                    style={{ 
+                      color: '#ffffff'
+                    }}
                   >
                     <i className="fas fa-plus text-white font-extrabold text-xl"></i>
                   </button>
@@ -1320,11 +1323,22 @@ const VerseViewer = ({
                 <button
                   title="Contribute verse"
                   onClick={handleOpenContribute}
-                  className="w-14 h-14 rounded-full bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 border-4 border-white/20 shadow-xl flex items-center justify-center hover:scale-110 transition-transform relative group"
-                  style={{ boxShadow: '0 4px 24px 0 rgba(0,255,255,0.18), 0 1.5px 8px 0 rgba(0,0,0,0.10)' }}
+                  className="w-14 h-14 rounded-full flex items-center justify-center transition-all hover:scale-110 relative group"
+                  style={{ 
+                    background: 'linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%)', 
+                    border: '3px solid #ff6b35', 
+                    boxShadow: '0 4px 15px rgba(255, 107, 53, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)',
+                    color: '#ffffff',
+                    animation: 'pulse 2s infinite'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.boxShadow = '0 6px 20px rgba(255, 107, 53, 0.6), inset 0 1px 0 rgba(255,255,255,0.3)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.boxShadow = '0 4px 15px rgba(255, 107, 53, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)';
+                  }}
                 >
-                  <span className="absolute inset-0 rounded-full bg-white/10 group-hover:bg-white/20 transition-all"></span>
-                  <i className="fas fa-plus text-white text-2xl relative z-10"></i>
+                  <i className="fas fa-users text-white text-2xl font-bold relative z-10"></i>
                 </button>
               ) : (
                 <div

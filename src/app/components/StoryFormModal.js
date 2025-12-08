@@ -30,7 +30,7 @@ const ConfirmationDialog = ({ isOpen, title, message, onConfirm, onCancel }) => 
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[10101] flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[10200] flex items-center justify-center p-4">
       <div className="bg-gradient-to-br from-slate-900 to-indigo-900 border border-purple-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl shadow-purple-500/20">
         <h3 className="text-xl font-bold text-white mb-3">{title}</h3>
         <p className="text-gray-300 mb-6">{message}</p>
@@ -56,46 +56,66 @@ const ConfirmationDialog = ({ isOpen, title, message, onConfirm, onCancel }) => 
 // Add displayName to ConfirmationDialog
 ConfirmationDialog.displayName = 'ConfirmationDialog';
 
+// Delete Confirmation Modal Component
+const DeleteVerseConfirmation = ({ isOpen, verseNumber, onConfirm, onCancel }) => {
+  if (!isOpen) return null;
+  
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[10200] flex items-center justify-center p-4">
+      <div className="bg-gradient-to-br from-slate-900 to-red-900 border border-red-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl shadow-red-500/20">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center border border-red-500/30">
+            <span className="fas fa-exclamation text-red-400 text-lg"></span>
+          </div>
+          <h3 className="text-xl font-bold text-white">Delete Verse?</h3>
+        </div>
+        <p className="text-gray-300 mb-6">Are you sure you want to delete Verse #{verseNumber}? This action cannot be undone.</p>
+        <div className="flex justify-end gap-3">
+          <button 
+            onClick={onCancel}
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors"
+          >
+            Keep It
+          </button>
+          <button 
+            onClick={onConfirm}
+            className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-lg transition-colors flex items-center gap-2"
+          >
+            <span className="fas fa-trash text-sm"></span> Delete Verse
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Add displayName to DeleteVerseConfirmation
+DeleteVerseConfirmation.displayName = 'DeleteVerseConfirmation';
+
 // Optimized Verse Content Component with internal state
 const VerseContent = memo(({ value, onChange, verseId, ...props }) => {
-  const [internalValue, setInternalValue] = useState(value);
-  const [expanded, setExpanded] = useState(false);
-  const isFocused = useRef(false);
-
-  // Update internal value when parent value changes
-  useEffect(() => {
-    if (!isFocused.current) {
-      setInternalValue(value);
-    }
-  }, [value]);
+  const textareaRef = useRef(null);
 
   const handleChange = useCallback((e) => {
-    setInternalValue(e.target.value);
-  }, []);
-
-  const handleFocus = useCallback(() => {
-    isFocused.current = true;
-    setExpanded(true);
-  }, []);
-
-  const handleBlur = useCallback(() => {
-    isFocused.current = false;
-    setExpanded(false);
-    onChange(internalValue);
-  }, [internalValue, onChange]);
+    onChange(e.target.value);
+    // Auto-expand textarea
+    const textarea = e.target;
+    textarea.style.height = 'auto';
+    const newHeight = Math.min(textarea.scrollHeight, 200); // 200px ≈ 5 lines
+    textarea.style.height = newHeight + 'px';
+  }, [onChange]);
 
   return (
     <textarea
+      ref={textareaRef}
       {...props}
       id={`verse-content-${verseId}`}
-      value={internalValue}
+      value={value}
       onChange={handleChange}
-      onFocus={handleFocus}
-      onBlur={handleBlur}
+      rows={2}
       className={
-        `${props.className || ''} verse-content-textarea ${expanded ? 'expanded' : ''}`
+        `${props.className || ''} verse-content-textarea overflow-hidden`
       }
-      style={{ transition: 'height 0.3s', height: expanded ? 144 : 48 }}
     />
   );
 });
@@ -110,6 +130,9 @@ const VerseItem = memo(({
   onVerseChange, 
   onImageUpload,
   onRemoveVerse,
+  onDeleteMoment,
+  onRemoveImage,
+  onDeleteVerseClick,
   validationErrors,
   isEditingVerse,
   title
@@ -130,9 +153,9 @@ const VerseItem = memo(({
           </span>
           Verse #{index + 1} {isExisting && <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded">Existing</span>}
         </h4>
-        {!isExisting && !isEditingVerse && (
+        {(!isExisting || isExisting) && !isEditingVerse && (
           <button 
-            onClick={() => onRemoveVerse(verse.id)}
+            onClick={() => onDeleteVerseClick(verse.id, index + 1)}
             className="w-10 h-10 rounded-full bg-red-500/30 hover:bg-red-500/40 flex items-center justify-center text-red-400 transition-all duration-300 border border-red-500/30"
             title="Remove verse"
           >
@@ -197,10 +220,19 @@ const VerseItem = memo(({
                   </div>
                 )}
                 <button 
-                  onClick={() => onImageUpload(verse.id, imgIndex)}
-                  className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500/80 flex items-center justify-center text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => {
+                    const imageToDelete = verse.imageIds[imgIndex];
+                    // Track this moment for deletion if it has a public_id (existing moment)
+                    if (imageToDelete && imageToDelete.public_id) {
+                      onDeleteMoment(imageToDelete.public_id);
+                    }
+                    
+                    onRemoveImage(verse.id, imgIndex);
+                  }}
+                  className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500/80 hover:bg-red-600 flex items-center justify-center text-white text-xs transition-opacity"
+                  title="Delete this image"
                 >
-                  <span className="fas fa-times"></span>
+                  <span className="fas fa-trash"></span>
                 </button>
                 <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
                   {imgIndex + 1}
@@ -373,7 +405,6 @@ const StoryFormModal = ({
   const router = useRouter();
   const { currentUser, isAuthenticated } = useAuth();
   const [isClient, setIsClient] = useState(false);
-  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   
   useEffect(() => {
     setIsClient(true);
@@ -430,6 +461,10 @@ const StoryFormModal = ({
   const [coverImageId, setCoverImageId] = useState(editingStory?.cover_image?.public_id || null);
   const [allowContributions, setAllowContributions] = useState(editingStory?.allow_contributions || false);
   const [showEmptyVerseConfirmation, setShowEmptyVerseConfirmation] = useState(false);
+  const [deletedVerses, setDeletedVerses] = useState([]);
+  const [deletedMoments, setDeletedMoments] = useState([]);
+  const [showDeleteVerseConfirmation, setShowDeleteVerseConfirmation] = useState(false);
+  const [verseToDelete, setVerseToDelete] = useState(null);
   
   const verseRefs = useRef([]);
   
@@ -476,7 +511,50 @@ const StoryFormModal = ({
       setSelectedTags((editingStory.tags || []).map(tag => (typeof tag === 'string' ? tag : (tag && (tag.name || tag.slug) ? (tag.name || tag.slug) : String(tag)))));
       setAllowContributions(editingStory.allow_contributions || false);
       
-      if (editingStory.verses && editingStory.verses.length > 0) {
+      // Fetch full story data if verses are missing or empty
+      const hasVerses = editingStory.verses && editingStory.verses.length > 0;
+      const hasVerseImages = hasVerses && editingStory.verses.some(v => v.moments && v.moments.length > 0);
+      
+      if (!hasVerses || !hasVerseImages) {
+        // Fetch the full story with verses and moments
+        (async () => {
+          try {
+            const fullStory = await storiesApi.getStoryBySlug(editingStory.slug);
+            if (fullStory && fullStory.verses && fullStory.verses.length > 0) {
+              setVerses(fullStory.verses.map(verse => ({
+                id: verse.slug || generateUniqueId(),
+                content: verse.content || '',
+                isExisting: true,
+                imageIds: verse.moments?.filter(m => m.image).map(m => ({ 
+                  public_id: m.image.public_id,
+                  file_url: m.image.file_url
+                })) || [],
+                slug: verse.slug
+              })));
+              return;
+            }
+          } catch (err) {
+            console.error('Failed to fetch full story data:', err);
+          }
+          
+          // Fallback: use provided data
+          if (editingStory.verses && editingStory.verses.length > 0) {
+            setVerses(editingStory.verses.map(verse => ({
+              id: verse.slug || generateUniqueId(),
+              content: verse.content || '',
+              isExisting: true,
+              imageIds: verse.moments?.filter(m => m.image).map(m => ({ 
+                public_id: m.image.public_id,
+                file_url: m.image.file_url
+              })) || [],
+              slug: verse.slug
+            })));
+          } else {
+            setVerses([{ id: generateUniqueId(), content: '', isExisting: false, imageIds: [] }]);
+          }
+        })();
+      } else {
+        // Use provided data if verses and images are already loaded
         setVerses(editingStory.verses.map(verse => ({
           id: verse.slug || generateUniqueId(),
           content: verse.content || '',
@@ -487,8 +565,6 @@ const StoryFormModal = ({
           })) || [],
           slug: verse.slug
         })));
-      } else {
-        setVerses([{ id: generateUniqueId(), content: '', isExisting: false, imageIds: [] }]);
       }
     }
   }, [editingStory]);
@@ -687,10 +763,45 @@ const StoryFormModal = ({
   
   // Remove verse
   const removeVerse = useCallback((verseId) => {
+    const verseToRemove = verses.find(v => v.id === verseId);
+    
+    if (verseToRemove && verseToRemove.isExisting && verseToRemove.slug) {
+      // Track this existing verse for deletion
+      setDeletedVerses(prev => [...prev, verseToRemove.slug]);
+      
+      // Also track all moments (images) from this verse for deletion
+      const moments = verseToRemove.imageIds || [];
+      const momentsToDelete = moments.filter(m => m.public_id).map(m => m.public_id);
+      if (momentsToDelete.length > 0) {
+        setDeletedMoments(prev => [...prev, ...momentsToDelete]);
+      }
+    }
+    
     if (verses.length > 1) {
-      setVerses(verses.filter(verse => verse.id !== verseId || verse.isExisting));
+      setVerses(verses.filter(verse => verse.id !== verseId));
     }
   }, [verses]);
+
+  // Handle verse delete button click - show confirmation
+  const handleDeleteVerseClick = useCallback((verseId, verseNumber) => {
+    setVerseToDelete({ id: verseId, number: verseNumber });
+    setShowDeleteVerseConfirmation(true);
+  }, []);
+
+  // Confirm verse deletion
+  const handleConfirmVerseDelete = useCallback(() => {
+    if (verseToDelete) {
+      removeVerse(verseToDelete.id);
+      setShowDeleteVerseConfirmation(false);
+      setVerseToDelete(null);
+    }
+  }, [verseToDelete, removeVerse]);
+
+  // Cancel verse deletion
+  const handleCancelVerseDelete = useCallback(() => {
+    setShowDeleteVerseConfirmation(false);
+    setVerseToDelete(null);
+  }, []);
   
   // Scroll to verses section
   const scrollToVerses = useCallback(() => {
@@ -902,6 +1013,27 @@ const StoryFormModal = ({
         savedStory = await storiesApi.createStory(storyPayload);
       }
 
+      // Handle deletions of verses and moments
+      if (deletedMoments.length > 0) {
+        const momentDeletePromises = deletedMoments.map(momentId => 
+          momentsApi.deleteMoment(momentId).catch(err => {
+            console.error(`Failed to delete moment ${momentId}:`, err);
+            // Don't throw - continue with other deletions
+          })
+        );
+        await Promise.all(momentDeletePromises);
+      }
+
+      if (deletedVerses.length > 0) {
+        const verseDeletePromises = deletedVerses.map(verseSlug => 
+          versesApi.deleteVerse(verseSlug).catch(err => {
+            console.error(`Failed to delete verse ${verseSlug}:`, err);
+            // Don't throw - continue with other deletions
+          })
+        );
+        await Promise.all(verseDeletePromises);
+      }
+
       // Prepare verses for creation/update
       const storyIdentifier = savedStory?.public_id || savedStory?.id || savedStory?.slug;
       
@@ -967,6 +1099,10 @@ const StoryFormModal = ({
       if (onUpdateStory) {
         onUpdateStory(savedStory, !editingStory);
       }
+
+      // Reset deletion tracking after successful publish
+      setDeletedVerses([]);
+      setDeletedMoments([]);
 
       // Notify server-side proxy to trigger revalidation and indexing
       try {
@@ -1035,6 +1171,8 @@ const StoryFormModal = ({
     setAllowContributions(false);
     setError(null);
     setValidationErrors({});
+    setDeletedVerses([]);
+    setDeletedMoments([]);
   }, []);
   
   // Set up refs for each verse
@@ -1298,6 +1436,20 @@ const StoryFormModal = ({
               onVerseChange={handleVerseChange}
               onImageUpload={handleVerseImageUpload}
               onRemoveVerse={removeVerse}
+              onDeleteMoment={(momentId) => setDeletedMoments(prev => [...prev, momentId])}
+              onRemoveImage={(verseId, imgIndex) => {
+                setVerses(prevVerses => 
+                  prevVerses.map(v => {
+                    if (v.id === verseId) {
+                      const newImageIds = [...v.imageIds];
+                      newImageIds.splice(imgIndex, 1);
+                      return { ...v, imageIds: newImageIds };
+                    }
+                    return v;
+                  })
+                );
+              }}
+              onDeleteVerseClick={handleDeleteVerseClick}
               validationErrors={validationErrors}
               isEditingVerse={!!editingVerse}
               title={title}
@@ -1401,23 +1553,34 @@ const StoryFormModal = ({
                     <span className="fas fa-heading text-cyan-400"></span> Title <span className="text-red-400">*</span>
                   </label>
                   <div className="relative">
-                    <input 
-                      type="text" 
+                    <textarea 
                       id="story-title"
                       placeholder="Give your story a captivating title"
                       value={title}
                       onChange={(e) => {
-                        setTitle(e.target.value);
-                        if (validationErrors.title) {
-                          setValidationErrors(prev => ({...prev, title: null}));
+                        // Enforce 50 character limit
+                        if (e.target.value.length <= 50) {
+                          setTitle(e.target.value);
+                          if (validationErrors.title) {
+                            setValidationErrors(prev => ({...prev, title: null}));
+                          }
                         }
+                        // Auto-expand textarea
+                        const textarea = e.target;
+                        textarea.style.height = 'auto';
+                        const newHeight = Math.min(textarea.scrollHeight, 42); // ~1.5 lines, expands to 2 when needed
+                        textarea.style.height = newHeight + 'px';
                       }}
-                      className={`w-full px-5 py-4 bg-slate-900/60 border rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 text-lg ${
+                      rows={1}
+                      className={`w-full px-5 py-2 bg-slate-900/60 border rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 text-lg resize-none overflow-hidden ${
                         validationErrors.title ? 'border-red-500/50' : 'border-gray-700'
                       }`}
                     />
                     <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500/5 to-blue-500/5 opacity-0 pointer-events-none transition-opacity duration-300"></div>
                   </div>
+                  {title.length >= 50 && (
+                    <p className="text-yellow-400 text-sm mt-2">⚠️ Character limit reached (50 characters max)</p>
+                  )}
                   {validationErrors.title && (
                     <p className="text-red-400 text-sm mt-2">{validationErrors.title}</p>
                   )}
@@ -1432,11 +1595,16 @@ const StoryFormModal = ({
                     <textarea 
                       placeholder="Share your story, thoughts, or experiences..."
                       value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      onFocus={() => setIsDescriptionExpanded(true)}
-                      onBlur={() => setIsDescriptionExpanded(false)}
-                      className="w-full px-5 py-2 bg-slate-900/60 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 resize-none text-lg story-description-textarea"
-                      style={{ transition: 'height 0.3s', height: isDescriptionExpanded ? 144 : 48 }}
+                      onChange={(e) => {
+                        setDescription(e.target.value);
+                        // Auto-expand textarea
+                        const textarea = e.target;
+                        textarea.style.height = 'auto';
+                        const newHeight = Math.min(textarea.scrollHeight, 200); // 200px ≈ 5 lines
+                        textarea.style.height = newHeight + 'px';
+                      }}
+                      rows={2}
+                      className="w-full px-5 py-2 bg-slate-900/60 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 resize-none text-lg overflow-hidden"
                     ></textarea>
                     <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500/5 to-blue-500/5 opacity-0 pointer-events-none transition-opacity duration-300"></div>
                   </div>
@@ -1454,14 +1622,23 @@ const StoryFormModal = ({
                   onRemoveTag={removeTag}
                 />
                 
-                {/* Allow contributions toggle */}
+                {/* Allow contributions toggle - PROMINENT FEATURE */}
                 {!editingVerse && (
-                  <div className="mb-8">
-                    <label className="block text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
-                      <span className="fas fa-users text-cyan-400"></span> Allow contributions
-                    </label>
-                    <div className="flex items-center gap-4 p-4 rounded-2xl bg-transparent shadow-sm">
-                      <label className="inline-flex items-center cursor-pointer">
+                  <div className="mb-8 p-6 rounded-3xl bg-gradient-to-br from-blue-950/40 via-transparent to-cyan-950/40 border-2 border-gradient-to-r from-cyan-500/60 to-blue-500/60 shadow-2xl shadow-cyan-500/20 relative overflow-hidden">
+                    {/* Animated background glow */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-600/10 via-blue-600/10 to-cyan-600/10 animate-pulse pointer-events-none"></div>
+                    
+                    <div className="relative z-10">
+                      <label className="block text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-blue-300 to-cyan-300 mb-4 flex items-center gap-3">
+                        <span className="fas fa-users text-2xl text-cyan-400 animate-bounce"></span>
+                        <span className="text-lg">✨ COLLABORATIVE FEATURE ✨</span>
+                      </label>
+                      
+                      <p className="text-gray-300 text-sm mb-5 flex items-center gap-2">
+                        <span className="text-cyan-400">→</span> Let other users add verses and contribute their creativity to your story. Build amazing collaborative works together!
+                      </p>
+                      
+                      <label className="inline-flex items-center cursor-pointer group">
                         <div className="relative">
                           <input 
                             type="checkbox" 
@@ -1469,11 +1646,20 @@ const StoryFormModal = ({
                             checked={allowContributions}
                             onChange={(e) => setAllowContributions(e.target.checked)}
                           />
-                          <div className={`block w-14 h-8 rounded-full transition-colors duration-300 ease-in-out ${allowContributions ? 'bg-gradient-to-r from-cyan-500 to-blue-500' : 'bg-gray-700'}`}></div>
-                          <div className={`absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform duration-300 ease-in-out ${allowContributions ? 'transform translate-x-6' : ''}`}></div>
+                          <div className={`block w-16 h-9 rounded-full transition-all duration-300 ease-in-out ${allowContributions ? 'bg-gradient-to-r from-cyan-500 via-blue-500 to-cyan-500 shadow-lg shadow-cyan-500/50' : 'bg-gray-700/50'}`}></div>
+                          <div className={`absolute left-1 top-1 bg-white w-7 h-7 rounded-full transition-all duration-300 ease-in-out shadow-lg ${allowContributions ? 'transform translate-x-7 shadow-cyan-500/50' : ''}`}></div>
                         </div>
-                        <span className="ml-3 text-cyan-300 font-semibold text-lg">Allow other users to contribute verses to this story</span>
+                        <span className={`ml-4 font-bold text-lg transition-colors duration-300 ${allowContributions ? 'text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-blue-300' : 'text-gray-400'}`}>
+                          {allowContributions ? '🎉 Collaborations Enabled!' : 'Enable Collaborations'}
+                        </span>
                       </label>
+                      
+                      {allowContributions && (
+                        <div className="mt-4 p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/40 flex items-center gap-2">
+                          <span className="text-cyan-400 text-lg">✓</span>
+                          <span className="text-cyan-300 text-sm font-medium">Your story is now open for collaboration - other users can contribute!</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -1490,6 +1676,13 @@ const StoryFormModal = ({
           <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-70"></div>
         </div>
       </div>
+      
+      <DeleteVerseConfirmation 
+        isOpen={showDeleteVerseConfirmation}
+        verseNumber={verseToDelete?.number}
+        onConfirm={handleConfirmVerseDelete}
+        onCancel={handleCancelVerseDelete}
+      />
       
       <ConfirmationDialog 
         isOpen={showEmptyVerseConfirmation}

@@ -138,6 +138,19 @@ export default function FeedClient({ initialState }) {
     handleTagSwitch(tagName);
   }, [currentTag, handleTagSwitch, isAuthenticated]);
 
+  // Listen for trending tag selection from Header
+  useEffect(() => {
+    const handleTrendingTagSelected = (e) => {
+      const tagName = e?.detail?.tagName;
+      if (tagName) {
+        handleTagOptionClick(tagName);
+      }
+    };
+
+    window.addEventListener('trending:tag_selected', handleTrendingTagSelected);
+    return () => window.removeEventListener('trending:tag_selected', handleTrendingTagSelected);
+  }, [handleTagOptionClick]);
+
   // Listen for back/forward navigation
   useEffect(() => {
     const onPop = () => {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 const HologramIcons = ({ 
     story, 
@@ -58,12 +58,36 @@ const HologramIcons = ({
         <div className="hologram-icons-row" style={{ position: 'absolute', right: '0.5rem', top: '-32px', display: 'flex', gap: '18px', zIndex: '10' }}>
             {story.allow_contributions && (
                 <button 
-                    className="hologram-icon-btn" 
-                    title="Contribute" 
+                    className="hologram-icon-btn collaborate-btn" 
+                    title="Contribute to this story" 
                     onClick={handleContribute}
-                    style={{ background: 'rgba(255,255,255,0.18)', borderRadius: '50%', border: '2px solid #ff6b35', width: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.10)', color: '#ff6b35', fontSize: '1.25rem', cursor: 'pointer' }}
+                    style={{ 
+                        background: 'linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%)', 
+                        borderRadius: '50%', 
+                        border: '3px solid #ff6b35', 
+                        width: '42px', 
+                        height: '42px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        boxShadow: '0 4px 15px rgba(255, 107, 53, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)', 
+                        color: '#ffffff', 
+                        fontSize: '1.25rem', 
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        animation: 'pulse 2s infinite',
+                        transition: 'all 0.3s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                        e.target.style.transform = 'scale(1.1)';
+                        e.target.style.boxShadow = '0 6px 20px rgba(255, 107, 53, 0.6), inset 0 1px 0 rgba(255,255,255,0.3)';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.target.style.transform = 'scale(1)';
+                        e.target.style.boxShadow = '0 4px 15px rgba(255, 107, 53, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)';
+                    }}
                 >
-                    <i className="fas fa-plus"></i>
+                    <i className="fas fa-users"></i>
                 </button>
             )}
             <button 

@@ -16,6 +16,7 @@ const ContributeModal = ({
     const [verseContent, setVerseContent] = useState('');
     const [verseImages, setVerseImages] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [deletedMoments, setDeletedMoments] = useState([]);
     const fileInputRef = useRef(null);
 
     // Initialize form when editingVerse changes
@@ -98,6 +99,11 @@ const ContributeModal = ({
     };
 
     const removeImage = (index) => {
+        const imageToRemove = verseImages[index];
+        // Track this moment for deletion if it has a moment_id (existing moment)
+        if (imageToRemove && imageToRemove.moment_id) {
+            setDeletedMoments(prev => [...prev, imageToRemove.moment_id]);
+        }
         setVerseImages(prev => prev.filter((_, i) => i !== index));
     };
 
@@ -113,6 +119,16 @@ const ContributeModal = ({
             let verseResponse;
             
             if (editingVerse) {
+                // Delete any moments that were removed
+                if (deletedMoments.length > 0) {
+                    const momentDeletePromises = deletedMoments.map(momentId => 
+                        momentsApi.deleteMoment(momentId).catch(err => {
+                            console.error(`Failed to delete moment ${momentId}:`, err);
+                        })
+                    );
+                    await Promise.all(momentDeletePromises);
+                }
+
                 // Update existing verse
                 const updateData = {
                     content: verseContent
@@ -201,6 +217,7 @@ const ContributeModal = ({
             // Reset form and close modal
             setVerseContent('');
             setVerseImages([]);
+            setDeletedMoments([]);
             setShowContributeModal(false);
             
             alert(editingVerse ? 'Verse updated successfully!' : 'Verse contributed successfully!');
@@ -214,8 +231,8 @@ const ContributeModal = ({
     if (!showContributeModal) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-lg z-[10100] flex items-center justify-center">
-            <div className="w-full max-w-5xl max-h-[95vh] bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 rounded-3xl border border-cyan-500/40 shadow-2xl overflow-visible transform scale-100 transition-all duration-500 relative flex flex-col">
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-lg z-[10100] flex items-center justify-center p-0">
+            <div className="w-full h-full max-w-5xl bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 border border-cyan-500/40 shadow-2xl overflow-visible transform scale-100 transition-all duration-500 relative flex flex-col">
                 <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
                     <div className="absolute inset-0 rounded-3xl border-2 border-cyan-500/30 animate-pulse"></div>
                     <div className="absolute inset-0 rounded-3xl border-2 border-purple-500/20 animate-pulse" style={{ animationDelay: '0.5s' }}></div>
@@ -223,16 +240,48 @@ const ContributeModal = ({
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/10 to-transparent h-px w-full animate-pulse"></div>
                 </div>
                 
-                <div className="relative z-10 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md border-b border-cyan-500/30 px-6 py-4">
+                <div className="relative z-10 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md border-b border-cyan-500/30 px-6 py-3">
                     <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-1">
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 flex items-center justify-center shadow-lg shadow-cyan-500/40 border border-cyan-500/30">
                                 <i className="fas fa-book text-cyan-400 text-lg"></i>
                             </div>
-                            <div>
+                            <div className="min-w-0">
                                 <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500">
                                     {editingVerse ? 'EDIT VERSE' : 'CONTRIBUTE TO STORY'}
                                 </h2>
+                                {!editingVerse && story && (
+                                    <p className="text-sm text-cyan-300/80 line-clamp-2 mt-1">
+                                        ✨ Add your verse to <span className="font-semibold text-cyan-300">{
+                                            (() => {
+                                                // Check if account is brand type and has brand_name
+                                                if (story.creator_account_type === 'brand' && story.creator_brand_name) {
+                                                    return story.creator_brand_name;
+                                                }
+                                                // Check if creator object has account_type and brand_name
+                                                if (typeof story.creator === 'object' && story.creator) {
+                                                    if (story.creator.account_type === 'brand' && story.creator.brand_name) {
+                                                        return story.creator.brand_name;
+                                                    }
+                                                    if (story.creator.first_name) {
+                                                        return story.creator.first_name;
+                                                    }
+                                                    if (story.creator.username) {
+                                                        return story.creator.username;
+                                                    }
+                                                }
+                                                // Fallback to first name from top-level
+                                                if (story.creator_first_name) {
+                                                    return story.creator_first_name;
+                                                }
+                                                if (story.creator_username) {
+                                                    return story.creator_username;
+                                                }
+                                                return 'user';
+                                            })()
+                                        }</span>{`'s story`} <span className="font-semibold italic text-purple-300">{`"${story.title}"`}</span>
+                                    </p>
+                                )}
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -257,7 +306,7 @@ const ContributeModal = ({
                     </div>
                 </div>
                 
-                <div className="relative z-10 p-8 overflow-y-auto flex-grow custom-scrollbar" style={{ minHeight: '0' }}>
+                <div className="relative z-10 px-8 py-4 overflow-y-auto grow custom-scrollbar" style={{ minHeight: '0' }}>
                     <div className="max-w-5xl mx-auto space-y-8">
                         <div className="space-y-4">
                             <label className="block text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
@@ -269,9 +318,16 @@ const ContributeModal = ({
                                 <textarea 
                                     placeholder="Describe your verse..."
                                     value={verseContent}
-                                    onChange={(e) => setVerseContent(e.target.value)}
-                                    rows={3}
-                                    className="w-full px-5 py-4 bg-slate-900/60 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition-all duration-300 resize-none text-lg"
+                                    onChange={(e) => {
+                                        setVerseContent(e.target.value);
+                                        // Auto-expand textarea
+                                        const textarea = e.target;
+                                        textarea.style.height = 'auto';
+                                        const newHeight = Math.min(textarea.scrollHeight, 200); // 200px ≈ 5 lines
+                                        textarea.style.height = newHeight + 'px';
+                                    }}
+                                    rows={2}
+                                    className="w-full px-5 py-4 bg-slate-900/60 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition-all duration-300 resize-none text-lg overflow-hidden"
                                 ></textarea>
                                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-500/5 to-indigo-500/5 opacity-0 pointer-events-none transition-opacity duration-300"></div>
                             </div>
@@ -294,9 +350,9 @@ const ContributeModal = ({
                                             />
                                             <button 
                                                 onClick={() => removeImage(index)}
-                                                className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500/80 flex items-center justify-center text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                                className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500/80 hover:bg-red-600 flex items-center justify-center text-white text-xs transition-colors"
                                             >
-                                                <i className="fas fa-times"></i>
+                                                <i className="fas fa-trash"></i>
                                             </button>
                                             <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
                                                 {index + 1}
@@ -349,7 +405,7 @@ const ContributeModal = ({
                     </div>
                 </div>
                 
-                <div className="relative z-10 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md border-t border-gray-800/50 px-8 py-6" style={{ position: 'sticky', bottom: '0', zIndex: '20' }}>
+                <div className="relative z-10 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md border-t border-gray-800/50 px-8 py-4" style={{ position: 'sticky', bottom: '0', zIndex: '20' }}>
                     <div className="flex justify-end gap-4">
                         <button 
                             onClick={() => setShowContributeModal(false)}

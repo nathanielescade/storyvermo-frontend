@@ -8,12 +8,14 @@ import Logo from './header/Logo';
 import SearchBar from './header/SearchBar';
 import NotificationBell from './header/NotificationBell';
 import UserMenu from './header/UserMenu';
+import TrendingTagsModal from './storycard/TrendingTagsModal';
 
 const Header = ({ openAuthModal }) => {
   const { isAuthenticated } = useAuth();
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showTrendingTags, setShowTrendingTags] = useState(false);
   const mobileSearchBarRef = useRef(null);
 
   // Handle click outside to close mobile search and scroll
@@ -41,11 +43,36 @@ const Header = ({ openAuthModal }) => {
     };
   }, [showMobileSearch]);
 
+  // Handle tag selection from trending tags modal
+  const handleTagSelect = (tagName) => {
+    setShowTrendingTags(false);
+    // Dispatch event to notify FeedClient to change tag filter
+    window.dispatchEvent(new CustomEvent('trending:tag_selected', { detail: { tagName } }));
+  };
+
   return (
     <div className="fixed-header ">
       <Logo />
       
       <div className="flex gap-4 items-center ml-auto relative">
+        {/* Trending Tags Button */}
+        <button 
+          className="trending-tags-btn w-10 h-10 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 flex items-center justify-center shadow-[0_0_12px_rgba(251,191,36,0.3)] transition-all hover:scale-110 hover:shadow-[0_0_20px_rgba(251,191,36,0.5)]"
+          onClick={() => {
+            if (showTrendingTags) {
+              setShowTrendingTags(false);
+            } else {
+              setShowTrendingTags(true);
+              setShowMobileSearch(false);
+              setShowNotifications(false);
+              setShowUserMenu(false);
+            }
+          }}
+          title="Trending Tags"
+        >
+          <i className="fas fa-fire text-white text-lg"></i>
+        </button>
+
         {/* Search bar for desktop */}
         <div className="hidden md:block">
           <SearchBar />
@@ -99,6 +126,13 @@ const Header = ({ openAuthModal }) => {
           />
         </div>
       )}
+
+      {/* Trending Tags Modal */}
+      <TrendingTagsModal 
+        isOpen={showTrendingTags}
+        onClose={() => setShowTrendingTags(false)}
+        onTagSelect={handleTagSelect}
+      />
     </div>
   );
 };
