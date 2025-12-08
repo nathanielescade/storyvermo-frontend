@@ -28,26 +28,31 @@ import FeedClient from './FeedClient';
 import { storiesApi } from '../../lib/api';
 
 export default async function Home({ initialTag = 'for-you' }) {
-  // Server-side fetch initial page (cached via next/cache)
+  // Server-side fetch initial page using cursor-based pagination
   let initial = null;
   try {
-    // Use the initialTag passed from tag routes (e.g. /tags/:tag) or fall back
-    // to the default 'for-you' feed when not provided.
-    const params = { page: 1, tag: initialTag || 'for-you' };
+    const params = { 
+      cursor: null,
+      limit: 5,
+      tag: initialTag || 'for-you' 
+    };
     initial = await storiesApi.getPaginatedStories(params);
   } catch (e) {
     // Return empty initial state instead of null
-    initial = { results: [], next: null };
+    initial = { results: [], next_cursor: null, has_more: false, count: 0, page_size: 20 };
   }
 
   const stories = initial?.results || (Array.isArray(initial) ? initial : []);
-  const hasNext = initial?.next !== undefined ? (initial.next !== null) : false;
+  const nextCursor = initial?.next_cursor || null;
+  // hasMore should be true if next_cursor exists, otherwise check the has_more flag
+  const hasMore = !!(initial?.next_cursor) || initial?.has_more === true;
 
   const initialState = {
     stories,
-    page: 1,
-    hasNext,
-    currentTag: initialTag
+    nextCursor,
+    hasMore,
+    currentTag: initialTag,
+    totalCount: initial?.count || 0
   };
 
   return <FeedClient initialState={initialState} />;

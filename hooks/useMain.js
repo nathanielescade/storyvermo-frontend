@@ -1,4 +1,4 @@
-// useMain.js - FIXED VERSION with smooth pagination and persistent interactions
+// useMain.js - 🚀 CURSOR-BASED INFINITE SCROLL with proper pagination
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { storiesApi, userApi } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,41 +7,73 @@ export default function useMain(initialState = null) {
     // Always use initialState for hydration, never overwrite with client fetch
     const [stories, setStories] = useState(initialState?.stories || []);
     const [loading, setLoading] = useState(false);
-    const [hasNext, setHasNext] = useState(initialState?.hasNext ?? true);
     const [isFetching, setIsFetching] = useState(false);
     const [currentTag, setCurrentTag] = useState(initialState?.currentTag || 'for-you');
     const [currentDimension, setCurrentDimension] = useState('feed');
     const [followingUsers, setFollowingUsers] = useState([]);
-    const [page, setPage] = useState(initialState?.page || 1);
     const [error, setError] = useState(null);
+    
+    // CURSOR-BASED PAGINATION STATE
+    const [nextCursor, setNextCursor] = useState(initialState?.nextCursor || null);
+    const [hasMore, setHasMore] = useState(initialState?.hasMore !== false);
+    const [totalCount, setTotalCount] = useState(initialState?.totalCount || 0);
+    
+    // Prefetch management
     const [prefetchedStories, setPrefetchedStories] = useState(null);
+    const [prefetchedCursor, setPrefetchedCursor] = useState(null);
     const isPrefetchingRef = useRef(false);
+    const lastFetchTagRef = useRef(initialState?.currentTag || 'for-you');
 
     const { currentUser, isAuthenticated, refreshAuth } = useAuth();
-
-    // Remove client-side fetch on mount; SSR initialState is always used
-    // This prevents hydration mismatch and ensures SSR stories are shown
-    // If you want to support client navigation to tags, use handleTagSwitch
     
-    // Handle tag switching
+    // Prefetch next page in background (defined before handleTagSwitch)
+    const prefetchNextPageInner = useCallback(async (cursor, tag) => {
+        if (isPrefetchingRef.current || !cursor) return;
+        
+        try {
+            isPrefetchingRef.current = true;
+            const params = { 
+                cursor,
+                limit: 5,
+                tag
+            };
+            
+            const result = await storiesApi.getPaginatedStories(params);
+            const prefetched = result.results || [];
+            
+            setPrefetchedStories(prefetched);
+            setPrefetchedCursor(result.next_cursor || null);
+        } catch (err) {
+            // Silently fail - not critical
+        } finally {
+            isPrefetchingRef.current = false;
+        }
+    }, []);
+    
+    // Handle tag switching - reset to first page
     const handleTagSwitch = useCallback(async (tag, { force = false } = {}) => {
         if (tag === currentTag && !force) return;
 
         setLoading(true);
-        setPage(1);
         setError(null);
         setPrefetchedStories(null);
+        setPrefetchedCursor(null);
         
         try {
             setCurrentTag(tag);
+            lastFetchTagRef.current = tag;
 
-            const params = { page: 1 };
-            if (tag !== 'for-you') params.tag = tag;
+            const params = { 
+                cursor: null, // Reset cursor for new tag
+                limit: 5,
+                tag: tag
+            };
             if (force) params._t = Date.now();
 
             const result = await storiesApi.getPaginatedStories(params);
             let fetched = result.results || [];
             
+            // Shuffle for-you feed for variety
             if (force && tag === 'for-you' && fetched.length > 1) {
                 for (let i = fetched.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
@@ -50,94 +82,86 @@ export default function useMain(initialState = null) {
             }
 
             setStories(fetched);
-            setHasNext(result.next !== null);
+            setNextCursor(result.next_cursor || null);
+            setHasMore(result.has_more !== false);
+            setTotalCount(result.count || 0);
             
-            // Prefetch next page
-            if (result.next !== null && !isPrefetchingRef.current) {
-                const nextParams = { page: 2 };
-                if (tag !== 'for-you') nextParams.tag = tag;
-                if (force) nextParams._t = Date.now();
-
-                isPrefetchingRef.current = true;
-                storiesApi.getPaginatedStories(nextParams)
-                    .then(nextStories => {
-                        let prefetched = nextStories.results || [];
-                        if (force && tag === 'for-you' && prefetched.length > 1) {
-                            for (let i = prefetched.length - 1; i > 0; i--) {
-                                const j = Math.floor(Math.random() * (i + 1));
-                                [prefetched[i], prefetched[j]] = [prefetched[j], prefetched[i]];
-                            }
-                        }
-                        setPrefetchedStories(prefetched);
-                    })
-                    .catch(err => {
-                    })
-                    .finally(() => {
-                        isPrefetchingRef.current = false;
-                    });
+            // Prefetch next page automatically
+            if (result.next_cursor && !isPrefetchingRef.current) {
+                prefetchNextPageInner(result.next_cursor, tag);
             }
         } catch (error) {
             setError(error.message || 'Failed to load stories');
+            setStories([]);
+            setHasMore(false);
         } finally {
             setLoading(false);
         }
-    }, [currentTag]);
+    }, [currentTag, prefetchNextPageInner]);
+    // Prefetch next page in background
+    const prefetchNextPage = useCallback(async (cursor, tag) => {
+        if (isPrefetchingRef.current || !cursor) return;
+        
+        try {
+            isPrefetchingRef.current = true;
+            const params = { 
+                cursor,
+                limit: 5,
+                tag
+            };
+            
+            const result = await storiesApi.getPaginatedStories(params);
+            const prefetched = result.results || [];
+            
+            setPrefetchedStories(prefetched);
+            setPrefetchedCursor(result.next_cursor || null);
+        } catch (err) {
+            // Silently fail - not critical
+        } finally {
+            isPrefetchingRef.current = false;
+        }
+    }, []);
     
-    // 🔥 OPTIMIZED: Handle infinite scroll with INSTANT rendering
+    // 🚀 INFINITE SCROLL: Load next page with cursor
     const handleFetchMore = useCallback(async () => {
-        if (isFetching || !hasNext) return;
+        if (isFetching || !hasMore || !nextCursor) return;
         
         setIsFetching(true);
         setError(null);
         
         try {
-            const nextPage = page + 1;
-            
-            // 🔥 KEY FIX: Use prefetched stories IMMEDIATELY
+            // 🔥 KEY OPTIMIZATION: Use prefetched stories IMMEDIATELY
             if (prefetchedStories && prefetchedStories.length > 0) {
                 // Remove duplicates
                 const existingIds = new Set(stories.map(s => s.id));
                 const filteredStories = prefetchedStories.filter(s => !existingIds.has(s.id));
                 
-                // ✅ ADD STORIES INSTANTLY - no waiting!
+                // ✅ INSTANT APPEND - no waiting!
                 if (filteredStories.length > 0) {
                     setStories(prev => [...prev, ...filteredStories]);
-                    setPage(nextPage);
                 }
                 
-                // Clear prefetched cache
+                // Update cursor and prefetch state
+                setNextCursor(prefetchedCursor);
+                setHasMore(prefetchedCursor !== null);
                 setPrefetchedStories(null);
+                setPrefetchedCursor(null);
                 
                 // Start prefetching NEXT page in background
-                if (!isPrefetchingRef.current) {
-                    const params = { page: nextPage + 1 };
-                    if (currentTag !== 'for-you') params.tag = currentTag;
-                    
-                    isPrefetchingRef.current = true;
-                    storiesApi.getPaginatedStories(params)
-                        .then(result => {
-                            if (result.results && result.results.length > 0) {
-                                setPrefetchedStories(result.results);
-                                setHasNext(result.next !== null);
-                            } else {
-                                setHasNext(false);
-                            }
-                        })
-                        .catch(err => {
-                            setHasNext(false);
-                        })
-                        .finally(() => {
-                            isPrefetchingRef.current = false;
-                        });
+                if (prefetchedCursor && !isPrefetchingRef.current) {
+                    prefetchNextPage(prefetchedCursor, lastFetchTagRef.current);
                 }
                 
                 setIsFetching(false);
                 return;
             }
             
-            // 🔥 FALLBACK: If no prefetched data, fetch now
-            const params = { page: nextPage };
-            if (currentTag !== 'for-you') params.tag = currentTag;
+            // 🔥 FALLBACK: If no prefetched data, fetch now (shouldn't happen often)
+            const params = { 
+                cursor: nextCursor,
+                limit: 5,
+                tag: currentTag
+            };
             
             const result = await storiesApi.getPaginatedStories(params);
             const newStories = result.results || [];
@@ -148,36 +172,22 @@ export default function useMain(initialState = null) {
             
             if (filteredStories.length > 0) {
                 setStories(prev => [...prev, ...filteredStories]);
-                setPage(nextPage);
             }
             
-            const hasMorePages = result.next !== null && result.next !== undefined;
-            setHasNext(hasMorePages);
+            // Update pagination state
+            setNextCursor(result.next_cursor || null);
+            setHasMore(result.has_more !== false);
             
-            // Start prefetching next page
-            if (hasMorePages && !isPrefetchingRef.current) {
-                const nextParams = { page: nextPage + 1 };
-                if (currentTag !== 'for-you') nextParams.tag = currentTag;
-
-                isPrefetchingRef.current = true;
-                storiesApi.getPaginatedStories(nextParams)
-                    .then(nextStories => {
-                        if (nextStories.results && nextStories.results.length > 0) {
-                            setPrefetchedStories(nextStories.results);
-                        }
-                    })
-                    .catch(err => {
-                    })
-                    .finally(() => {
-                        isPrefetchingRef.current = false;
-                    });
+            // Prefetch next page
+            if (result.next_cursor && !isPrefetchingRef.current) {
+                prefetchNextPage(result.next_cursor, lastFetchTagRef.current);
             }
         } catch (error) {
             setError(error.message || 'Failed to load more stories');
         } finally {
             setIsFetching(false);
         }
-    }, [isFetching, hasNext, page, currentTag, stories, prefetchedStories]);
+    }, [isFetching, hasMore, nextCursor, stories, prefetchedStories, prefetchedCursor, currentTag, prefetchNextPage]);
     
     // Handle follow user
     const handleFollowUser = useCallback(async (username) => {
@@ -216,31 +226,42 @@ export default function useMain(initialState = null) {
         }
     }, [stories]);
 
-    // Refresh current stories WITHOUT full page reload - called after login to update like/save status
+    // Refresh current stories WITHOUT full page reload - called after login
     const refreshStories = useCallback(async () => {
-        if (stories.length === 0) return; // Nothing to refresh
+        if (stories.length === 0) return;
         
         try {
-            const params = { page: 1 };
-            if (currentTag !== 'for-you') params.tag = currentTag;
+            const params = { 
+                cursor: null,
+                limit: 5,
+                tag: currentTag 
+            };
             
             const result = await storiesApi.getPaginatedStories(params);
             const freshStories = result.results || [];
             
             if (freshStories.length > 0) {
-                // Update stories with fresh data while preserving scroll position
                 setStories(freshStories);
-                setHasNext(result.next !== null);
+                setNextCursor(result.next_cursor || null);
+                setHasMore(result.has_more !== false);
+                setTotalCount(result.count || 0);
             }
         } catch (error) {
-            // Silently fail - don't disrupt user experience
+            // Silently fail
         }
     }, [currentTag, stories.length]);
+    
+    // Backward compatibility: prefetchNext method (called from FeedClient)
+    const prefetchNext = useCallback(() => {
+        if (nextCursor && !isPrefetchingRef.current) {
+            prefetchNextPage(nextCursor, lastFetchTagRef.current);
+        }
+    }, [nextCursor, prefetchNextPage]);
     
     return {
         stories,
         loading,
-        hasNext,
+        hasMore,
         isFetching,
         currentTag,
         currentDimension,
@@ -248,11 +269,14 @@ export default function useMain(initialState = null) {
         followingUsers,
         isAuthenticated,
         error,
+        nextCursor,
+        totalCount,
         handleTagSwitch,
         handleFetchMore,
         handleFollowUser,
         handleOpenStoryVerses,
         refreshStories,
-        refreshAuth
+        refreshAuth,
+        prefetchNext,
     };
 }

@@ -1,8 +1,9 @@
-// FeedClient.js
+// FeedClient.js - 🚀 CURSOR-BASED INFINITE SCROLL with skeleton loaders
 'use client';
 
 import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import StoryCard from './components/StoryCard';
+import StoryCardSkeleton from './components/StoryCardSkeleton';
 import useMain from '../../hooks/useMain';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -10,14 +11,12 @@ export default function FeedClient({ initialState }) {
   const {
     stories,
     loading,
-    hasNext,
+    hasMore,
     isFetching,
     currentTag,
     currentDimension,
     handleTagSwitch,
     handleFetchMore,
-    handleLikeToggle,
-    handleSaveToggle,
     handleFollowUser,
     handleOpenStoryVerses,
     isAuthenticated,
@@ -33,35 +32,31 @@ export default function FeedClient({ initialState }) {
   const observerRef = useRef(null);
 
   // Use stories as-is - moment images are already stripped on the API side
-  // Verses with metadata are kept for displaying counts in creator chip
   const feedStories = useMemo(() => stories, [stories]);
 
-
-  // Prefetch sentinel: prefetch next page when user approaches the end of
-  // the visible feed, but do NOT auto-append. This keeps the UI responsive
-  // while removing automatic infinite scroll behavior.
+  // 🚀 INTERSECTION OBSERVER for automatic infinite scroll trigger
   useEffect(() => {
-    if (!hasNext || isFetching) return;
+    if (!hasMore || isFetching) return;
     const root = feedRef.current;
     if (!root || !sentinelRef.current) return;
 
-    // Avoid creating multiple observers
+    // Disconnect previous observer
     if (observerRef.current) observerRef.current.disconnect();
 
-    const io = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting) {
-        try {
-          prefetchNext();
-        } catch (e) {
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          // User has scrolled near the end - load more
+          handleFetchMore();
         }
+      },
+      {
+        root: root,
+        // Trigger when sentinel is 300px away from viewport bottom
+        rootMargin: '300px',
+        threshold: 0.01
       }
-    }, {
-      root: root,
-      // Larger rootMargin warms earlier so images can be loaded before user
-      // reaches the end of the current list.
-      rootMargin: '800px',
-      threshold: 0.1
-    });
+    );
 
     observerRef.current = io;
     io.observe(sentinelRef.current);
@@ -70,16 +65,44 @@ export default function FeedClient({ initialState }) {
       try { io.disconnect(); } catch (e) { /* ignore */ }
       observerRef.current = null;
     };
-  }, [hasNext, isFetching, prefetchNext]);
+  }, [hasMore, isFetching, handleFetchMore]);
 
-  // NOTE: previous buffering logic (storiesBuffer) was removed because buffered
-  // stories were never rendered/merged into main `stories`. This avoids
-  // duplicate fetches and simplifies preload behavior.
+  // Pre-fetch next page as user scrolls (for smooth loading)
+  useEffect(() => {
+    if (!hasMore || isFetching) return;
+    const root = feedRef.current;
+    if (!root || !sentinelRef.current) return;
 
-  // Listen for successful login/signup and refresh stories with updated auth status
+    const prefetchObserver = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          // User is nearing the end - prefetch next page
+          try {
+            prefetchNext();
+          } catch (e) {
+            // Silently fail
+          }
+        }
+      },
+      {
+        root: root,
+        rootMargin: '600px', // Prefetch earlier than load trigger
+        threshold: 0.01
+      }
+    );
+
+    if (sentinelRef.current) {
+      prefetchObserver.observe(sentinelRef.current);
+    }
+
+    return () => {
+      try { prefetchObserver.disconnect(); } catch (e) { /* ignore */ }
+    };
+  }, [hasMore, isFetching, prefetchNext]);
+
+  // Listen for successful login/signup
   useEffect(() => {
     const handleAuthSuccess = () => {
-      // Delay slightly to allow server-side state to stabilize
       setTimeout(() => {
         refreshStories();
       }, 150);
@@ -109,6 +132,7 @@ export default function FeedClient({ initialState }) {
       const newUrl = tagName === 'for-you' ? '/' : `/tags/${slug}/`;
       window.history.pushState({}, '', newUrl);
     } catch (e) {
+      // Ignore navigation errors
     }
 
     handleTagSwitch(tagName);
@@ -119,10 +143,6 @@ export default function FeedClient({ initialState }) {
     const onPop = () => {
       const m = window.location.pathname.match(/^\/tags\/([^\/]+)\/?$/);
       const tag = m && m[1] ? decodeURIComponent(m[1]) : 'for-you';
-      // Immediately scroll to top so the UI reflects navigation while
-      // handleTagSwitch may perform network work. handleTagSwitch itself
-      // also sets the current tag in the hook, but scrolling here makes
-      // the change feel instant to the user.
       if (feedRef.current) {
         try {
           feedRef.current.scrollTo({ top: 0 });
@@ -156,13 +176,12 @@ export default function FeedClient({ initialState }) {
     return () => window.removeEventListener('tag:switch', onTagSwitchEvent);
   }, [handleTagSwitch, isAuthenticated]);
 
-  // Create a unique key for each story card
+  // Create unique key for story cards
   const getStoryKey = useCallback((story, index) => {
     if (story.id && story.slug) {
       return `${story.id}-${story.slug}`;
     }
     return `${story.id || 'story'}-${index}`;
-
   }, []);
 
   return (
@@ -176,7 +195,6 @@ export default function FeedClient({ initialState }) {
           overflowY: 'auto', 
           paddingTop: '80px',
           scrollBehavior: 'smooth',
-          // Hide scrollbar for cleaner look
           scrollbarWidth: 'none',
           msOverflowStyle: 'none'
         }}
@@ -188,81 +206,92 @@ export default function FeedClient({ initialState }) {
           }
         `}</style>
 
+        {/* Initial loading state */}
         {loading ? (
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent-orange"></div>
           </div>
+        ) : feedStories.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64">
+            <p className="text-gray-500 text-lg mb-4">No stories yet</p>
+            <button
+              onClick={() => handleTagSwitch('for-you', { force: true })}
+              className="px-4 py-2 bg-accent-orange text-white rounded-lg hover:bg-accent-orange/90 transition-colors"
+            >
+              Refresh
+            </button>
+          </div>
         ) : (
           <>
+            {/* Rendered story cards */}
             {feedStories.map((story, index) => (
               <div key={getStoryKey(story, index)}>
-                {/* Insert prefetch sentinel a few items before the end to warm next page early */}
-                {index === Math.max(0, feedStories.length - 5) && (
-                  <div ref={sentinelRef} style={{ height: '1px', width: '100%' }} aria-hidden />
-                )}
                 <StoryCard 
                   story={story} 
                   index={index} 
                   viewType="feed"
-                  onLikeToggle={handleLikeToggle}
-                  onSaveToggle={handleSaveToggle}
                   onFollowUser={handleFollowUser}
                   onOpenStoryVerses={handleOpenStoryVerses}
                   currentTag={currentTag}
                   onTagSelect={handleTagOptionClick}
                   isAuthenticated={isAuthenticated}
-                  openAuthModal={(type = null, data = null) => window.dispatchEvent(new CustomEvent('auth:open', { detail: { type, data } }))}
+                  openAuthModal={(type = null, data = null) => 
+                    window.dispatchEvent(new CustomEvent('auth:open', { detail: { type, data } }))
+                  }
                 />
               </div>
             ))}
-            
-            {/* Manual load-more control (infinite scroll removed) */}
+
+            {/* INFINITE SCROLL: Show skeleton loaders while fetching */}
+            {isFetching && (
+              <div className="space-y-4 px-4">
+                {/* Show 2-3 skeleton cards while loading */}
+                {[1, 2, 3].map((i) => (
+                  <StoryCardSkeleton key={`skeleton-${i}`} />
+                ))}
+              </div>
+            )}
+
+            {/* End of feed indicator */}
+            {!hasMore && (
+              <div className="text-center py-8">
+                <p className="text-gray-500 text-sm">You&apos;ve seen all stories</p>
+                <button
+                  onClick={() => handleTagSwitch('for-you', { force: true })}
+                  className="mt-4 px-4 py-2 text-accent-orange hover:underline text-sm"
+                >
+                  Refresh feed
+                </button>
+              </div>
+            )}
+
+            {/* Sentinel element for intersection observer */}
+            <div 
+              ref={sentinelRef} 
+              style={{ height: '2px', width: '100%' }} 
+              aria-hidden="true"
+              className="my-8"
+            />
+
+            {/* Error state with retry */}
+            {error && (
+              <div className="mx-4 p-4 bg-red-50 border border-red-200 rounded-lg mb-4">
+                <p className="text-red-700 text-sm mb-3">{error}</p>
+                <button 
+                  onClick={() => {
+                    handleFetchMore();
+                  }}
+                  className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
           </>
-        )}
-
-        {/* Minimal loading indicator that doesn't disrupt flow */}
-        {isFetching && (
-          <div className="flex justify-center items-center h-8 my-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-accent-orange opacity-70"></div>
-          </div>
-        )}
-        {/* Load more button to explicitly fetch the next page */}
-        {hasNext && !isFetching && stories.length > 0 && (
-          <div className="flex justify-center py-4">
-            <button
-              onClick={() => handleFetchMore()}
-              className="px-4 py-2 bg-accent-orange text-white rounded-lg hover:bg-accent-orange/90"
-            >
-              Load more
-            </button>
-          </div>
-        )}
-        {/* Sentinel element observed for warming the next page (prefetch only) */}
-        <div ref={sentinelRef} style={{ height: '1px', width: '100%' }} aria-hidden />
-        
-        {/* End of feed indicator */}
-        {!hasNext && stories.length > 0 && (
-          <div className="text-center py-4 text-gray-500 text-sm">
-            You&apos;ve seen all stories
-          </div>
-        )}
-
-        {/* Error display with retry */}
-        {error && (
-          <div className="text-center py-4">
-            <p className="text-red-500 mb-2">{error}</p>
-            <button 
-              onClick={() => {
-                handleFetchMore();
-              }}
-              className="px-3 py-1 bg-accent-orange text-white text-sm rounded hover:bg-accent-orange/90"
-            >
-              Retry
-            </button>
-          </div>
         )}
       </div>
 
+      {/* Tag switcher navigation */}
       <div
         id="tagSwitcher"
         className="fixed left-1/2 top-8 transform -translate-x-1/2 bg-black/50 rounded-full z-10 flex px-1 py-1"

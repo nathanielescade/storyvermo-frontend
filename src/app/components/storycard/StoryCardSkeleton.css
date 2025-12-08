@@ -1,0 +1,252 @@
+/* StoryCardSkeleton.css - Professional subtle skeleton animations */
+
+.story-card-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e0e0e0;
+  margin-bottom: 1.5rem;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Skeleton header (avatar + creator info) */
+.skeleton-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding-bottom: 0.5rem;
+}
+
+.skeleton-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 0%,
+    #e0e0e0 50%,
+    #f0f0f0 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+.skeleton-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.skeleton-username {
+  width: 120px;
+  height: 14px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 0%,
+    #e0e0e0 50%,
+    #f0f0f0 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+.skeleton-timestamp {
+  width: 80px;
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    #f5f5f5 0%,
+    #e8e8e8 50%,
+    #f5f5f5 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2.2s infinite 0.1s;
+}
+
+/* Image skeleton */
+.skeleton-image {
+  width: 100%;
+  height: 300px;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 0%,
+    #e0e0e0 50%,
+    #f0f0f0 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2.3s infinite 0.2s;
+}
+
+/* Title section skeleton */
+.skeleton-title-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 1rem 0 0.5rem 0;
+}
+
+.skeleton-title-line {
+  height: 18px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 0%,
+    #e0e0e0 50%,
+    #f0f0f0 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2.4s infinite 0.15s;
+}
+
+.skeleton-line-1 {
+  width: 85%;
+}
+
+.skeleton-line-2 {
+  width: 60%;
+}
+
+.skeleton-line-3 {
+  width: 40%;
+}
+
+/* Description skeleton */
+.skeleton-description {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0.5rem 0;
+}
+
+.skeleton-desc-line {
+  height: 14px;
+  border-radius: 4px;
+  background: linear-gradient(
+    90deg,
+    #f5f5f5 0%,
+    #e8e8e8 50%,
+    #f5f5f5 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2.5s infinite 0.2s;
+}
+
+/* Tags skeleton */
+.skeleton-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0;
+}
+
+.skeleton-tag {
+  width: 70px;
+  height: 24px;
+  border-radius: 12px;
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 0%,
+    #e0e0e0 50%,
+    #f0f0f0 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2.6s infinite 0.25s;
+}
+
+/* Action buttons skeleton */
+.skeleton-actions {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f0f0f0;
+}
+
+.skeleton-button {
+  width: 50px;
+  height: 40px;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    #f5f5f5 0%,
+    #e8e8e8 50%,
+    #f5f5f5 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2.7s infinite 0.3s;
+}
+
+/* Shimmer animation for all skeleton elements */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: calc(200% + 200px) 0;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .story-card-skeleton {
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .skeleton-image {
+    height: 250px;
+  }
+
+  .skeleton-actions {
+    gap: 0.5rem;
+  }
+
+  .skeleton-button {
+    width: 40px;
+    height: 36px;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .story-card-skeleton {
+    background: #1e1e1e;
+    border-color: #333;
+  }
+
+  .skeleton-avatar,
+  .skeleton-username,
+  .skeleton-timestamp,
+  .skeleton-image,
+  .skeleton-title-line,
+  .skeleton-desc-line,
+  .skeleton-tag,
+  .skeleton-button {
+    background: linear-gradient(
+      90deg,
+      #2a2a2a 0%,
+      #383838 50%,
+      #2a2a2a 100%
+    ) !important;
+  }
+}
