@@ -1038,14 +1038,12 @@ const StoryFormModal = ({
       const storyIdentifier = savedStory?.public_id || savedStory?.id || savedStory?.slug;
       
       // Create/update verses in parallel
-      // For new stories, skip verses that are completely empty (no content and no images)
-      const versesToProcess = (editingStory)
-        ? updatedVerses
-        : updatedVerses.filter(verse => {
-          const hasContent = (verse.content || '').trim() !== '';
-          const hasImages = (verse.uploadedImageIds || []).length > 0;
-          return hasContent || hasImages;
-        });
+      // Skip verses that are completely empty (no content and no images)
+      const versesToProcess = updatedVerses.filter(verse => {
+        const hasContent = (verse.content || '').trim() !== '';
+        const hasImages = (verse.uploadedImageIds || []).length > 0;
+        return hasContent || hasImages;
+      });
 
       const versePromises = versesToProcess.map(async (verse, index) => {
         const verseData = {

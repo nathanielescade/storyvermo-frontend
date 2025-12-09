@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
+import Link from 'next/link';
 
 const TitleSection = ({ 
     story, 
@@ -83,7 +84,16 @@ const TitleSection = ({
     return (
         <>
             <div className="title-container" id={`title-container-${index}`}>
-                <a href={`/stories/${story.slug}/`} className="block">
+                <Link 
+                    href={`/stories/${story.slug}/`} 
+                    className="block"
+                    onMouseEnter={(e) => {
+                        // Prefetch the story page on hover for instant navigation
+                        if (e.currentTarget.prefetch) {
+                            e.currentTarget.prefetch();
+                        }
+                    }}
+                >
                     <h2 
                         ref={titleRef}
                         className={`scene-title text-2xl md:text-3xl font-bold mb-0 hover:underline flex items-center flex-wrap ${
@@ -105,7 +115,7 @@ const TitleSection = ({
                     >
                         {renderTitleWithEmojis(story.title)}
                     </h2>
-                </a>
+                </Link>
                 
                 {/* Title toggle control */}
                 {wasTitleTruncated && (

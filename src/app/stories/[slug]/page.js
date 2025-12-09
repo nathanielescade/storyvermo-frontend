@@ -6,6 +6,11 @@ import { generateMetadata } from './metadata';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://storyvermo.com';
 
+// ISR: Revalidate every 10 seconds for fresh content
+// When user clicks story link, Next.js serves cached page instantly (SPA-like)
+// Then revalidates in background, so next visitor gets fresh data
+export const revalidate = 10;
+
 // Export metadata function
 export { generateMetadata };
 

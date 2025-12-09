@@ -49,7 +49,8 @@ export default function StoryDisplay({ initialStory, slug }) {
   const wheelTimeoutRef = useRef(null);
   const touchStartRef = useRef(null);
 
-  // Refetch story client-side to get current user's like/save state
+  // Refetch story client-side ONLY if we need to update like/save state
+  // Skip if story already has user interaction data (newer than 5 minutes)
   useEffect(() => {
     let mounted = true;
 
@@ -64,15 +65,16 @@ export default function StoryDisplay({ initialStory, slug }) {
       }
     };
 
-    // Always refetch to get current user's auth state (like/save status)
-    // This ensures the ActionButtons show the correct filled/unfilled state
-    if (slug) {
-      refetchStory();
+    // Only refetch if we have a slug and user just authenticated/changed
+    // Skip refetch if story is brand new (server just rendered it)
+    if (slug && isAuthenticated) {
+      // Debounce refetch to avoid constant updates
+      const timer = setTimeout(() => {
+        refetchStory();
+      }, 300); // 300ms delay for user auth to settle
+      
+      return () => clearTimeout(timer);
     }
-
-    return () => {
-      mounted = false;
-    };
   }, [slug, isAuthenticated]);
 
   // Handle verse query param

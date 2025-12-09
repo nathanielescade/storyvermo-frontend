@@ -35,7 +35,7 @@ export default async function TagsPage() {
   
   try {
     // Try to fetch tags but handle any errors gracefully
-  const response = await fetch(absoluteUrl('/api/tags/trending/'), {
+  const response = await fetch(absoluteUrl('/api/tags/recent/'), {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
