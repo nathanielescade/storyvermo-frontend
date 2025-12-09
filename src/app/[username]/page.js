@@ -4,6 +4,10 @@
 import ProfileClient from './ProfileClient';
 import { userApi } from '../../../lib/api';
 
+// ISR: Revalidate every 10 seconds for fresh profile data
+// Ensures instant page loads while keeping data fresh
+export const revalidate = 10;
+
 export default async function Page({ params }) {
   // Await the params before using its properties
   const { username } = await params;

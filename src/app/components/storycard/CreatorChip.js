@@ -1,5 +1,6 @@
 // CreatorChip.js - FIXED: No localStorage, proper backend integration
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { formatTimeAgo } from '../../../../lib/utils';
 import { useAuth } from '../../../../contexts/AuthContext';
 
@@ -310,7 +311,15 @@ const CreatorChip = ({
             
             <div className="creator-chip flex items-center gap-3 bg-white/10 py-1 px-1 rounded-full border border-white/20 max-w-full overflow-hidden">
                 <div className="relative flex-shrink-0" style={{ width: '3.25rem', height: '3.25rem' }}>
-                    <a href={`/${encodeURIComponent(creatorUsername)}`} className="block w-full h-full">
+                    <Link 
+                        href={`/${encodeURIComponent(creatorUsername)}`} 
+                        className="block w-full h-full"
+                        onMouseEnter={(e) => {
+                            if (e.currentTarget.prefetch) {
+                                e.currentTarget.prefetch();
+                            }
+                        }}
+                    >
                         <div className="creator-avatar w-full h-full rounded-full bg-gradient-to-r from-accent-orange to-neon-pink flex items-center justify-center font-bold text-base flex-shrink-0 cursor-pointer overflow-hidden">
                             {getCreatorProfileImageUrl() ? (
                                 <img src={getCreatorProfileImageUrl()} alt={`${getCreatorDisplayName()}'s profile`} className="w-full h-full object-cover" />
@@ -318,7 +327,7 @@ const CreatorChip = ({
                                 getCreatorInitial()
                             )}
                         </div>
-                    </a>
+                    </Link>
                     
                     {/* 🔥 FIXED: Show button based on state, not localStorage */}
                     {!isOwner && !isFollowing && !isSelf && creatorUsername !== 'anonymous' && (
@@ -338,11 +347,19 @@ const CreatorChip = ({
                 </div>
                 
                 <div className="flex flex-col flex-grow min-w-0 ml-0">
-                    <a href={`/${encodeURIComponent(creatorUsername)}`} className="block min-w-0">
+                    <Link 
+                        href={`/${encodeURIComponent(creatorUsername)}`} 
+                        className="block min-w-0"
+                        onMouseEnter={(e) => {
+                            if (e.currentTarget.prefetch) {
+                                e.currentTarget.prefetch();
+                            }
+                        }}
+                    >
                         <span className="creator-name text-xs sm:text-sm font-semibold text-white whitespace-nowrap overflow-hidden text-ellipsis hover:underline block max-w-[12rem]" title={getCreatorDisplayName()}>
                             {getCreatorDisplayName()}
                         </span>
-                    </a>
+                    </Link>
                     {story.created_at && (
                         <span className="text-[9px] sm:text-xs text-gray-400 mt-0.5 truncate block max-w-[6.5rem]" title={new Date(story.created_at).toLocaleString()}>
                             {formatTimeAgo(story.created_at)}
