@@ -34,60 +34,50 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
   const [availableCities, setAvailableCities] = useState([]);
 
   // Content creation categories grouped by type
+  // 22 COMPREHENSIVE CATEGORIES (Added Photography & Automotive)
   const categoryOptions = [
-    // Creative Writing & Storytelling
-    { value: 'fiction', label: 'Fiction Writing', icon: '📚', group: 'Creative Writing' },
-    { value: 'poetry', label: 'Poetry & Verse', icon: '🎭', group: 'Creative Writing' },
-    { value: 'sci_fi', label: 'Science Fiction', icon: '🚀', group: 'Creative Writing' },
-    { value: 'fantasy', label: 'Fantasy', icon: '🐉', group: 'Creative Writing' },
+    // CORE & ENTERTAINMENT
+    { value: 'lifestyle', label: 'Lifestyle', icon: '🏠' },
+    { value: 'entertainment', label: 'Entertainment', icon: '🎭' },
+    { value: 'creativity', label: 'Creativity & Arts', icon: '🎨' },
+    { value: 'humor', label: 'Humor & Memes', icon: '😂' },
     
-    // Arts & Creativity
-    { value: 'visual_arts', label: 'Visual Arts', icon: '🎨', group: 'Arts & Creativity' },
-    { value: 'photography', label: 'Photography', icon: '📷', group: 'Arts & Creativity' },
-    { value: 'illustration', label: 'Illustration & Comics', icon: '✏️', group: 'Arts & Creativity' },
-    { value: 'fashion', label: 'Fashion & Style', icon: '👗', group: 'Arts & Creativity' },
+    // NEWS & INFORMATION
+    { value: 'news', label: 'News & Journalism', icon: '📰' },
+    { value: 'education', label: 'Education', icon: '📚' },
+    { value: 'science', label: 'Science', icon: '🔬' },
     
-    // Entertainment & Pop Culture
-    { value: 'movies', label: 'Movies & Film', icon: '🎬', group: 'Entertainment' },
-    { value: 'music', label: 'Music & Audio', icon: '🎵', group: 'Entertainment' },
-    { value: 'gaming', label: 'Gaming & eSports', icon: '🎮', group: 'Entertainment' },
-    { value: 'pop_culture', label: 'Pop Culture', icon: '🌟', group: 'Entertainment' },
+    // BUSINESS & COMMERCE
+    { value: 'business', label: 'Business & Sales', icon: '💰' },
+    { value: 'entrepreneurship', label: 'Entrepreneurship', icon: '🚀' },
     
-    // Technology & Innovation
-    { value: 'tech', label: 'Tech & Innovation', icon: '💻', group: 'Technology' },
-    { value: 'ai_ml', label: 'AI & Future Tech', icon: '🤖', group: 'Technology' },
-    { value: 'web3', label: 'Web3 & Crypto', icon: '⛓️', group: 'Technology' },
+    // FARMING & AGRICULTURE
+    { value: 'agriculture', label: 'Agriculture & Farming', icon: '🚜' },
     
-    // Lifestyle & Wellness
-    { value: 'fitness', label: 'Fitness & Health', icon: '💪', group: 'Lifestyle' },
-    { value: 'mindfulness', label: 'Mindfulness & Growth', icon: '🧘', group: 'Lifestyle' },
-    { value: 'travel', label: 'Travel & Adventure', icon: '✈️', group: 'Lifestyle' },
+    // HOBBIES & INTERESTS
+    { value: 'gaming', label: 'Gaming', icon: '🎮' },
+    { value: 'sports', label: 'Sports', icon: '⚽' },
+    { value: 'music', label: 'Music', icon: '🎵' },
     
-    // Food & Culture
-    { value: 'food', label: 'Food & Cooking', icon: '🍔', group: 'Food & Culture' },
-    { value: 'drinks', label: 'Drinks & Mixology', icon: '🍹', group: 'Food & Culture' },
-    { value: 'culture', label: 'Cultural Stories', icon: '🌏', group: 'Food & Culture' },
+    // DAILY LIFE & SHOPPING
+    { value: 'fashion', label: 'Fashion & Shopping', icon: '🛍️' },
+    { value: 'food', label: 'Food & Cooking', icon: '🍳' },
+    { value: 'travel', label: 'Travel', icon: '✈️' },
+    { value: 'fitness', label: 'Fitness & Health', icon: '💪' },
     
-    // Sports & Activities
-    { value: 'sports', label: 'Sports & Athletics', icon: '⚽', group: 'Sports' },
-    { value: 'outdoor', label: 'Outdoor Life', icon: '🏕️', group: 'Sports' },
-    { value: 'extreme_sports', label: 'Extreme Sports', icon: '🏂', group: 'Sports' },
+    // TECHNOLOGY & AUTOMOTIVE
+    { value: 'technology', label: 'Technology', icon: '💻' },
+    { value: 'automotive', label: 'Automotive & Cars', icon: '🚗' }, // Added!
     
-    // Business & Professional
-    { value: 'startup', label: 'Startups & Business', icon: '💼', group: 'Business' },
-    { value: 'finance', label: 'Finance & Investing', icon: '💰', group: 'Business' },
-    { value: 'career', label: 'Career & Growth', icon: '🎯', group: 'Business' },
+    // CREATIVE SPECIALTIES
+    { value: 'photography', label: 'Photography', icon: '📸' }, // Added!
     
-    // Social Causes & Community
-    { value: 'causes', label: 'Social Causes', icon: '✊', group: 'Community' },
-    { value: 'education', label: 'Education & Learning', icon: '📚', group: 'Community' },
-    { value: 'events', label: 'Local Events', icon: '🎪', group: 'Community' },
+    // COMMUNITY
+    { value: 'community', label: 'Community', icon: '👥' },
     
-    // Fun & Misc
-    { value: 'memes', label: 'Memes & Humor', icon: '😄', group: 'Fun & Misc' },
-    { value: 'pets', label: 'Pets & Animals', icon: '🐾', group: 'Fun & Misc' },
-    { value: 'nature', label: 'Nature & Wildlife', icon: '🌿', group: 'Fun & Misc' },
-    { value: 'diy', label: 'DIY & Projects', icon: '🛠️', group: 'Fun & Misc' }
+    // SPECIAL INTERESTS
+    { value: 'animals', label: 'Animals & Pets', icon: '🐶' },
+    { value: 'nature', label: 'Nature & Outdoors', icon: '🌳' },
   ];
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -498,7 +488,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-lg z-[500] flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-lg z-[10300] flex items-center justify-center p-4 overflow-y-auto">
       <div className="bg-gradient-to-br from-gray-900 to-black border border-neon-blue/30 rounded-2xl w-full max-w-md overflow-hidden transform transition-all duration-300 scale-100 my-8">
         {/* Modal Header */}
         <div className="p-6 border-b border-transparent bg-gradient-to-r from-transparent via-blue-900/30 to-transparent">
