@@ -459,6 +459,7 @@ export default function ProfileSettingsClient() {
                 options={genderOptions}
                 styles={customSelectStyles}
                 placeholder="Select your gender"
+                isSearchable={false}
                 formatOptionLabel={option => (
                   <div className="flex items-center gap-2">
                     <span className="text-xl" role="img" aria-label={option.label}>
