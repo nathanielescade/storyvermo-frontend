@@ -41,10 +41,7 @@ export default function ProfileSettingsClient() {
   // Options memoization
   const genderOptions = useMemo(() => [
     { value: 'male', label: 'Male', icon: '👨' },
-    { value: 'female', label: 'Female', icon: '👩' },
-    { value: 'non_binary', label: 'Non-binary', icon: '🧑' },
-    { value: 'other', label: 'Other', icon: '💫' },
-    { value: 'prefer_not_to_say', label: 'Prefer not to say', icon: '🤐' }
+    { value: 'female', label: 'Female', icon: '👩' }
   ], []);
 
   const categoryOptions = useMemo(() => [
@@ -450,18 +447,17 @@ export default function ProfileSettingsClient() {
               {formData.bio.length}/500 characters
             </div>
           </div>
-          {/* Gender - Only for personal accounts */}
+          {/* Gender - Required for personal accounts */}
           {formData.account_type === 'personal' && (
             <div>
               <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">
-                Gender (Optional)
+                Gender <span className="text-red-400">*</span>
               </label>
               <Select
                 value={selectedGender}
                 onChange={handleGenderChange}
                 options={genderOptions}
                 styles={customSelectStyles}
-                isClearable
                 placeholder="Select your gender"
                 formatOptionLabel={option => (
                   <div className="flex items-center gap-2">

@@ -136,13 +136,10 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
     flag: country.isoCode
   }));
 
-  // Gender options
+  // Gender options - Required (only Male/Female)
   const genderOptions = [
     { value: 'male', label: 'Male', icon: '👨' },
-    { value: 'female', label: 'Female', icon: '👩' },
-    { value: 'non_binary', label: 'Non-binary', icon: '🧑' },
-    { value: 'other', label: 'Other', icon: '💫' },
-    { value: 'prefer_not_to_say', label: 'Prefer not to say', icon: '🤐' }
+    { value: 'female', label: 'Female', icon: '👩' }
   ];
 
   // Handle country change
@@ -274,6 +271,11 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
     else if (formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters';
 
     if (formData.password !== formData.password_confirm) newErrors.password_confirm = 'Passwords do not match';
+
+    // Gender is required for personal accounts
+    if (formData.account_type === 'personal' && !formData.gender) {
+      newErrors.gender = 'Gender is required';
+    }
 
     setErrors(prev => ({ ...prev, ...newErrors }));
     return Object.keys(newErrors).length === 0;
@@ -649,16 +651,15 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
                       />
                     </div>
 
-                    {/* Gender Select - Only for personal accounts */}
+                    {/* Gender Select - Required for personal accounts */}
                     {formData.account_type === 'personal' && (
                       <div className="mt-4">
-                        <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">Gender (Optional)</label>
+                        <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">Gender <span className="text-red-400">*</span></label>
                         <Select
                           value={selectedGender}
                           onChange={handleGenderChange}
                           options={genderOptions}
                           styles={customSelectStyles}
-                          isClearable
                           placeholder="Select your gender"
                           formatOptionLabel={option => (
                             <div className="flex items-center gap-2">
@@ -669,6 +670,11 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
                             </div>
                           )}
                         />
+                        {errors.gender && (
+                          <div className="mt-1 text-red-400 text-xs font-semibold">
+                            {errors.gender}
+                          </div>
+                        )}
                       </div>
                     )}
 
