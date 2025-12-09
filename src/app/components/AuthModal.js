@@ -182,11 +182,27 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
   };
 
   // Handle categories change
-  const handleCategoriesChange = (selectedOptions) => {
-    setSelectedCategories(selectedOptions || []);
+  const handleCategoriesChange = (selectedOption) => {
+    if (!selectedOption) return;
+    
+    // Only add if less than 3 categories selected
+    if (selectedCategories.length < 3) {
+      const newCategories = [...selectedCategories, selectedOption];
+      setSelectedCategories(newCategories);
+      setFormData(prev => ({
+        ...prev,
+        preferred_categories: newCategories.map(opt => opt.value)
+      }));
+    }
+  };
+
+  // Remove category
+  const removeCategory = (valueToRemove) => {
+    const newCategories = selectedCategories.filter(cat => cat.value !== valueToRemove);
+    setSelectedCategories(newCategories);
     setFormData(prev => ({
       ...prev,
-      preferred_categories: selectedOptions ? selectedOptions.map(opt => opt.value) : []
+      preferred_categories: newCategories.map(opt => opt.value)
     }));
   };
 
@@ -776,38 +792,68 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
                     </div>
 
                     <div className="mt-4">
-                      <label className="block text-sm font-medium text-blue-300 mb-2">Categories</label>
-                      <Select
-                        value={selectedCategories}
-                        onChange={handleCategoriesChange}
-                        options={(() => {
-                          const groups = {};
-                          categoryOptions.forEach(option => {
-                            if (!groups[option.group]) {
-                              groups[option.group] = [];
-                            }
-                            groups[option.group].push(option);
-                          });
-                          return Object.entries(groups).map(([group, options]) => ({
-                            label: group,
-                            options: options
-                          }));
-                        })()}
-                        styles={customSelectStyles}
-                        isMulti
-                        isClearable
-                        placeholder="Categories (max 3, optional)"
-                        isOptionDisabled={() => selectedCategories.length >= 3}
-                        formatOptionLabel={option => (
-                          <div className="flex items-center gap-2">
-                            <span className="text-xl" role="img" aria-label={option.label}>
-                              {option.icon}
-                            </span>
-                            <span className="flex-1">{option.label}</span>
-                          </div>
-                        )}
-                        noOptionsMessage={() => "No matching categories found"}
-                      />
+                      <label className="block text-sm font-medium text-blue-300 mb-2">Categories <span className="text-gray-400">(max 3, optional)</span></label>
+                      
+                      {/* Display selected categories as chips */}
+                      {selectedCategories.length > 0 && (
+                        <div className="flex flex-wrap gap-2 mb-3">
+                          {selectedCategories.map(cat => (
+                            <div key={cat.value} className="flex items-center gap-2 bg-blue-600/30 border border-blue-500/50 rounded-lg px-3 py-1">
+                              <span className="text-lg">{cat.icon}</span>
+                              <span className="text-sm text-white">{cat.label}</span>
+                              <button
+                                type="button"
+                                onClick={() => removeCategory(cat.value)}
+                                className="text-blue-300 hover:text-red-400 transition-colors ml-1"
+                              >
+                                <i className="fas fa-times text-xs"></i>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Select dropdown - single select, no keyboard input, disabled when 3 selected */}
+                      {selectedCategories.length < 3 && (
+                        <Select
+                          value={null}
+                          onChange={handleCategoriesChange}
+                          options={(() => {
+                            const groups = {};
+                            categoryOptions.forEach(option => {
+                              // Don't show already selected categories
+                              if (!selectedCategories.find(cat => cat.value === option.value)) {
+                                if (!groups[option.group]) {
+                                  groups[option.group] = [];
+                                }
+                                groups[option.group].push(option);
+                              }
+                            });
+                            return Object.entries(groups).map(([group, options]) => ({
+                              label: group,
+                              options: options
+                            }));
+                          })()}
+                          styles={customSelectStyles}
+                          isSearchable={false}
+                          isClearable={false}
+                          placeholder="Choose a category"
+                          formatOptionLabel={option => (
+                            <div className="flex items-center gap-2">
+                              <span className="text-xl" role="img" aria-label={option.label}>
+                                {option.icon}
+                              </span>
+                              <span className="flex-1">{option.label}</span>
+                            </div>
+                          )}
+                        />
+                      )}
+                      
+                      {selectedCategories.length >= 3 && (
+                        <div className="p-3 bg-blue-900/30 border border-blue-500/30 rounded-lg text-blue-200 text-sm text-center">
+                          Maximum 3 categories selected
+                        </div>
+                      )}
                     </div>
 
                     <div className="mt-4">
