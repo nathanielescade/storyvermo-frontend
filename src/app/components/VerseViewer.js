@@ -149,14 +149,37 @@ const VerseViewer = ({
   }, [showVerseOptions]);
   const [currentVerseIndex, setCurrentVerseIndex] = useState(initialVerseIndex);
   
+  // Store verse metadata in a ref to persist across scrolling
+  const verseMetadataRef = useRef({});
+  
   // Create a ref to store the latest story data
   const storyRef = useRef(story);
   useEffect(() => {
-    storyRef.current = story;
+    // Only update if the story actually changed (not just a re-render)
+    // This preserves our local updates to verses
+    if (story && story.verses) {
+      // Merge incoming verses with our cached metadata
+      const mergedVerses = story.verses.map(verse => {
+        const cachedMetadata = verseMetadataRef.current[verse.id];
+        if (cachedMetadata) {
+          return {
+            ...verse,
+            ...cachedMetadata,
+            user_has_liked: cachedMetadata.is_liked_by_user,
+            user_has_saved: cachedMetadata.is_saved_by_user
+          };
+        }
+        return verse;
+      });
+      
+      storyRef.current = {
+        ...story,
+        verses: mergedVerses
+      };
+    } else {
+      storyRef.current = story;
+    }
   }, [story]);
-
-  // Store verse metadata in a ref to persist across scrolling
-  const verseMetadataRef = useRef({});
 
   // Get current verse from the story
   const currentVerse = useMemo(() => {
@@ -353,11 +376,17 @@ const VerseViewer = ({
       setSaveCount(metadata.saves_count);
     }
 
-    // Update story ref
+    // Update story ref with both property formats for compatibility
     if (storyRef.current?.verses) {
       const updatedVerses = storyRef.current.verses.map(verse => 
         verse.id === verseId 
-          ? { ...verse, ...metadata }
+          ? { 
+              ...verse, 
+              ...metadata,
+              // Also set alternative property names for compatibility
+              user_has_liked: metadata.is_liked_by_user,
+              user_has_saved: metadata.is_saved_by_user
+            }
           : verse
       );
       

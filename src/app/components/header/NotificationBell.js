@@ -259,4 +259,4 @@ const NotificationBell = ({ isOpen = false, onOpen, onClose }) => {
   );
 };
 
-export default NotificationBell;
+export default NotificationBell;  
