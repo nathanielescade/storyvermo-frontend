@@ -1,6 +1,6 @@
 // src/app/tags/[tag]/page.js
-import Home from '../../page';
-import { absoluteUrl, siteUrl } from '../../../../lib/api';
+import FeedClient from '../../FeedClient';
+import { absoluteUrl, siteUrl, storiesApi } from '../../../../lib/api';
 
 // Provide SEO metadata for the /tags/[tag] page so crawlers see useful content.
 export async function generateMetadata({ params }) {
@@ -80,7 +80,7 @@ const description = `Discover creative stories and verses inspired by ${prettyTa
   };
 }
 
-// Only render the interactive homepage on this route. Metadata above provides
+// Only render the interactive feed on this route. Metadata above provides
 // SEO content for crawlers; we avoid adding any server-side visible text here.
 export default async function TagPage({ params }) {
   const resolvedParams = await params;
@@ -94,5 +94,31 @@ export default async function TagPage({ params }) {
     }
   })();
 
-  return <Home initialTag={tag} />;
+  // Server-side fetch initial page using cursor-based pagination
+  let initial = null;
+  try {
+    const params = { 
+      cursor: null,
+      limit: 5,
+      tag: tag || 'for-you' 
+    };
+    initial = await storiesApi.getPaginatedStories(params);
+  } catch (e) {
+    // Return empty initial state instead of null
+    initial = { results: [], next_cursor: null, has_more: false, count: 0, page_size: 20 };
+  }
+
+  const stories = initial?.results || (Array.isArray(initial) ? initial : []);
+  const nextCursor = initial?.next_cursor || null;
+  // hasMore should be true if next_cursor exists, otherwise check the has_more flag
+  const hasMore = !!(initial?.next_cursor) || initial?.has_more === true;
+
+  const initialState = {
+    stories,
+    nextCursor,
+    hasMore,
+    tag,
+  };
+
+  return <FeedClient initialState={initialState} />;
 }
