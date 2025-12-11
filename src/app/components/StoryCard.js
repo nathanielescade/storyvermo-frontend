@@ -166,11 +166,23 @@ export default function StoryCard({
         const followingValue = story.isFollowing || story.is_following || false;
         setIsFollowing(followingValue);
         setLocalCommentsCount(story.comments_count || 0);
+        // IMPORTANT: Set currentStory immediately with the prop story (which has verses_count, tags from paginated endpoint)
+        // This ensures instant display without waiting for refetch
         setCurrentStory(story);
 
-        // DO NOT refetch on mount - verses are excluded from paginated lists for performance
-        // Verses will be fetched when user explicitly opens the VerseViewer
-        // The story metadata (following, counts, etc) is already in the paginated response
+        // Only refetch if story is missing BOTH tag arrays AND tags count
+        // This handles cases where paginated endpoint doesn't include tags
+        const hasTagArray = Array.isArray(story.tags);
+        const hasTagCount = story.tags_count !== undefined && story.tags_count !== null;
+        const hasVerseArray = Array.isArray(story.verses);
+        const hasVerseCount = story.verses_count !== undefined && story.verses_count !== null;
+        
+        const needsRefetch = !hasTagArray && !hasTagCount && (!hasVerseArray && !hasVerseCount);
+        
+        if (needsRefetch) {
+            // Fire and forget - don't await, let refetch happen in background
+            refetchStory();
+        }
 
         // Create bubbles around the hologram
         const node = hologramRef.current;
@@ -190,7 +202,7 @@ export default function StoryCard({
                 existingBubbles.forEach(bubble => bubble.remove());
             }
         };
-    }, [story]);
+    }, [story, refetchStory]);
 
     // Keep a global reference used by the VerseViewer in sync so the viewer
     // always reads the latest story even if it previously cached one on open.

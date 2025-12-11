@@ -42,7 +42,27 @@ export default async function Home({ initialTag = 'for-you' }) {
     initial = { results: [], next_cursor: null, has_more: false, count: 0, page_size: 20 };
   }
 
-  const stories = initial?.results || (Array.isArray(initial) ? initial : []);
+  let stories = initial?.results || (Array.isArray(initial) ? initial : []);
+  
+  // CRITICAL: Enrich lightweight paginated stories with full data (tags, verses_count, etc)
+  // This ensures instant display just like /stories/[slug] pages
+  try {
+    stories = await Promise.all(
+      stories.map(async (story) => {
+        try {
+          // Fetch full story data in parallel for instant rendering
+          const fullStory = await storiesApi.getStoryBySlug(story.slug);
+          return fullStory;
+        } catch (error) {
+          // If fetch fails, return the lightweight story we have
+          return story;
+        }
+      })
+    );
+  } catch (e) {
+    // If Promise.all fails, just use lightweight stories
+  }
+  
   const nextCursor = initial?.next_cursor || null;
   // hasMore should be true if next_cursor exists, otherwise check the has_more flag
   const hasMore = !!(initial?.next_cursor) || initial?.has_more === true;
