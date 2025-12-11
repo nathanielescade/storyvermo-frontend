@@ -11,6 +11,9 @@ const Logo = () => {
         width={56}
         height={48}
         className="h-12 w-14"
+        priority
+        quality={90}
+        loading="eager"
       />
     </Link>
   );

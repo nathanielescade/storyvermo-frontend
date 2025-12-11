@@ -64,7 +64,8 @@ const ContributeModal = ({
     };
 
     const handleImageUpload = async (e) => {
-        const files = Array.from(e.target.files);
+        const inputElement = e.target;
+        const files = Array.from(inputElement.files);
         if (files.length > 0) {
             const validFiles = [];
             const invalidFiles = [];
@@ -81,6 +82,7 @@ const ContributeModal = ({
             
             if (invalidFiles.length > 0) {
                 alert(`Invalid files: ${invalidFiles.join(', ')}`);
+                inputElement.value = '';
                 return;
             }
 
@@ -111,8 +113,10 @@ const ContributeModal = ({
                 );
                 
                 setVerseImages(prev => [...prev, ...imagePreviews]);
+                inputElement.value = '';
             } catch (error) {
                 alert(`Failed to process images: ${error.message}`);
+                inputElement.value = '';
             }
         }
     };

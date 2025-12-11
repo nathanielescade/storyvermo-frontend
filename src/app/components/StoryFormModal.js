@@ -693,6 +693,8 @@ const StoryFormModal = ({
     
     if (e.target && e.target.files) {
       const files = Array.from(e.target.files);
+      const inputElement = e.target;
+      
       if (files.length > 0) {
         const validFiles = [];
         const invalidFiles = [];
@@ -712,6 +714,8 @@ const StoryFormModal = ({
         
         if (invalidFiles.length > 0) {
           setError(`Invalid files: ${invalidFiles.join(', ')}`);
+          // Reset the input value so user can select again
+          inputElement.value = '';
           return;
         }
 
@@ -754,13 +758,18 @@ const StoryFormModal = ({
               )
             );
             setError(null);
+            
+            // Reset input value after successful upload
+            inputElement.value = '';
           } catch (err) {
             setError(`Failed to process images: ${err.message}`);
+            // Reset the input value on error too
+            inputElement.value = '';
           }
         })();
       }
     }
-  }, [compressImageFile]);
+  }, [compressImageFile, generatePreview]);
   
   // Handle verse field changes
   const handleVerseChange = useCallback((verseId, field, value) => {
@@ -1373,16 +1382,22 @@ const StoryFormModal = ({
 
     const handleFileChange = async (e) => {
       const file = e.target.files[0];
+      const inputElement = e.target;
+      
       if (file) {
         // Validate file type
         if (!file.type.startsWith('image/')) {
           setError('Please select a valid image file');
+          // Reset input so user can try again
+          inputElement.value = '';
           return;
         }
         
         // Validate file size (50MB pre-compression)
         if (file.size > 50 * 1024 * 1024) {
           setError('Image file must be less than 50MB');
+          // Reset input so user can try again
+          inputElement.value = '';
           return;
         }
         
@@ -1393,8 +1408,13 @@ const StoryFormModal = ({
           setImageFile(compressed.file);
           setImagePreview(compressed.preview);
           console.log(`Cover image compressed: ${compressed.originalSize}KB → ${compressed.compressedSize}KB (${compressed.ratio}% reduction)`);
+          
+          // Reset input after successful upload
+          inputElement.value = '';
         } catch (err) {
           setError(`Failed to process image: ${err.message}`);
+          // Reset input on error too
+          inputElement.value = '';
         }
       }
     };
