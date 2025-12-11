@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
 import { storiesApi, versesApi, momentsApi } from '../../../lib/api';
+import { useImageCompressionUploader } from '../../../hooks/useImageCompressionUploader';
 
 // Default tags as fallback
 const DEFAULT_TAGS = ['Fantasy', 'Adventure', 'Mystery', 'Romance', 'Sci-Fi', 
@@ -615,13 +616,25 @@ const StoryFormModal = ({
       }
     }
   }, []);
+
+  // Helper function to generate preview from file
+  const generatePreview = useCallback((file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = () => reject(new Error('Failed to generate preview'));
+      reader.readAsDataURL(file);
+    });
+  }, []);
   
-  // Handle image upload for post
-  const handleImageUpload = (e) => {
+  // Handle image upload for post with compression
+  const { compressImageFile } = useImageCompressionUploader();
+  
+  const handleImageUpload = useCallback(async (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        setError('Image file must be less than 10MB');
+      if (file.size > 50 * 1024 * 1024) {
+        setError('Image file must be less than 50MB');
         return;
       }
       
@@ -630,21 +643,26 @@ const StoryFormModal = ({
         return;
       }
       
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onload = function(event) {
-        setImagePreview(event.target.result);
-      };
-      reader.onerror = function(error) {
-        setError('Error reading the image file. Please try again.');
-      };
-      reader.readAsDataURL(file);
-      setError(null);
+      try {
+        setError(null);
+        console.log(`[StoryFormModal] Starting compression for: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
+        
+        // Compress the image
+        const compressed = await compressImageFile(file);
+        console.log(`[StoryFormModal] Compressed result: ${compressed.compressedSize}KB`);
+        
+        setImageFile(compressed.file);
+        setImagePreview(compressed.preview);
+        console.log(`Image compressed: ${compressed.originalSize}KB → ${compressed.compressedSize}KB (${compressed.ratio}% reduction)`);
+      } catch (err) {
+        console.error(`[StoryFormModal] Compression error:`, err);
+        setError(`Failed to process image: ${err.message}`);
+      }
     }
-  };
+  }, [compressImageFile]);
   
-  // Handle verse image upload
-  const handleVerseImageUpload = useCallback((verseId, e) => {
+  // Handle verse image upload with compression
+  const handleVerseImageUpload = useCallback(async (verseId, e) => {
     if (typeof e === 'number') {
       setVerses(prevVerses => 
         prevVerses.map(verse => {
@@ -680,8 +698,8 @@ const StoryFormModal = ({
         const invalidFiles = [];
         
         files.forEach(file => {
-          if (file.size > 10 * 1024 * 1024) {
-            invalidFiles.push(`${file.name} is too large (>10MB)`);
+          if (file.size > 50 * 1024 * 1024) {
+            invalidFiles.push(`${file.name} is too large (>50MB)`);
           } else if (!file.type.startsWith('image/')) {
             invalidFiles.push(`${file.name} is not a valid image`);
           } else {
@@ -696,25 +714,53 @@ const StoryFormModal = ({
           setError(`Invalid files: ${invalidFiles.join(', ')}`);
           return;
         }
-        
-        setVerses(prevVerses => 
-          prevVerses.map(verse => 
-            verse.id === verseId 
-              ? { 
-                  ...verse, 
-                  imageIds: [...verse.imageIds, ...validFiles.map(file => ({
-                    file: file.file,
-                    name: file.name,
+
+        // Compress all images in parallel
+        (async () => {
+          try {
+            const compressedFiles = await Promise.all(
+              validFiles.map(async (f) => {
+                try {
+                  const compressed = await compressImageFile(f.file);
+                  console.log(`Verse image compressed: ${compressed.originalSize}KB → ${compressed.compressedSize}KB (${compressed.ratio}% reduction)`);
+                  return {
+                    file: compressed.file,
+                    preview: compressed.preview,
+                    name: f.name,
                     tempId: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-                  }))]
-                } 
-              : verse
-          )
-        );
-        setError(null);
+                  };
+                } catch (error) {
+                  console.error(`Failed to compress ${f.name}:`, error);
+                  // Return original file if compression fails
+                  const preview = await generatePreview(f.file);
+                  return {
+                    file: f.file,
+                    preview,
+                    name: f.name,
+                    tempId: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+                  };
+                }
+              })
+            );
+
+            setVerses(prevVerses => 
+              prevVerses.map(verse => 
+                verse.id === verseId 
+                  ? { 
+                      ...verse, 
+                      imageIds: [...verse.imageIds, ...compressedFiles]
+                    } 
+                  : verse
+              )
+            );
+            setError(null);
+          } catch (err) {
+            setError(`Failed to process images: ${err.message}`);
+          }
+        })();
       }
     }
-  }, []);
+  }, [compressImageFile]);
   
   // Handle verse field changes
   const handleVerseChange = useCallback((verseId, field, value) => {
@@ -1212,32 +1258,20 @@ const StoryFormModal = ({
     });
   }, []);
   
-  // Handle verse image file selection
+  // Handle verse image file selection with compression
   const handleVerseImageFileChange = useCallback(async (verseId, e) => {
     const files = Array.from(e.target.files);
     if (files.length > 0) {
       const validFiles = [];
       const invalidFiles = [];
-      const imagePreviews = [];
       
       for (const file of files) {
-        if (file.size > 10 * 1024 * 1024) {
-          invalidFiles.push(`${file.name} is too large (>10MB)`);
+        if (file.size > 50 * 1024 * 1024) {
+          invalidFiles.push(`${file.name} is too large (>50MB)`);
         } else if (!file.type.startsWith('image/')) {
           invalidFiles.push(`${file.name} is not a valid image`);
         } else {
           validFiles.push(file);
-          // Generate preview for each valid file
-          try {
-            const preview = await handleImagePreview(file);
-            imagePreviews.push({
-              file: file,
-              preview: preview,
-              name: file.name
-            });
-          } catch (error) {
-            invalidFiles.push(`${file.name} preview failed`);
-          }
         }
       }
       
@@ -1245,11 +1279,39 @@ const StoryFormModal = ({
         setError(`Invalid files: ${invalidFiles.join(', ')}`);
         return;
       }
-      
-      // Pass both files and previews to the parent component
-      handleVerseImageUpload(verseId, imagePreviews);
+
+      // Compress all files and generate previews
+      try {
+        const imagePreviews = await Promise.all(
+          validFiles.map(async (file) => {
+            try {
+              const compressed = await compressImageFile(file);
+              console.log(`Verse preview image compressed: ${compressed.originalSize}KB → ${compressed.compressedSize}KB (${compressed.ratio}% reduction)`);
+              return {
+                file: compressed.file,
+                preview: compressed.preview,
+                name: file.name
+              };
+            } catch (error) {
+              console.error(`Compression failed for ${file.name}, using original:`, error);
+              // Fallback to original file with preview
+              const preview = await generatePreview(file);
+              return {
+                file: file,
+                preview: preview,
+                name: file.name
+              };
+            }
+          })
+        );
+
+        // Pass compressed files and previews to the handler
+        handleVerseImageUpload(verseId, imagePreviews);
+      } catch (error) {
+        setError(`Failed to process images: ${error.message}`);
+      }
     }
-  }, [handleImagePreview, handleVerseImageUpload]);
+  }, [compressImageFile, generatePreview, handleVerseImageUpload]);
   
   // Modal Header Component
   const ModalHeader = () => {
@@ -1309,7 +1371,7 @@ const StoryFormModal = ({
   const ImageUploadArea = () => {
     const fileInputRef = useRef(null);
 
-    const handleFileChange = (e) => {
+    const handleFileChange = async (e) => {
       const file = e.target.files[0];
       if (file) {
         // Validate file type
@@ -1318,23 +1380,22 @@ const StoryFormModal = ({
           return;
         }
         
-        // Validate file size (10MB)
-        if (file.size > 10 * 1024 * 1024) {
-          setError('Image file must be less than 10MB');
+        // Validate file size (50MB pre-compression)
+        if (file.size > 50 * 1024 * 1024) {
+          setError('Image file must be less than 50MB');
           return;
         }
         
-        setImageFile(file);
-        
-        // Create preview
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          setImagePreview(event.target.result);
-        };
-        reader.onerror = () => {
-          setError('Error reading file');
-        };
-        reader.readAsDataURL(file);
+        try {
+          setError(null);
+          // Compress the image
+          const compressed = await compressImageFile(file);
+          setImageFile(compressed.file);
+          setImagePreview(compressed.preview);
+          console.log(`Cover image compressed: ${compressed.originalSize}KB → ${compressed.compressedSize}KB (${compressed.ratio}% reduction)`);
+        } catch (err) {
+          setError(`Failed to process image: ${err.message}`);
+        }
       }
     };
 

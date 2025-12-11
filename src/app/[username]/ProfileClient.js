@@ -6,6 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { userApi, storiesApi, absoluteUrl } from '../../../lib/api';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useImageCompressionUploader } from '../../../hooks/useImageCompressionUploader';
 import StoryCard from '../components/StoryCard';
 
 // SmartImg: choose native <img> for blob/data URLs (object URLs / previews)
@@ -283,17 +284,30 @@ export default function ProfileClient({ username, initialProfile = null }) {
     }
   };
 
-  // Fixed image upload function
-  const handleImageUpload = async (file, type) => {
+  // Fixed image upload function with compression
+  const { compressImageFile } = useImageCompressionUploader();
+
+  const handleImageUpload = useCallback(async (file, type) => {
     try {
+      // Compress the image before uploading
+      let compressedFile = file;
+      try {
+        const compressed = await compressImageFile(file);
+        compressedFile = compressed.file;
+        console.log(`Profile image compressed: ${compressed.originalSize}KB → ${compressed.compressedSize}KB (${compressed.ratio}% reduction)`);
+      } catch (error) {
+        console.warn('Image compression failed, using original file:', error);
+        // Continue with original file if compression fails
+      }
+
       const formData = new FormData();
-      formData.append('image', file);
+      formData.append('image', compressedFile);
       formData.append('type', type);
       
       const response = await userApi.updateProfileImage(username, formData);
       
       // Create object URL for immediate preview
-      const objectUrl = URL.createObjectURL(file);
+      const objectUrl = URL.createObjectURL(compressedFile);
       
       // Update the user state immediately with the object URL
       setUser(prev => ({
@@ -342,7 +356,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
     } catch (error) {
       console.error('Error uploading image:', error);
     }
-  };
+  }, [username, compressImageFile]);
 
   // Handle story card click
   const handleStoryClick = (e, index) => {

@@ -5,6 +5,7 @@ import { useDropzone } from 'react-dropzone';
 import { X as CloseIcon } from 'lucide-react';
 import { getCsrfToken } from '../../../../lib/utils';
 import { versesApi, momentsApi, imagesApi } from '../../../../lib/api';
+import { useImageCompressionUploader } from '../../../../hooks/useImageCompressionUploader';
 
 const ContributeModal = ({ 
     showContributeModal, 
@@ -18,6 +19,7 @@ const ContributeModal = ({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [deletedMoments, setDeletedMoments] = useState([]);
     const fileInputRef = useRef(null);
+    const { compressImageFile } = useImageCompressionUploader();
 
     // Initialize form when editingVerse changes
     useEffect(() => {
@@ -61,41 +63,68 @@ const ContributeModal = ({
         return '';
     };
 
-    const handleImageUpload = (e) => {
+    const handleImageUpload = async (e) => {
         const files = Array.from(e.target.files);
         if (files.length > 0) {
             const validFiles = [];
             const invalidFiles = [];
-            const imagePreviews = [];
             
             for (const file of files) {
-                if (file.size > 10 * 1024 * 1024) {
-                    invalidFiles.push(`${file.name} is too large (>10MB)`);
+                if (file.size > 50 * 1024 * 1024) {
+                    invalidFiles.push(`${file.name} is too large (>50MB)`);
                 } else if (!file.type.startsWith('image/')) {
                     invalidFiles.push(`${file.name} is not a valid image`);
                 } else {
                     validFiles.push(file);
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        imagePreviews.push({
-                            file: file,
-                            preview: event.target.result,
-                            name: file.name,
-                            existing: false // Flag to indicate this is a new image
-                        });
-                        
-                        if (imagePreviews.length === validFiles.length) {
-                            setVerseImages(prev => [...prev, ...imagePreviews]);
-                        }
-                    };
-                    reader.readAsDataURL(file);
                 }
             }
             
             if (invalidFiles.length > 0) {
                 alert(`Invalid files: ${invalidFiles.join(', ')}`);
+                return;
+            }
+
+            // Compress all images in parallel
+            try {
+                const imagePreviews = await Promise.all(
+                    validFiles.map(async (file) => {
+                        try {
+                            const compressed = await compressImageFile(file);
+                            console.log(`Contribute modal image compressed: ${compressed.originalSize}KB → ${compressed.compressedSize}KB (${compressed.ratio}% reduction)`);
+                            return {
+                                file: compressed.file,
+                                preview: compressed.preview,
+                                name: file.name,
+                                existing: false
+                            };
+                        } catch (error) {
+                            console.error(`Compression failed for ${file.name}, using original:`, error);
+                            const preview = await generatePreview(file);
+                            return {
+                                file: file,
+                                preview: preview,
+                                name: file.name,
+                                existing: false
+                            };
+                        }
+                    })
+                );
+                
+                setVerseImages(prev => [...prev, ...imagePreviews]);
+            } catch (error) {
+                alert(`Failed to process images: ${error.message}`);
             }
         }
+    };
+
+    // Helper function to generate preview
+    const generatePreview = (file) => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (event) => resolve(event.target.result);
+            reader.onerror = () => reject(new Error('Failed to read file'));
+            reader.readAsDataURL(file);
+        });
     };
 
     const removeImage = (index) => {
