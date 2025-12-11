@@ -27,6 +27,28 @@ export const metadata = {
 import FeedClient from './FeedClient';
 import { storiesApi } from '../../lib/api';
 
+// Server-side utility to strip verse images
+const stripVerseImages = (stories) => {
+  if (!Array.isArray(stories)) {
+    return stripVerseImagesFromStory(stories);
+  }
+  return stories.map(story => stripVerseImagesFromStory(story));
+};
+
+const stripVerseImagesFromStory = (story) => {
+  if (!story) return story;
+  if (Array.isArray(story.verses)) {
+    return {
+      ...story,
+      verses: story.verses.map(verse => {
+        const { images, ...verseWithoutImages } = verse;
+        return verseWithoutImages;
+      })
+    };
+  }
+  return story;
+};
+
 export default async function Home({ initialTag = 'for-you' }) {
   // Server-side fetch initial page using cursor-based pagination
   let initial = null;
@@ -62,6 +84,10 @@ export default async function Home({ initialTag = 'for-you' }) {
   } catch (e) {
     // If Promise.all fails, just use lightweight stories
   }
+  
+  // 🎯 OPTIMIZATION: Strip verse images to reduce payload and improve performance
+  // Images will be lazy-loaded when user opens VerseViewer
+  stories = stripVerseImages(stories);
   
   const nextCursor = initial?.next_cursor || null;
   // hasMore should be true if next_cursor exists, otherwise check the has_more flag

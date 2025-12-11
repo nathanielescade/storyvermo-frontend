@@ -12,6 +12,20 @@ export function useImageCompressionUploader() {
   const [error, setError] = useState(null);
 
   /**
+   * Generate a preview image URL from compressed file
+   * @param {File} file
+   * @returns {Promise<string>} Data URL preview
+   */
+  const generatePreview = useCallback((file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = () => reject(new Error('Failed to generate preview'));
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
+  /**
    * Process and compress a single image file
    * @param {File} file - The image file to compress
    * @param {Object} options - Compression options
@@ -20,8 +34,9 @@ export function useImageCompressionUploader() {
   const compressImageFile = useCallback(async (file, options = {}) => {
     const defaultOptions = {
       maxWidth: 1080,
-      quality: 0.70,
+      quality: 0.88,  // High quality for better cover images
       format: 'image/jpeg',
+      noiseReduction: false,  // Disable noise reduction by default
       ...options
     };
 
@@ -63,7 +78,7 @@ export function useImageCompressionUploader() {
     } finally {
       setIsCompressing(false);
     }
-  }, []);
+  }, [generatePreview]);
 
   /**
    * Process multiple image files
@@ -99,20 +114,6 @@ export function useImageCompressionUploader() {
       setIsCompressing(false);
     }
   }, [compressImageFile]);
-
-  /**
-   * Generate a preview image URL from compressed file
-   * @param {File} file
-   * @returns {Promise<string>} Data URL preview
-   */
-  const generatePreview = useCallback((file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target.result);
-      reader.onerror = () => reject(new Error('Failed to generate preview'));
-      reader.readAsDataURL(file);
-    });
-  }, []);
 
   /**
    * Process file input and prepare for upload

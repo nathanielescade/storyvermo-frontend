@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { storiesApi, userApi } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
+import { stripVerseImages } from '../lib/utils';
 
 export default function useMain(initialState = null) {
     // Always use initialState for hydration, never overwrite with client fetch
@@ -39,7 +40,10 @@ export default function useMain(initialState = null) {
             };
             
             const result = await storiesApi.getPaginatedStories(params);
-            const prefetched = result.results || [];
+            let prefetched = result.results || [];
+            
+            // 🎯 OPTIMIZATION: Strip verse images from prefetched stories
+            prefetched = stripVerseImages(prefetched);
             
             setPrefetchedStories(prefetched);
             setPrefetchedCursor(result.next_cursor || null);
@@ -108,6 +112,10 @@ export default function useMain(initialState = null) {
                 }
             }
 
+            // 🎯 OPTIMIZATION: Strip verse images to reduce payload and improve performance
+            // Images will be lazy-loaded when user opens VerseViewer
+            fetched = stripVerseImages(fetched);
+
             setStories(fetched);
             setNextCursor(result.next_cursor || null);
             setHasMore(result.has_more !== false);
@@ -164,6 +172,9 @@ export default function useMain(initialState = null) {
                     // If enrichment fails, use lightweight stories
                 }
             }
+            
+            // 🎯 OPTIMIZATION: Strip verse images from prefetched stories
+            prefetched = stripVerseImages(prefetched);
             
             setPrefetchedStories(prefetched);
             setPrefetchedCursor(result.next_cursor || null);
@@ -242,6 +253,9 @@ export default function useMain(initialState = null) {
                     // If enrichment fails, use lightweight stories
                 }
             }
+            
+            // 🎯 OPTIMIZATION: Strip verse images from newly fetched stories
+            newStories = stripVerseImages(newStories);
             
             // Remove duplicates
             const existingIds = new Set(stories.map(s => s.id));
@@ -334,6 +348,9 @@ export default function useMain(initialState = null) {
             }
             
             if (freshStories.length > 0) {
+                // 🎯 OPTIMIZATION: Strip verse images from refreshed stories
+                freshStories = stripVerseImages(freshStories);
+                
                 setStories(freshStories);
                 setNextCursor(result.next_cursor || null);
                 setHasMore(result.has_more !== false);

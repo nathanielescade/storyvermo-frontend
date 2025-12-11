@@ -346,4 +346,4 @@ export default function FeedClient({ initialState }) {
       </div>
     </div>
   );
-}
+} 

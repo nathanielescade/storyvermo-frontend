@@ -647,8 +647,12 @@ const StoryFormModal = ({
         setError(null);
         console.log(`[StoryFormModal] Starting compression for: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
         
-        // Compress the image
-        const compressed = await compressImageFile(file);
+        // Compress the cover image with high quality settings (no aggressive noise reduction)
+        const compressed = await compressImageFile(file, {
+          maxWidth: 1200,  // Higher resolution for better quality
+          quality: 0.90,   // High quality (90%)
+          noiseReduction: false  // Disable noise reduction to preserve detail
+        });
         console.log(`[StoryFormModal] Compressed result: ${compressed.compressedSize}KB`);
         
         setImageFile(compressed.file);
