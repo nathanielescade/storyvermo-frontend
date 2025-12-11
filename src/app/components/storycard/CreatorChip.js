@@ -323,7 +323,7 @@ const CreatorChip = ({
                     >
                         <div className="creator-avatar w-full h-full rounded-full bg-gradient-to-r from-accent-orange to-neon-pink flex items-center justify-center font-bold text-base flex-shrink-0 cursor-pointer overflow-hidden">
                             {getCreatorProfileImageUrl() ? (
-                                <Image src={getCreatorProfileImageUrl()} alt={`${getCreatorDisplayName()}'s profile`} fill className="object-cover" quality={75} />
+                                <Image src={getCreatorProfileImageUrl()} alt={`${getCreatorDisplayName()}'s profile`} fill className="object-cover rounded-full" quality={75} />
                             ) : (
                                 getCreatorInitial()
                             )}
