@@ -10,25 +10,36 @@ export const config = {
 
 const nextConfig = {
   images: {
+    // Optimize images in production, unoptimized only in development for local IPs
+    unoptimized: process.env.NODE_ENV === 'development',
     remotePatterns: [
+      // Local development backend
       {
         protocol: 'http',
         hostname: '192.168.43.100',
-        port: '8000',
         pathname: '/media/**',
       },
       {
         protocol: 'http',
         hostname: 'localhost',
-        port: '8000',
         pathname: '/media/**',
       },
+      {
+        protocol: 'http',
+        hostname: '127.0.0.1',
+        pathname: '/media/**',
+      },
+      // Production CDN
       {
         protocol: 'https',
         hostname: 'storyvermo.nyc3.cdn.digitaloceanspaces.com',
         pathname: '/**',
       },
-      // Add any other domains where your images might be hosted
+      {
+        protocol: 'https',
+        hostname: '**.storyvermo.com',
+        pathname: '/**',
+      },
     ],
   },
 };
