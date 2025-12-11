@@ -29,10 +29,20 @@ const nextConfig = {
         hostname: '127.0.0.1',
         pathname: '/media/**',
       },
-      // Production CDN
+      // DigitalOcean Spaces - multiple patterns to cover all variations
+      {
+        protocol: 'https',
+        hostname: 'nyc3.digitaloceanspaces.com',
+        pathname: '/storyvermo/**',
+      },
       {
         protocol: 'https',
         hostname: 'storyvermo.nyc3.cdn.digitaloceanspaces.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.digitaloceanspaces.com',
         pathname: '/**',
       },
       {
