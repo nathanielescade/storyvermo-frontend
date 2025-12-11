@@ -73,6 +73,33 @@ export default function useMain(initialState = null) {
             const result = await storiesApi.getPaginatedStories(params);
             let fetched = result.results || [];
             
+            // 🚀 OPTIMIZATION: Only enrich stories that are missing tag data
+            // This ensures instant display by using lightweight data when available
+            const needsEnrichment = fetched.some(story => 
+              !Array.isArray(story.tags) && story.tags_count === undefined
+            );
+            
+            if (needsEnrichment) {
+                try {
+                    fetched = await Promise.all(
+                        fetched.map(async (story) => {
+                            // Only enrich if missing tags
+                            if (!Array.isArray(story.tags) && story.tags_count === undefined) {
+                                try {
+                                    const fullStory = await storiesApi.getStoryBySlug(story.slug);
+                                    return fullStory;
+                                } catch (error) {
+                                    return story;
+                                }
+                            }
+                            return story;
+                        })
+                    );
+                } catch (e) {
+                    // If Promise.all fails, just use lightweight stories
+                }
+            }
+            
             // Shuffle for-you feed for variety
             if (force && tag === 'for-you' && fetched.length > 1) {
                 for (let i = fetched.length - 1; i > 0; i--) {
@@ -111,7 +138,32 @@ export default function useMain(initialState = null) {
             };
             
             const result = await storiesApi.getPaginatedStories(params);
-            const prefetched = result.results || [];
+            let prefetched = result.results || [];
+            
+            // 🚀 OPTIMIZATION: Only enrich prefetched stories that are missing tag data
+            const needsEnrichment = prefetched.some(story => 
+              !Array.isArray(story.tags) && story.tags_count === undefined
+            );
+            
+            if (needsEnrichment) {
+                try {
+                    prefetched = await Promise.all(
+                        prefetched.map(async (story) => {
+                            if (!Array.isArray(story.tags) && story.tags_count === undefined) {
+                                try {
+                                    const fullStory = await storiesApi.getStoryBySlug(story.slug);
+                                    return fullStory;
+                                } catch (error) {
+                                    return story;
+                                }
+                            }
+                            return story;
+                        })
+                    );
+                } catch (e) {
+                    // If enrichment fails, use lightweight stories
+                }
+            }
             
             setPrefetchedStories(prefetched);
             setPrefetchedCursor(result.next_cursor || null);
@@ -164,7 +216,32 @@ export default function useMain(initialState = null) {
             };
             
             const result = await storiesApi.getPaginatedStories(params);
-            const newStories = result.results || [];
+            let newStories = result.results || [];
+            
+            // 🚀 OPTIMIZATION: Only enrich newly fetched stories that are missing tag data
+            const needsEnrichment = newStories.some(story => 
+              !Array.isArray(story.tags) && story.tags_count === undefined
+            );
+            
+            if (needsEnrichment) {
+                try {
+                    newStories = await Promise.all(
+                        newStories.map(async (story) => {
+                            if (!Array.isArray(story.tags) && story.tags_count === undefined) {
+                                try {
+                                    const fullStory = await storiesApi.getStoryBySlug(story.slug);
+                                    return fullStory;
+                                } catch (error) {
+                                    return story;
+                                }
+                            }
+                            return story;
+                        })
+                    );
+                } catch (e) {
+                    // If enrichment fails, use lightweight stories
+                }
+            }
             
             // Remove duplicates
             const existingIds = new Set(stories.map(s => s.id));
@@ -238,7 +315,23 @@ export default function useMain(initialState = null) {
             };
             
             const result = await storiesApi.getPaginatedStories(params);
-            const freshStories = result.results || [];
+            let freshStories = result.results || [];
+            
+            // 🚀 CRITICAL: Enrich refreshed stories with full data (tags, verses_count, etc)
+            try {
+                freshStories = await Promise.all(
+                    freshStories.map(async (story) => {
+                        try {
+                            const fullStory = await storiesApi.getStoryBySlug(story.slug);
+                            return fullStory;
+                        } catch (error) {
+                            return story;
+                        }
+                    })
+                );
+            } catch (e) {
+                // If enrichment fails, use lightweight stories
+            }
             
             if (freshStories.length > 0) {
                 setStories(freshStories);

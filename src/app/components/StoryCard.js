@@ -527,6 +527,7 @@ export default function StoryCard({
                         <TitleSection 
                             story={currentStory}
                             index={index}
+                            currentTag={currentTag}
                             titleExpanded={titleExpanded}
                             descExpanded={descExpanded}
                             isTitleTruncated={isTitleTruncated}

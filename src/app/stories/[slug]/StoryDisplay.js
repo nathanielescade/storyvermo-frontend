@@ -14,11 +14,29 @@ export default function StoryDisplay({ initialStory, slug }) {
   const [story, setStory] = useState(initialStory);
   const [showVerseViewer, setShowVerseViewer] = useState(false);
   const [initialVerseIndex, setInitialVerseIndex] = useState(0);
+  const [currentTag, setCurrentTag] = useState(null);
   const searchParams = useSearchParams();
   const { currentUser, isAuthenticated, openAuthModal } = useAuth();
   const { handleLikeToggle, handleSaveToggle, handleUserFollow, handleOpenVerses, handleTagSwitch } = useMain();
 
   const router = useRouter();
+
+  // Extract current tag from query params (set when user clicks a tag to navigate to story)
+  useEffect(() => {
+    if (!searchParams) return;
+    const tagParam = searchParams.get('tag');
+    if (tagParam) {
+      try {
+        const decodedTag = decodeURIComponent(tagParam);
+        setCurrentTag(decodedTag);
+      } catch (e) {
+        setCurrentTag(tagParam);
+      }
+    } else {
+      // No tag param in URL
+      setCurrentTag(null);
+    }
+  }, [searchParams]);
 
   // Handle tag clicks: navigate to tag page and switch the feed tag (like FeedClient)
   const handleTagSelect = useCallback((tagName) => {
@@ -201,7 +219,8 @@ export default function StoryDisplay({ initialStory, slug }) {
     <div className="bg-gradient-to-br from-gray-950 to-slate-900  story-detail">
       <div ref={wrapperRef} className="max-w-4xl mx-auto " style={{ }}>
         <StoryCard 
-          story={story} 
+          story={story}
+          currentTag={currentTag}
           onLikeToggle={handleLikeToggle}
           onSaveToggle={handleSaveToggle}
           onFollowUser={handleUserFollow}

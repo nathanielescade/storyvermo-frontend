@@ -4,6 +4,7 @@ import Link from 'next/link';
 const TitleSection = ({ 
     story, 
     index, 
+    currentTag,
     titleExpanded, 
     descExpanded, 
     isTitleTruncated, 
@@ -85,7 +86,7 @@ const TitleSection = ({
         <>
             <div className="title-container" id={`title-container-${index}`}>
                 <Link 
-                    href={`/stories/${story.slug}/`} 
+                    href={currentTag ? `/stories/${story.slug}/?tag=${encodeURIComponent(currentTag)}` : `/stories/${story.slug}/`} 
                     className="block"
                     onMouseEnter={(e) => {
                         // Prefetch the story page on hover for instant navigation
