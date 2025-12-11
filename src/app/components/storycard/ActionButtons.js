@@ -79,7 +79,7 @@ const ActionButtons = ({
             setLikesCount(prev => wasLiked ? prev - 1 : prev + 1);
 
             // Call backend API
-            const response = await storiesApi.toggleStoryLike(story.id);
+            const response = await storiesApi.toggleLike(story.slug);
             console.log('✅ Like toggle response:', response);
 
             // Update with actual server response

@@ -1,10 +1,52 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { notificationsApi } from '../../../lib/api';
+import { notificationsApi, absoluteUrl } from '../../../lib/api';
 import { useAuth } from '../../../contexts/AuthContext';
+
+// SmartImg component for optimized images
+function SmartImg({ src, alt = '', width, height, fill, className, style }) {
+  if (!src) return null;
+  const isObjectUrl = typeof src === 'string' && (src.startsWith('blob:') || src.startsWith('data:'));
+
+  if (isObjectUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt={alt}
+        className={className}
+        style={{ ...(style || {}), width: fill ? '100%' : 'auto', height: fill ? '100%' : 'auto', objectFit: 'cover' }}
+      />
+    );
+  }
+
+  if (fill) {
+    return (
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        className={className}
+        style={{ ...style, objectFit: 'cover' }}
+      />
+    );
+  }
+
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      width={width}
+      height={height}
+      className={className}
+      style={style}
+    />
+  );
+}
 
 export function NotificationsClient() {
   const [notifications, setNotifications] = useState([]);
@@ -391,11 +433,11 @@ export function NotificationsClient() {
                       <div className="flex gap-3 mt-3 md:flex-row flex-col">
                         <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0">
                           {notification.story?.cover_image ? (
-                            // FIXED: Replaced Next.js Image with regular img tag
-                            <img 
+                            <SmartImg 
                               src={getImageUrl(notification.story.cover_image)} 
                               alt={notification.story.title} 
                               className="w-full h-full object-cover"
+                              fill
                             />
                           ) : (
                             <div className="w-full h-full bg-gradient-to-r from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-white">

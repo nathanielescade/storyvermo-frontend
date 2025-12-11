@@ -1,11 +1,53 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
-import { storiesApi } from '../../../lib/api';
+import { storiesApi, absoluteUrl } from '../../../lib/api';
 import StoryCard from '../components/StoryCard';
 import AuthModal from '../components/AuthModal';
+
+// SmartImg component for optimized images
+function SmartImg({ src, alt = '', width, height, fill, className, style }) {
+  if (!src) return null;
+  const isObjectUrl = typeof src === 'string' && (src.startsWith('blob:') || src.startsWith('data:'));
+
+  if (isObjectUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={src}
+        alt={alt}
+        className={className}
+        style={{ ...(style || {}), width: fill ? '100%' : 'auto', height: fill ? '100%' : 'auto', objectFit: 'cover' }}
+      />
+    );
+  }
+
+  if (fill) {
+    return (
+      <Image
+        src={src}
+        alt={alt}
+        fill
+        className={className}
+        style={{ ...style, objectFit: 'cover' }}
+      />
+    );
+  }
+
+  return (
+    <Image
+      src={src}
+      alt={alt}
+      width={width}
+      height={height}
+      className={className}
+      style={style}
+    />
+  );
+}
 
 const StorySkeleton = () => (
   <div className="rounded-2xl overflow-hidden bg-slate-900/60 border border-cyan-500/20">
@@ -162,7 +204,7 @@ const SavedPageClient = () => {
               >
                 <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900/60 to-indigo-900/60 border border-cyan-500/20 hover:border-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02]">
                   {story.cover_image_url ? (
-                    <img
+                    <SmartImg
                       src={story.cover_image_url}
                       alt={story.title}
                       className="w-full h-40 object-cover"

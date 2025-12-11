@@ -24,6 +24,7 @@ function SmartImg({ src, alt = '', width, height, fill, className, style, onClic
       imgStyle.height = '100%';
       if (!imgStyle.objectFit) imgStyle.objectFit = 'cover';
       return (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={src}
           alt={alt}
@@ -35,6 +36,7 @@ function SmartImg({ src, alt = '', width, height, fill, className, style, onClic
     }
 
     return (
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={src}
         alt={alt}
@@ -47,21 +49,22 @@ function SmartImg({ src, alt = '', width, height, fill, className, style, onClic
     );
   }
 
-  // FIXED: Use regular img tag instead of Next.js Image for better compatibility
+  // Use Next.js Image for remote URLs to get optimization benefits
   if (fill) {
     return (
-      <img
+      <Image
         src={src}
         alt={alt}
+        fill
         className={className}
-        style={{ ...style, width: '100%', height: '100%', objectFit: 'cover' }}
+        style={{ ...style, objectFit: 'cover' }}
         onClick={onClick}
       />
     );
   }
 
   return (
-    <img
+    <Image
       src={src}
       alt={alt}
       width={width}
@@ -304,23 +307,23 @@ export default function ProfileClient({ username, initialProfile = null }) {
       formData.append('image', compressedFile);
       formData.append('type', type);
       
-      const response = await userApi.updateProfileImage(username, formData);
-      
-      // Create object URL for immediate preview
+      // Create object URL for immediate preview BEFORE uploading
       const objectUrl = URL.createObjectURL(compressedFile);
       
-      // Update the user state immediately with the object URL
+      // Update the user state immediately with the object URL for instant preview
       setUser(prev => ({
         ...prev,
         [type === 'profile' ? 'profile_image_url' : 'cover_image_url']: objectUrl
       }));
-
-      // After successful upload, fetch the updated profile to get the real URL
+      
+      // Upload the image
+      await userApi.updateProfileImage(username, formData);
+      
+      // After successful upload, fetch the updated profile to get the real URL from server
       const updatedProfile = await userApi.getProfile(username);
+      
       // Add a cache-busting query param so browsers and CDNs will fetch the
-      // newest image instead of serving a cached copy. This ensures the
-      // profile/cover updates are visible immediately after upload without
-      // requiring a hard refresh.
+      // newest image instead of serving a cached copy
       const appendCacheBuster = (u) => {
         try {
           if (!u || typeof u !== 'string') return u;
@@ -330,14 +333,15 @@ export default function ProfileClient({ username, initialProfile = null }) {
           return u;
         }
       };
-      // Recompute full name for the updated profile too
+      
+      // Recompute full name for the updated profile
       const uFirst = updatedProfile.first_name || updatedProfile.creator_first_name || updatedProfile.given_name || '';
       const uLast = updatedProfile.last_name || updatedProfile.creator_last_name || updatedProfile.family_name || '';
       const uExplicit = updatedProfile.get_full_name || updatedProfile.full_name || updatedProfile.name || updatedProfile.display_name || '';
       const uCombined = `${uFirst} ${uLast}`.trim();
       const uFullName = (uExplicit && uExplicit.trim()) || (uCombined && uCombined) || updatedProfile.username || '';
 
-      // Inject cache-busted URLs into the updated profile before setting state
+      // Inject cache-busted URLs into the updated profile
       if (updatedProfile.profile_image_url) {
         updatedProfile.profile_image_url = appendCacheBuster(updatedProfile.profile_image_url);
       }
@@ -345,13 +349,14 @@ export default function ProfileClient({ username, initialProfile = null }) {
         updatedProfile.cover_image_url = appendCacheBuster(updatedProfile.cover_image_url);
       }
 
+      // Update state with the real server URLs (replacing the blob URL)
       setUser(prev => ({
         ...prev,
         ...updatedProfile,
         get_full_name: uFullName
       }));
 
-      // Clean up the object URL
+      // Clean up the temporary blob URL
       URL.revokeObjectURL(objectUrl);
     } catch (error) {
       console.error('Error uploading image:', error);
@@ -656,9 +661,11 @@ export default function ProfileClient({ username, initialProfile = null }) {
                   >
                     <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900/60 to-indigo-900/60 border border-cyan-500/20 hover:border-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02]">
                       {coverImageUrl ? (
-                        <img
+                        <SmartImg
                           src={absoluteUrl(coverImageUrl)}
                           alt={story.title}
+                          width={400}
+                          height={160}
                           className="w-full h-40 object-cover"
                         />
                       ) : (
@@ -739,7 +746,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
                     >
                       <div className="relative w-full h-48 bg-gray-800">
                         {thumb ? (
-                          <img src={thumb} alt={verse.title || 'Verse image'} className="w-full h-full object-cover" />
+                          <SmartImg src={thumb} alt={verse.title || 'Verse image'} className="w-full h-full object-cover" fill />
                         ) : (
                           <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center text-white/20">
                             <i className="fas fa-book-open text-4xl"></i>
@@ -880,7 +887,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
                       >
                         <div className="relative w-full h-48 bg-gray-800">
                           {thumb ? (
-                            <img src={thumb} alt={verse.title || 'Verse image'} className="w-full h-full object-cover" />
+                            <SmartImg src={thumb} alt={verse.title || 'Verse image'} className="w-full h-full object-cover" fill />
                           ) : (
                             <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center text-white/20">
                               <i className="fas fa-book-open text-4xl"></i>
@@ -949,9 +956,11 @@ export default function ProfileClient({ username, initialProfile = null }) {
                     >
                       <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900/60 to-indigo-900/60 border border-cyan-500/20 hover:border-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02]">
                         {coverImageUrl ? (
-                          <img
+                          <SmartImg
                             src={absoluteUrl(coverImageUrl)}
                             alt={story.title}
+                            width={400}
+                            height={160}
                             className="w-full h-40 object-cover"
                           />
                         ) : (
