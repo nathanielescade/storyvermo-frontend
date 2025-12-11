@@ -166,9 +166,7 @@ const TrendingTagsModal = ({ isOpen, onClose, onTagSelect }) => {
                                 }}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                                    <span style={{ fontSize: '14px' }}>
-                                        {index < 3 ? '🔥' : '⭐'}
-                                    </span>
+                                    <span style={{ fontSize: '11px' }}>🔥</span>
                                     <div>
                                         <div style={{ fontWeight: '500', color: '#ffffff' }}>{tag.name || tag}</div>
                                         {tag.count && (
