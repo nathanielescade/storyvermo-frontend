@@ -455,13 +455,16 @@ export default function StoryCard({
                 >
                     {coverImageUrl ? (
                         <div className="relative w-full h-full">
-                            {/* FIXED: Use regular img tag instead of Next.js Image for better compatibility */}
-                            <img 
+                            {/* Using Next.js Image for automatic optimization, lazy loading, and format conversion */}
+                            <Image 
                                 src={coverImageUrl} 
                                 alt={story.title || 'Story cover'} 
-                                className="scene-bg w-full h-full "
+                                fill
+                                className="scene-bg w-full h-full object-cover"
                                 loading="lazy"
-                                decoding="async"
+                                quality={75}
+                                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
+                                priority={index === 0}
                             />
                         </div>
                     ) : (
@@ -705,13 +708,14 @@ export default function StoryCard({
         return (
             <div className="verse-card" onClick={handleOpenVerses}>
                 {imageUrl ? (
-                    // FIXED: Use regular img tag instead of Next.js Image for better compatibility
-                    <img 
+                    // Using Next.js Image for automatic optimization
+                    <Image 
                         src={imageUrl} 
                         alt={story.title || 'Untitled Story'}
+                        fill
                         className="w-full h-full object-cover"
-                        width={400}
-                        height={300}
+                        quality={75}
+                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     />
                 ) : (
                     <div className="verse-card-placeholder bg-linear-to-br from-slate-800 to-slate-900 flex items-center justify-center">

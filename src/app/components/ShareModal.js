@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 
 const ShareModal = ({ isOpen, onClose, shareData, imageUrl, isVerse }) => {
   const modalRef = useRef(null);
@@ -274,11 +275,13 @@ const ShareModal = ({ isOpen, onClose, shareData, imageUrl, isVerse }) => {
             {imageUrl && (
               <div className="flex-shrink-0">
                 <div className="relative w-24 h-24 rounded-xl overflow-hidden border-2 border-blue-500/30 shadow-lg shadow-blue-500/10">
-                  {/* FIXED: Replaced Next.js Image with regular img tag */}
-                  <img
+                  {/* FIXED: Using Next.js Image for optimization */}
+                  <Image
                     src={imageUrl}
                     alt={isVerse ? 'Verse preview' : 'Story preview'}
-                    className="w-full h-full object-cover"
+                    fill
+                    className="object-cover"
+                    quality={75}
                   />
                 </div>
               </div>

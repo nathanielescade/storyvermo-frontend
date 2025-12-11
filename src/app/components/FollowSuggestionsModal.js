@@ -131,15 +131,15 @@ const FollowSuggestionsModal = ({ isOpen, onClose, categories = [] }) => {
               {suggestions.map(user => (
                   <div key={user.username} className="min-w-[180px] bg-gradient-to-b from-gray-800 to-black/40 border border-blue-900/30 rounded-xl p-4 shrink-0">
                     <div className="flex items-center gap-3">
-                      <div onClick={() => navigateToProfile(user.username)} className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center cursor-pointer">
+                      <div onClick={() => navigateToProfile(user.username)} className="w-12 h-12 rounded-full overflow-hidden flex items-center justify-center cursor-pointer relative">
                         {user.profile_image_url ? (
-                          // Use plain <img> like CreatorChip to support blob/object URLs and avoid next/image domain issues
-                          <img
+                          // Use Image component for optimization
+                          <Image
                             src={absoluteUrl(user.profile_image_url) || user.profile_image_url}
                             alt={user.display_name || user.username}
-                            width={48}
-                            height={48}
-                            className="rounded-full object-cover w-12 h-12"
+                            fill
+                            className="rounded-full object-cover"
+                            quality={75}
                           />
                         ) : (
                           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center font-bold text-white">

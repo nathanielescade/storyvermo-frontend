@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { useAuth } from '../../../contexts/AuthContext';
 import { commentsApi, absoluteUrl } from '../../../lib/api';
 
@@ -501,10 +502,12 @@ const CommentModal = ({
                 const imgUrl = creator.profile_image_url || creator.profile_image || creator.profileImageUrl || creator.profileImage || null;
                 if (imgUrl) {
                   return (
-                    <img
+                    <Image
                       src={absoluteUrl(imgUrl)}
                       alt={getDisplayName(creator)}
-                      className="w-full h-full object-cover rounded-full"
+                      fill
+                      className="object-cover rounded-full"
+                      quality={75}
                     />
                   );
                 }
@@ -543,10 +546,12 @@ const CommentModal = ({
                   <div className="flex space-x-3">
                     <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-white font-bold flex-shrink-0 overflow-hidden">
                       {comment.author?.profile_image_url ? (
-                        <img
+                        <Image
                           src={absoluteUrl(comment.author.profile_image_url)}
                           alt={getDisplayName(comment.author)}
-                          className="w-full h-full object-cover rounded-full"
+                          fill
+                          className="object-cover rounded-full"
+                          quality={75}
                         />
                       ) : (
                         (comment.author?.first_name?.charAt(0) || getDisplayName(comment.author)?.charAt(0) || 'U').toUpperCase()
@@ -651,10 +656,12 @@ const CommentModal = ({
                               <div className="flex space-x-3">
                                 <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 overflow-hidden">
                                   {reply.author?.profile_image_url ? (
-                                    <img
+                                    <Image
                                       src={absoluteUrl(reply.author.profile_image_url)}
                                       alt={getDisplayName(reply.author)}
-                                      className="w-full h-full object-cover rounded-full"
+                                      fill
+                                      className="object-cover rounded-full"
+                                      quality={75}
                                     />
                                   ) : (
                                     (reply.author?.first_name?.charAt(0) || getDisplayName(reply.author)?.charAt(0) || 'U').toUpperCase()

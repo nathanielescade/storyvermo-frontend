@@ -1,5 +1,6 @@
 // components/header/UserMenu.jsx
 import { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../../contexts/AuthContext';
@@ -69,11 +70,13 @@ const UserMenu = ({ openAuthModal, isOpen = false, onOpen, onClose }) => {
             }}
           >
             {getProfileImageUrl(currentUser) ? (
-              // FIXED: Replaced Next.js Image with regular img tag
-              <img 
+              // FIXED: Using Next.js Image for optimization
+              <Image 
                 src={getProfileImageUrl(currentUser)} 
                 alt={`${getUsername(currentUser)}'s profile`} 
-                className="w-full h-full object-cover"
+                fill
+                className="object-cover"
+                quality={75}
               />
             ) : (
               getUserInitial(getUsername(currentUser))

@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-// import { absoluteUrl } from '../../../lib/api';
+import Image from 'next/image';
+import { absoluteUrl } from '../../../lib/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 
@@ -180,7 +181,7 @@ const Sidebar = ({ user, followers, recentStories }) => {
                 <div key={index} className="follower-item">
                   <div className="follower-avatar">
                     {follower.profile && follower.profile.profile_image_url ? (
-                      <img src={absoluteUrl(follower.profile.profile_image_url)} alt={follower.username} className="w-8 h-8 rounded-full object-cover" />
+                      <Image src={absoluteUrl(follower.profile.profile_image_url)} alt={follower.username} width={32} height={32} className="rounded-full object-cover" quality={75} />
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-gradient-to-r from-accent-orange to-neon-pink flex items-center justify-center font-bold text-sm text-white">
                         {follower.username.charAt(0).toUpperCase()}
@@ -209,7 +210,7 @@ const Sidebar = ({ user, followers, recentStories }) => {
             recentStories.map((story, index) => (
               <div key={index} className="new-post-item">
                 {story.cover_image && story.cover_image.file_url ? (
-                  <img src={absoluteUrl(story.cover_image.file_url)} alt="Story" className="new-post-image" />
+                  <Image src={absoluteUrl(story.cover_image.file_url)} alt="Story" width={200} height={150} className="new-post-image object-cover" quality={75} />
                 ) : (
                   <div className="new-post-image bg-gray-800 flex items-center justify-center">
                     <i className="fas fa-image text-2xl text-white/20"></i>

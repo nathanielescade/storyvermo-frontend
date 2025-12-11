@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import Image from 'next/image';
 
 const EnlargeModal = ({ 
     showEnlargeModal, 
@@ -138,10 +139,12 @@ const EnlargeModal = ({
                 <div className="relative max-w-4xl max-h-[90vh] w-full px-4" onClick={e => e.stopPropagation()}>
                     {coverImageUrl ? (
                         <div className="relative w-full h-[80vh]">
-                            <img 
+                            <Image 
                                 src={coverImageUrl}
                                 alt={story.title || 'Story cover'}
-                                className="w-full h-full object-contain"
+                                fill
+                                className="object-contain"
+                                quality={75}
                                 crossOrigin="anonymous"
                             />
                         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import Image from 'next/image';
 import { useAuth } from '../../../contexts/AuthContext';
 import { absoluteUrl, versesApi, userApi } from '../../../lib/api';
 import ContributeModal from './storycard/ContributeModal';
@@ -1034,11 +1035,13 @@ const VerseViewer = ({
                         >
                           {imageUrl ? (
                             <div className="relative w-full h-full flex items-center justify-center">
-                              <img
+                              <Image
                                 src={imageUrl}
                                 alt={`Verse moment ${momentIndex + 1}`}
+                                width={1080}
+                                height={1440}
                                 className="max-w-full max-h-full object-contain mx-auto my-auto"
-                                style={{ display: 'block' }}
+                                quality={75}
                                 onError={(e) => { e.currentTarget.style.display = 'none'; }}
                               />
                             </div>
@@ -1178,14 +1181,17 @@ const VerseViewer = ({
                   <div className="w-full h-full rounded-full bg-gradient-to-r from-accent-orange to-neon-pink flex items-center justify-center font-bold text-base flex-shrink-0 cursor-pointer overflow-hidden">
                     {/* FIXED: Replaced Next.js Image with regular img tag */}
                     {getAuthorProfileImageUrl() ? (
-                      <img 
+                      <Image 
                         src={getAuthorProfileImageUrl()} 
                         alt={`${getAuthorDisplayName()}'s profile`} 
+                        width={80}
+                        height={80}
                         className="w-full h-full object-cover" 
+                        quality={75}
                         onError={e => {
                           // Hide image and show initials if image fails to load
-                          e.target.style.display = 'none';
-                          const fallback = e.target.parentNode.querySelector('.author-initial-fallback');
+                          e.currentTarget.style.display = 'none';
+                          const fallback = e.currentTarget.parentNode.querySelector('.author-initial-fallback');
                           if (fallback) fallback.style.display = 'block';
                         }}
                       />

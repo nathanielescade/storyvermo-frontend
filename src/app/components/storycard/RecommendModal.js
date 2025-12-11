@@ -1,5 +1,6 @@
 // RecommendModal.js
 import React, { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { absoluteUrl } from '../../../../lib/api';
 import { userApi, storyApi, storiesApi } from '../../../../lib/api';
 
@@ -185,18 +186,24 @@ const RecommendModal = ({
                                                             className="w-5 h-5 text-cyan-500 rounded focus:ring-cyan-500 focus:ring-2"
                                                         />
                                                         <label htmlFor={`user-${user.id}`} className="flex items-center gap-3 cursor-pointer flex-1">
-                                                            {/* FIXED: Replaced Next.js Image with regular img tag */}
+                                                            {/* Using Next.js Image for optimization */}
                                                             {user.profile_image_url ? (
-                                                                <img 
+                                                                <Image 
                                                                     src={absoluteUrl(user.profile_image_url)}
                                                                     alt={user.name || user.username}
-                                                                    className="w-10 h-10 rounded-full object-cover"
+                                                                    width={40}
+                                                                    height={40}
+                                                                    className="rounded-full object-cover"
+                                                                    quality={75}
                                                                 />
                                                             ) : user.profile_picture ? (
-                                                                <img 
+                                                                <Image 
                                                                     src={absoluteUrl(user.profile_picture)}
                                                                     alt={user.name || user.username}
-                                                                    className="w-10 h-10 rounded-full object-cover"
+                                                                    width={40}
+                                                                    height={40}
+                                                                    className="rounded-full object-cover"
+                                                                    quality={75}
                                                                 />
                                                             ) : (
                                                                 <div className="w-10 h-10 rounded-full bg-linear-to-r from-cyan-500/30 to-blue-500/30 flex items-center justify-center text-white font-semibold">

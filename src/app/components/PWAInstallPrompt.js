@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 
 export default function PWAInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -78,7 +79,7 @@ export default function PWAInstallPrompt() {
     <div className="fixed bottom-6 right-6 z-50 max-w-md w-full shadow-lg rounded-lg overflow-hidden" role="dialog" aria-live="polite">
       <div className="flex items-center justify-between bg-[#0a0e27] text-white px-4 py-3">
         <div className="flex items-center gap-3">
-          <img src="/storyvermo_logo.png" alt="StoryVermo" className="w-10 h-10 rounded" />
+          <Image src="/storyvermo_logo.png" alt="StoryVermo" width={40} height={40} className="rounded" />
           <div>
             <div className="font-semibold">Install StoryVermo</div>
             <div className="text-sm opacity-80">Every moment has a story</div>

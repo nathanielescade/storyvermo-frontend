@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { absoluteUrl } from '../../../lib/api';
 import { searchApi, userApi } from '../../../lib/api';
@@ -217,12 +218,14 @@ const DiscoverModal = ({ isOpen, onClose }) => {
                     <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 rounded-t-xl transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
 
                     <div className="relative mb-5">
-                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center font-bold text-2xl text-white ring-2 ring-gray-800 group-hover:ring-cyan-400 transition-all duration-300 shadow-lg overflow-hidden">
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center font-bold text-2xl text-white ring-2 ring-gray-800 group-hover:ring-cyan-400 transition-all duration-300 shadow-lg overflow-hidden relative">
                         {user.profile_image_url ? (
-                          <img
+                          <Image
                             src={absoluteUrl(user.profile_image_url)}
                             alt={user.username}
-                            className="w-full h-full object-cover"
+                            fill
+                            className="object-cover"
+                            quality={75}
                           />
                         ) : (
                           <span>{user.username.charAt(0).toUpperCase()}</span>
