@@ -1,6 +1,7 @@
 // src/app/search/SearchClient.js
 'use client';
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import StoryCard from '../components/StoryCard';
 import { searchApi, storiesApi, userApi, absoluteUrl } from '../../../lib/api'; 
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -384,11 +385,15 @@ export function SearchClient() {
                     >
                       <div className="rounded-2xl overflow-hidden bg-gradient-to-br from-slate-900/60 to-indigo-900/60 border border-cyan-500/20 hover:border-cyan-500/50 transition-all duration-300 transform hover:scale-[1.02]">
                         {resolveStoryCoverImage(story) ? (
-                          <img
-                            src={resolveStoryCoverImage(story)}
-                            alt={story.title}
-                            className="w-full h-40 object-cover"
-                          />
+                          <div className="relative w-full h-40">
+                            <Image
+                              src={resolveStoryCoverImage(story)}
+                              alt={story.title}
+                              fill
+                              className="object-cover"
+                              quality={75}
+                            />
+                          </div>
                         ) : (
                           <div className="w-full h-40 bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center">
                             <i className="fas fa-image text-4xl text-white/20"></i>
@@ -504,7 +509,7 @@ export function SearchClient() {
                       >
                         <div className="relative w-full h-48 bg-gray-800">
                           {thumb ? (
-                            <img src={thumb} alt={verse.title || 'Verse image'} className="w-full h-full object-cover" />
+                            <Image src={thumb} alt={verse.title || 'Verse image'} fill className="object-cover" quality={75} />
                           ) : (
                             <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center text-white/20">
                               <i className="fas fa-book-open text-4xl"></i>
@@ -606,10 +611,13 @@ export function SearchClient() {
           onClick={() => router.push(`/${creator.username}`)}
         >
           {creator.profile_image_url ? (
-            <img
+            <Image
               src={absoluteUrl(creator.profile_image_url)}
               alt={creator.username}
-              className="w-16 h-16 rounded-full border-2 border-cyan-500/30"
+              width={64}
+              height={64}
+              className="rounded-full border-2 border-cyan-500/30 object-cover"
+              quality={75}
             />
           ) : (
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center border-2 border-cyan-500/30">

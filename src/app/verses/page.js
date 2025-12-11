@@ -1,5 +1,6 @@
 // src/app/verses/page.js
 import Link from 'next/link';
+import Image from 'next/image';
 import { absoluteUrl, siteUrl } from '../../../lib/api';
 
 export async function generateMetadata() {
@@ -107,10 +108,12 @@ export default async function VersesPage() {
                   >
                     <div className="relative w-full h-52 bg-gradient-to-br from-gray-900 to-slate-900">
                       {thumb ? (
-                        <img 
+                        <Image 
                           src={thumb} 
                           alt={v.title || 'Verse image'} 
-                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                          fill
+                          className="object-cover transition-transform duration-500 group-hover:scale-110" 
+                          quality={75}
                         />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-br from-slate-800 via-indigo-900/30 to-slate-900 flex items-center justify-center text-cyan-400/30">

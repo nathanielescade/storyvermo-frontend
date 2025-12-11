@@ -461,7 +461,6 @@ export default function StoryCard({
                                 alt={story.title || 'Story cover'} 
                                 fill
                                 className="scene-bg w-full h-full object-cover"
-                                loading="lazy"
                                 quality={75}
                                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
                                 priority={index === 0}
