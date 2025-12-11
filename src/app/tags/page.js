@@ -1,54 +1,24 @@
 // src/app/tags/page.js
+'use client';
+
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { absoluteUrl, siteUrl } from '../../../lib/api';
+import ShareModal from '../components/ShareModal';
 
-export async function generateMetadata() {
-  const title = 'Tags — StoryVermo';
-  const description = 'Browse tags to explore creative journeys, trending ideas, and unique stories from StoryVermo creators.';
-
-  const url = siteUrl('/tags/');
-  const defaultImage = siteUrl('/og-tags.png');
-
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      url,
-      images: [defaultImage],
-      siteName: 'StoryVermo',
-    },
-    twitter: {
-      card: 'summary_large_image',
-      title,
-      description,
-      images: [defaultImage],
-    },
-    alternates: { canonical: url }
-  };
-}
-
-export default async function TagsPage() {
-  let tags = [];
-  let error = null;
+export default function TagsPage() {
+  const [tags, setTags] = useState([]);
+  const [error, setError] = useState(null);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [selectedTag, setSelectedTag] = useState(null);
+  const [tagImages, setTagImages] = useState({});
   
-  try {
-    // Try to fetch tags but handle any errors gracefully
-  const response = await fetch(absoluteUrl('/api/tags/recent/'), {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include',
-    });
-    
-    if (response.ok) {
-      tags = await response.json();
-      
-      // If no trending tags, try recent tags
-      if (!Array.isArray(tags) || tags.length === 0) {
-  const recentResponse = await fetch(absoluteUrl('/api/tags/recent/'), {
+  // Fetch tags data
+  useEffect(() => {
+    const fetchTags = async () => {
+      try {
+        // Fetch all tags with their story counts
+        const response = await fetch(absoluteUrl('/api/tags/'), {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -56,17 +26,100 @@ export default async function TagsPage() {
           credentials: 'include',
         });
         
-        if (recentResponse.ok) {
-          tags = await recentResponse.json();
+        if (response.ok) {
+          const data = await response.json();
+          // Handle both array and paginated response
+          let fetchedTags = Array.isArray(data) ? data : (data?.results || []);
+          
+          // If no tags from LIST, fallback to trending tags
+          if (!Array.isArray(fetchedTags) || fetchedTags.length === 0) {
+            const trendingResponse = await fetch(absoluteUrl('/api/tags/trending/'), {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              credentials: 'include',
+            });
+            
+            if (trendingResponse.ok) {
+              const trendingData = await trendingResponse.json();
+              fetchedTags = Array.isArray(trendingData) ? trendingData : (trendingData?.results || []);
+            }
+          }
+          setTags(fetchedTags);
+          
+          // Fetch first story image for each tag
+          fetchTagImages(fetchedTags);
+        } else {
+          setError(`Failed to fetch tags: ${response.status}`);
         }
+      } catch (e) {
+        setError(e.message);
+        setTags([]);
       }
-    } else {
-      error = `Failed to fetch tags: ${response.status}`;
+    };
+
+    fetchTags();
+  }, []);
+
+  const fetchTagImages = async (tagsToFetch) => {
+    const images = {};
+    
+    for (const tag of tagsToFetch.slice(0, 10)) { // Limit to first 10 to avoid too many requests
+      try {
+        const slug = tag?.slug || String(tag?.name || '').toLowerCase().replace(/\s+/g, '-');
+        const response = await fetch(absoluteUrl('/api/stories/paginated_stories/?tag=' + encodeURIComponent(slug) + '&limit=5'), {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const stories = data?.results || [];
+          
+          // Find the first story WITH a cover image
+          for (const story of stories) {
+            const coverImage = story?.cover_image_url || story?.cover_image?.file_url;
+            if (coverImage) {
+              images[slug] = coverImage;
+              break; // Found one with image, stop searching
+            }
+          }
+        }
+      } catch (e) {
+        // Silent fail - will use fallback image
+      }
     }
-  } catch (e) {
-    error = e.message;
-    tags = [];
-  }
+    
+    setTagImages(images);
+  };
+
+  const handleShareTag = (tag, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const name = tag?.name || String(tag);
+    const slug = tag?.slug || String(name).toLowerCase().replace(/\s+/g, '-');
+    const tagUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/tags/${encodeURIComponent(slug)}/`;
+    
+    // Get the tag image if available
+    const tagImage = tagImages[slug] || siteUrl('/og-image.png');
+    
+    // Set the tag data for the modal
+    setSelectedTag({
+      name,
+      slug,
+      url: tagUrl,
+      count: tag?.story_count || tag?.count || 0,
+      image: tagImage
+    });
+    
+    // Open the share modal
+    setShareModalOpen(true);
+  };
 
   return (
     <div className="min-h-screen py-12 bg-black/60" style={{ paddingTop: '96px' }}>
@@ -89,16 +142,30 @@ export default async function TagsPage() {
                 tags.map((t) => {
                   const name = t?.name || String(t);
                   const slug = t?.slug || String(name).toLowerCase().replace(/\s+/g, '-');
-                  const count = t?.story_count || t?.count || null;
+                  const count = t?.story_count || t?.count || 0;
 
                   return (
                     <Link
                       key={t?.id || slug}
                       href={`/tags/${encodeURIComponent(slug)}/`}
-                      className="flex items-center justify-between space-x-3 px-4 py-3 bg-slate-900/60 hover:bg-slate-900/70 rounded-2xl transition-shadow duration-200"
+                      className="flex flex-col items-start justify-between px-4 py-3 bg-slate-900/60 hover:bg-slate-900/70 rounded-2xl transition-all duration-200 hover:shadow-lg hover:shadow-cyan-500/20 relative group"
                     >
                       <span className="font-semibold text-white truncate">#{name}</span>
-                      {count !== null && <span className="text-xs text-gray-400">{count}</span>}
+                      <div className="flex items-center justify-between w-full mt-2">
+                        <span className="text-xs text-cyan-400 font-medium">
+                          {count} {count === 1 ? 'story' : 'stories'}
+                        </span>
+                        <button
+                          onClick={(e) => handleShareTag(t, e)}
+                          className="text-gray-400 hover:text-white hover:scale-110 transition-all duration-200"
+                          aria-label="Share tag"
+                          title="Share this tag"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                          </svg>
+                        </button>
+                      </div>
                     </Link>
                   );
                 })
@@ -111,6 +178,23 @@ export default async function TagsPage() {
           </div>
         </div>
       </div>
+
+      {/* Share Modal */}
+      {selectedTag && (
+        <ShareModal
+          isOpen={shareModalOpen}
+          onClose={() => {
+            setShareModalOpen(false);
+            setSelectedTag(null);
+          }}
+          shareData={{
+            title: `Explore #${selectedTag.name}`,
+            description: `Check out the #${selectedTag.name} tag on StoryVermo with ${selectedTag.count} ${selectedTag.count === 1 ? 'story' : 'stories'}. Discover amazing stories and join our creative community!`,
+            url: selectedTag.url
+          }}
+          imageUrl={selectedTag.image}
+        />
+      )}
 
       {/* JSON-LD structured data for tags to improve SEO */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
