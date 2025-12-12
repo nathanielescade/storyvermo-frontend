@@ -50,60 +50,8 @@ const defaultTheme = {
   shadow: 'shadow-2xl shadow-cyan-900/30',
 };
 
-// Custom smooth scroll function with easing
-const smoothScroll = (element, target, duration = 500, horizontal = false) => {
-  // If the difference is very small, just set the position directly
-  const start = horizontal ? element.scrollLeft : element.scrollTop;
-  const change = target - start;
-  
-  if (Math.abs(change) < 2) {
-    if (horizontal) {
-      element.scrollLeft = target;
-    } else {
-      element.scrollTop = target;
-    }
-    return;
-  }
-
-  const startTime = performance.now();
-  
-  // Use a custom easing function that's more gentle at the start and end
-  const easeOutQuart = (t) => {
-    return 1 - Math.pow(1 - t, 4);
-  };
-  
-  const animateScroll = (currentTime) => {
-    const elapsedTime = currentTime - startTime;
-    const progress = Math.min(elapsedTime / duration, 1);
-    const easeProgress = easeOutQuart(progress);
-    
-    if (horizontal) {
-      element.scrollLeft = start + change * easeProgress;
-    } else {
-      element.scrollTop = start + change * easeProgress;
-    }
-    
-    if (progress < 1) {
-      requestAnimationFrame(animateScroll);
-    }
-  };
-  
-  requestAnimationFrame(animateScroll);
-};
-
-// Throttle function for scroll events
-const throttle = (func, limit) => {
-  let inThrottle;
-  return function() {
-    const args = arguments;
-    const context = this;
-    if (!inThrottle) {
-      func.apply(context, args);
-      inThrottle = true;
-      setTimeout(() => inThrottle = false, limit);
-    }
-  };
-};
+// OPTIMIZED: Removed smoothScroll and throttle functions
+// Using native CSS scroll-snap and Intersection Observer for buttery-smooth scrolling
 
 const VerseViewer = ({ 
   isOpen, 
@@ -219,7 +167,6 @@ const VerseViewer = ({
   });
   const [currentMomentIndex, setCurrentMomentIndex] = useState(0);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [readingProgress, setReadingProgress] = useState(0);
   const [isTextVisible, setIsTextVisible] = useState(true);
@@ -238,10 +185,7 @@ const VerseViewer = ({
   // Touch tracking for moments carousel
   const touchStartRef = useRef(0);
   const touchEndRef = useRef(0);
-  
-  // Touch tracking for pull-down gesture
-  const pullDownTouchStartRef = useRef(0);
-  const pullDownTimeoutRef = useRef(null);
+  const touchStartYRef = useRef(0); // Track Y position to detect horizontal vs vertical swipe
   
   // Check if current verse has moments (images)
   const hasMoments = currentVerse?.moments && currentVerse.moments.length > 0;
@@ -606,119 +550,62 @@ const VerseViewer = ({
     }
   }, [isOpen, currentVerseIndex, currentVerse]);
 
-  // Track if user is actively scrolling
-  const [isUserScrolling, setIsUserScrolling] = useState(false);
-  const userScrollTimeout = useRef(null);
+  // OPTIMIZED: Removed isUserScrolling state and complex scroll tracking refs
+  // Using Intersection Observer instead for performant viewport detection
 
-  // Refs for smooth scrolling
-  const isScrollingRef = useRef(false);
-  const scrollStartYRef = useRef(0);
-  const scrollStartTimeRef = useRef(0);
-  const scrollEndTimeoutRef = useRef(null);
-  const targetVerseIndexRef = useRef(initialVerseIndex);
-
-  // Handle scroll events to detect current verse and update metadata (throttled)
+  // OPTIMIZED: Use Intersection Observer for performant verse detection
+  // This replaces scroll event throttling and manual position calculations
   useEffect(() => {
-    const handleScrollStart = (e) => {
-      if (isScrollingRef.current) return;
-      
-      isScrollingRef.current = true;
-      scrollStartYRef.current = containerRef.current.scrollTop;
-      scrollStartTimeRef.current = performance.now();
-      
-      // Clear any existing timeout
-      if (scrollEndTimeoutRef.current) {
-        clearTimeout(scrollEndTimeoutRef.current);
-      }
+    if (!containerRef.current || !verseBlockRefs.current.length) return;
+
+    // Create intersection observer to detect which verse is in view
+    const observerOptions = {
+      root: containerRef.current,
+      rootMargin: '0px',
+      threshold: 0.5 // Verse is "in view" when 50% visible
     };
 
-    const handleScroll = throttle(() => {
-      if (!containerRef.current || !story?.verses) return;
-      const container = containerRef.current;
-      // Find which verse block is most centered in viewport
-      let bestIndex = 0;
-      let minDistance = Infinity;
-      verseBlockRefs.current.forEach((ref, idx) => {
-        if (ref && ref.getBoundingClientRect) {
-          const rect = ref.getBoundingClientRect();
-          const centerY = rect.top + rect.height / 2;
-          const viewportCenter = window.innerHeight / 2;
-          const distance = Math.abs(centerY - viewportCenter);
-          if (distance < minDistance) {
-            minDistance = distance;
-            bestIndex = idx;
-          }
+    const observerCallback = (entries) => {
+      // Find the verse that's most visible
+      let mostVisibleVerse = null;
+      let maxIntersectionRatio = 0;
+
+      entries.forEach((entry) => {
+        if (entry.intersectionRatio > maxIntersectionRatio) {
+          maxIntersectionRatio = entry.intersectionRatio;
+          mostVisibleVerse = entry.target;
         }
       });
-      if (bestIndex !== currentVerseIndex) {
-        setIsTransitioning(true);
-        setCurrentVerseIndex(bestIndex);
-        const newCurrentVerse = storyRef.current?.verses?.[bestIndex];
-        if (newCurrentVerse) {
-          setIsLiked(newCurrentVerse.is_liked_by_user || newCurrentVerse.user_has_liked || false);
-          setIsSaved(newCurrentVerse.is_saved_by_user || newCurrentVerse.user_has_saved || false);
-          setLikeCount(newCurrentVerse.likes_count || 0);
-          setSaveCount(newCurrentVerse.saves_count || 0);
+
+      if (mostVisibleVerse && maxIntersectionRatio > 0.5) {
+        const newIndex = verseBlockRefs.current.indexOf(mostVisibleVerse);
+        if (newIndex >= 0 && newIndex !== currentVerseIndex) {
+          setCurrentVerseIndex(newIndex);
           setCurrentMomentIndex(0);
-          fetchVerseMetadata(newCurrentVerse).then(metadata => {
-            if (metadata && currentVerseIndex === bestIndex) {
-              const updatedVerses = storyRef.current.verses.map(verse => 
-                verse.id === newCurrentVerse.id 
-                  ? { 
-                      ...verse,
-                      ...metadata,
-                      user_has_liked: metadata.is_liked_by_user,
-                      user_has_saved: metadata.is_saved_by_user
-                    }
-                  : verse
-              );
-              const updatedStory = { ...storyRef.current, verses: updatedVerses };
-              storyRef.current = updatedStory;
-              setIsLiked(metadata.is_liked_by_user);
-              setLikeCount(metadata.likes_count);
-              setIsSaved(metadata.is_saved_by_user);
-              setSaveCount(metadata.saves_count);
-              if (typeof onStoryUpdate === 'function') {
-                onStoryUpdate(updatedStory);
-              }
-            }
-          }).catch(() => {});
+          
+          // Update UI state for the new verse
+          const newVerse = storyRef.current?.verses?.[newIndex];
+          if (newVerse) {
+            setIsLiked(newVerse.is_liked_by_user || newVerse.user_has_liked || false);
+            setIsSaved(newVerse.is_saved_by_user || newVerse.user_has_saved || false);
+            setLikeCount(newVerse.likes_count || 0);
+            setSaveCount(newVerse.saves_count || 0);
+          }
         }
       }
-      // Set a timeout to detect when scrolling stops
-      if (scrollEndTimeoutRef.current) {
-        clearTimeout(scrollEndTimeoutRef.current);
-      }
-      scrollEndTimeoutRef.current = setTimeout(() => {
-        handleScrollEnd();
-      }, 150);
-    }, 16);
-
-    const handleScrollEnd = () => {
-      if (!isScrollingRef.current) return;
-      isScrollingRef.current = false;
-      // Snap to the best verse block
-      const bestRef = verseBlockRefs.current[currentVerseIndex];
-      if (bestRef && bestRef.scrollIntoView) {
-        bestRef.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-      setIsTransitioning(false);
     };
 
-    const containerElement = containerRef.current;
-    if (containerElement) {
-      containerElement.addEventListener('scroll', handleScroll);
-      containerElement.addEventListener('touchstart', handleScrollStart);
-      containerElement.addEventListener('wheel', handleScrollStart);
-      
-      return () => {
-        containerElement.removeEventListener('scroll', handleScroll);
-        containerElement.removeEventListener('touchstart', handleScrollStart);
-        containerElement.removeEventListener('wheel', handleScrollStart);
-        if (scrollEndTimeoutRef.current) clearTimeout(scrollEndTimeoutRef.current);
-      };
-    }
-  }, [currentVerseIndex, story?.verses, fetchVerseMetadata, onStoryUpdate]); // Added dependencies for metadata refresh
+    const observer = new IntersectionObserver(observerCallback, observerOptions);
+    
+    // Observe all verse blocks
+    verseBlockRefs.current.forEach((ref) => {
+      if (ref) observer.observe(ref);
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [currentVerseIndex]);
 
   // Handle like action with optimistic UI and proper story state update
   const handleLike = async () => {
@@ -830,35 +717,43 @@ const VerseViewer = ({
     setShowContributeModal(true);
   };
 
-  // Touch handlers for moments carousel
+  // Touch handlers for moments carousel with robust horizontal detection
   const handleMomentTouchStart = (e) => {
     touchStartRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+    touchEndRef.current = e.touches[0].clientX; // Initialize end position
   };
 
   const handleMomentTouchMove = (e) => {
-    touchEndRef.current = e.touches[0].clientX;
+    if (!touchStartRef.current) return;
     
-    // Prevent default only if we're swiping horizontally
     const touch = e.touches[0];
-    const deltaX = touch.clientX - touchStartRef.current;
-    const deltaY = touch.clientY - (e.targetTouches[0].clientY || 0);
+    touchEndRef.current = touch.clientX;
     
-    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+    // Calculate deltas
+    const deltaX = Math.abs(touch.clientX - touchStartRef.current);
+    const deltaY = Math.abs(touch.clientY - touchStartYRef.current);
+    
+    // If horizontal movement is clearly greater than vertical, prevent default
+    // This allows the horizontal swipe while blocking vertical scroll during the swipe
+    if (deltaX > deltaY * 1.5 && deltaX > 5) {
       e.preventDefault();
     }
   };
 
-  const handleMomentTouchEnd = () => {
+  const handleMomentTouchEnd = (e) => {
     const start = touchStartRef.current;
     const end = touchEndRef.current;
     
-    if (!start || !end) return;
+    if (!start || !end || start === end) return;
     
-    const diff = start - end;
+    const deltaX = start - end;  // Positive = swipe left (next), Negative = swipe right (prev)
+    const deltaY = Math.abs(e.changedTouches[0].clientY - touchStartYRef.current);
     
-    // Swipe threshold - only 50px needed to trigger
-    if (Math.abs(diff) > 50) {
-      if (diff > 0) {
+    // Only trigger moment change if swipe is clearly horizontal
+    // Require significant horizontal movement (50px) with more horizontal than vertical
+    if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > deltaY * 1.5) {
+      if (deltaX > 0) {
         // Swipe left - go to next moment
         goToNextMoment();
       } else {
@@ -1030,50 +925,16 @@ const VerseViewer = ({
         </div>
       )}
       
-      {/* Vertical scroll container for verses - TikTok style */}
+      {/* Vertical scroll container for verses - TikTok style with native CSS scroll-snap */}
       <div 
         ref={containerRef}
-        className="h-full w-full overflow-y-scroll scrollbar-hide overscroll-none scroll-optimized no-bounce"
+        className="h-full w-full overflow-y-scroll scrollbar-hide scroll-smooth"
         style={{ 
           scrollBehavior: 'smooth',
           scrollSnapType: 'y mandatory',
           height: '100vh',
           overflow: 'auto',
-        }}
-        onTouchStart={(e) => {
-          setIsUserScrolling(true);
-          if (pullDownTimeoutRef.current) clearTimeout(pullDownTimeoutRef.current);
-          // Store the starting Y position for pull-down tracking
-          const touch = e.touches[0];
-          pullDownTouchStartRef.current = touch.clientY;
-        }}
-        onTouchMove={(e) => {
-          // Track pull-down gesture at the top of the scroll
-          if (containerRef.current && containerRef.current.scrollTop === 0) {
-            const touch = e.touches[0];
-            const currentY = touch.clientY;
-            const startY = pullDownTouchStartRef.current;
-            // Calculate the delta (how much they've pulled down from the start)
-            const delta = Math.max(0, currentY - startY);
-            // Calculate progress: 50px = full effect
-            const progress = Math.min(delta / 50, 1);
-            setPullDownProgress(progress);
-          }
-        }}
-        onTouchEnd={() => {
-          // Smoothly animate out over 2 seconds then hide
-          if (pullDownTimeoutRef.current) clearTimeout(pullDownTimeoutRef.current);
-          pullDownTimeoutRef.current = setTimeout(() => {
-            setPullDownProgress(0);
-          }, 2000);
-          if (userScrollTimeout.current) clearTimeout(userScrollTimeout.current);
-          userScrollTimeout.current = setTimeout(() => setIsUserScrolling(false), 150);
-        }}
-        onWheel={() => {
-          setPullDownProgress(0);
-          setIsUserScrolling(true);
-          if (userScrollTimeout.current) clearTimeout(userScrollTimeout.current);
-          userScrollTimeout.current = setTimeout(() => setIsUserScrolling(false), 150);
+          overscrollBehavior: 'none',
         }}
       >
         <div ref={contentRef} className="flex flex-col" style={{ height: '100%' }}>
@@ -1090,8 +951,9 @@ const VerseViewer = ({
                 minHeight: '100vh',
                 maxHeight: '100vh',
                 flex: '0 0 100vh',
-                scrollSnapAlign: 'start',
+                scrollSnapAlign: 'center',
                 scrollSnapStop: 'always',
+                willChange: 'transform',
               }}
             >
               {/* Pull-down hint - only show on first verse when there are more verses below */}
@@ -1139,9 +1001,10 @@ const VerseViewer = ({
                     </button>
                   )}
                   
-                  {/* Moments container with touch handlers */}
+                  {/* Moments container with touch handlers for horizontal swiping */}
                   <div 
                     className="w-full h-full relative overflow-hidden"
+                    style={{ touchAction: 'pan-y' }} // Allow vertical scroll, capture horizontal swipes
                     onTouchStart={handleMomentTouchStart}
                     onTouchMove={handleMomentTouchMove}
                     onTouchEnd={handleMomentTouchEnd}
@@ -1615,20 +1478,10 @@ const VerseViewer = ({
           scroll-behavior: smooth;
         }
         
-        /* Enhanced smooth scrolling with cubic-bezier */
-        .enhanced-smooth-scroll {
+        /* Optimize scrolling performance with native browser scroll-snap */
+        .scroll-smooth {
           scroll-behavior: smooth;
-          scroll-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        
-        /* Optimize scrolling performance */
-        .scroll-optimized {
           -webkit-overflow-scrolling: touch;
-          will-change: scroll-position;
-        }
-        
-        /* Prevent momentum scrolling bounce */
-        .no-bounce {
           overscroll-behavior: none;
         }
         
