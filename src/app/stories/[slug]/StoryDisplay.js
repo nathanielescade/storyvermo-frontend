@@ -67,22 +67,19 @@ export default function StoryDisplay({ initialStory, slug }) {
   const wheelTimeoutRef = useRef(null);
   const touchStartRef = useRef(null);
 
+  // Reusable refetch function so child components can request a story refresh
+  const refetchStory = useCallback(async () => {
+    try {
+      const data = await storiesApi.getStoryBySlug(slug);
+      if (data) setStory(data);
+    } catch (err) {
+      // Keep current story if refetch fails
+    }
+  }, [slug]);
+
   // Refetch story client-side ONLY if we need to update like/save state
   // Skip if story already has user interaction data (newer than 5 minutes)
   useEffect(() => {
-    let mounted = true;
-
-    const refetchStory = async () => {
-      try {
-        const data = await storiesApi.getStoryBySlug(slug);
-        if (mounted && data) {
-          setStory(data);
-        }
-      } catch (err) {
-        // Keep current story if refetch fails
-      }
-    };
-
     // Only refetch if we have a slug and user just authenticated/changed
     // Skip refetch if story is brand new (server just rendered it)
     if (slug && isAuthenticated) {
@@ -90,10 +87,10 @@ export default function StoryDisplay({ initialStory, slug }) {
       const timer = setTimeout(() => {
         refetchStory();
       }, 300); // 300ms delay for user auth to settle
-      
+
       return () => clearTimeout(timer);
     }
-  }, [slug, isAuthenticated]);
+  }, [slug, isAuthenticated, refetchStory]);
 
   // Handle verse query param
   useEffect(() => {
@@ -231,7 +228,13 @@ export default function StoryDisplay({ initialStory, slug }) {
         />
         {/* If a verse param requested opening, render the VerseViewer modal here */}
         {showVerseViewer && story && (
-          <VerseViewer isOpen={showVerseViewer} onClose={() => setShowVerseViewer(false)} story={story} initialVerseIndex={initialVerseIndex} />
+          <VerseViewer
+            isOpen={showVerseViewer}
+            onClose={() => setShowVerseViewer(false)}
+            story={story}
+            initialVerseIndex={initialVerseIndex}
+            onStoryUpdate={refetchStory}
+          />
         )}
       </div>
     </div>

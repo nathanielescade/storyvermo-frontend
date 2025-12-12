@@ -50,9 +50,6 @@ const defaultTheme = {
   shadow: 'shadow-2xl shadow-cyan-900/30',
 };
 
-// OPTIMIZED: Removed smoothScroll and throttle functions
-// Using native CSS scroll-snap and Intersection Observer for buttery-smooth scrolling
-
 const VerseViewer = ({ 
   isOpen, 
   onClose, 
@@ -96,6 +93,7 @@ const VerseViewer = ({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showVerseOptions]);
+  
   const [currentVerseIndex, setCurrentVerseIndex] = useState(initialVerseIndex);
   
   // Store verse metadata in a ref to persist across scrolling
@@ -172,8 +170,6 @@ const VerseViewer = ({
   const [isTextVisible, setIsTextVisible] = useState(true);
   const [showScrollHint, setShowScrollHint] = useState(false);
   const [pullDownProgress, setPullDownProgress] = useState(0); // Track pull-down animation
-  // Modal state
-  // const [showContributeModal, setShowContributeModal] = useState(false);
   
   const verseRefs = useRef([]);
   const containerRef = useRef(null);
@@ -247,8 +243,6 @@ const VerseViewer = ({
     return null;
   };
 
-  // (Follow handler implemented inline on avatar button to match CreatorChip behaviour)
-
   const getAuthorInitial = () => {
     const name = getAuthorDisplayName() || getAuthorUsername() || 'P';
     return (name && name.charAt && name.charAt(0).toUpperCase()) || 'P';
@@ -284,7 +278,7 @@ const VerseViewer = ({
     return currentVerse.author_name || currentVerse.author_username || null;
   };
   
-  // Update metadata when current verse changes
+  // FIXED: Update metadata when current verse changes - this is the key fix
   useEffect(() => {
     if (currentVerse) {
       // First check if we have cached metadata for this verse
@@ -302,13 +296,21 @@ const VerseViewer = ({
         setIsSaved(currentVerse.user_has_saved || currentVerse.is_saved_by_user || false);
         setLikeCount(currentVerse.likes_count || 0);
         setSaveCount(currentVerse.saves_count || 0);
+        
+        // Cache this metadata for future use
+        verseMetadataRef.current[currentVerse.id] = {
+          is_liked_by_user: currentVerse.user_has_liked || currentVerse.is_liked_by_user || false,
+          is_saved_by_user: currentVerse.user_has_saved || currentVerse.is_saved_by_user || false,
+          likes_count: currentVerse.likes_count || 0,
+          saves_count: currentVerse.saves_count || 0
+        };
       }
       setCurrentMomentIndex(0);
       setIsContentExpanded(false);
       setIsTextVisible(true);
     }
-  }, [currentVerse?.id]); // Only run when the verse ID changes, not on every verse prop change
-
+  }, [currentVerse]); // Now depends on the entire currentVerse object, not just ID
+  
   // Sync metadata with story updates
   useEffect(() => {
     if (currentVerse && storyRef.current?.verses) {
@@ -318,9 +320,17 @@ const VerseViewer = ({
         setIsSaved(latestVerse.user_has_saved || latestVerse.is_saved_by_user || false);
         setLikeCount(latestVerse.likes_count || 0);
         setSaveCount(latestVerse.saves_count || 0);
+        
+        // Update cache
+        verseMetadataRef.current[currentVerse.id] = {
+          is_liked_by_user: latestVerse.user_has_liked || latestVerse.is_liked_by_user || false,
+          is_saved_by_user: latestVerse.user_has_saved || latestVerse.is_saved_by_user || false,
+          likes_count: latestVerse.likes_count || 0,
+          saves_count: latestVerse.saves_count || 0
+        };
       }
     }
-  }, [storyRef.current?.verses]); // Run when story verses update
+  }, [storyRef.current?.verses, currentVerse]);
   
   // Function to update verse metadata in our cache and state
   const updateVerseMetadata = useCallback((verseId, metadata) => {
@@ -382,7 +392,7 @@ const VerseViewer = ({
       updateVerseMetadata(verse.id, metadata);
       return metadata;
     } catch (error) {
-      error('Error fetching verse metadata:', error);
+      console.error('Error fetching verse metadata:', error);
       return null;
     }
   };
@@ -492,8 +502,6 @@ const VerseViewer = ({
           }
         }
       }
-      
-      // (Removed automatic scroll hint teaser)
     }
     
     return () => {
@@ -550,11 +558,7 @@ const VerseViewer = ({
     }
   }, [isOpen, currentVerseIndex, currentVerse]);
 
-  // OPTIMIZED: Removed isUserScrolling state and complex scroll tracking refs
-  // Using Intersection Observer instead for performant viewport detection
-
-  // OPTIMIZED: Use Intersection Observer for performant verse detection
-  // This replaces scroll event throttling and manual position calculations
+  // FIXED: Use Intersection Observer for performant verse detection with proper metadata updates
   useEffect(() => {
     if (!containerRef.current || !verseBlockRefs.current.length) return;
 
@@ -583,13 +587,33 @@ const VerseViewer = ({
           setCurrentVerseIndex(newIndex);
           setCurrentMomentIndex(0);
           
-          // Update UI state for the new verse
+          // FIXED: Update UI state for the new verse with proper metadata
           const newVerse = storyRef.current?.verses?.[newIndex];
           if (newVerse) {
-            setIsLiked(newVerse.is_liked_by_user || newVerse.user_has_liked || false);
-            setIsSaved(newVerse.is_saved_by_user || newVerse.user_has_saved || false);
-            setLikeCount(newVerse.likes_count || 0);
-            setSaveCount(newVerse.saves_count || 0);
+            // Check if we have cached metadata for this verse
+            const cachedMetadata = verseMetadataRef.current[newVerse.id];
+            
+            if (cachedMetadata) {
+              // Use cached metadata
+              setIsLiked(cachedMetadata.is_liked_by_user);
+              setIsSaved(cachedMetadata.is_saved_by_user);
+              setLikeCount(cachedMetadata.likes_count);
+              setSaveCount(cachedMetadata.saves_count);
+            } else {
+              // Fall back to verse data properties
+              setIsLiked(newVerse.user_has_liked || newVerse.is_liked_by_user || false);
+              setIsSaved(newVerse.user_has_saved || newVerse.is_saved_by_user || false);
+              setLikeCount(newVerse.likes_count || 0);
+              setSaveCount(newVerse.saves_count || 0);
+              
+              // Cache this metadata for future use
+              verseMetadataRef.current[newVerse.id] = {
+                is_liked_by_user: newVerse.user_has_liked || newVerse.is_liked_by_user || false,
+                is_saved_by_user: newVerse.user_has_saved || newVerse.is_saved_by_user || false,
+                likes_count: newVerse.likes_count || 0,
+                saves_count: newVerse.saves_count || 0
+              };
+            }
           }
         }
       }
@@ -605,7 +629,7 @@ const VerseViewer = ({
     return () => {
       observer.disconnect();
     };
-  }, [currentVerseIndex]);
+  }, [currentVerseIndex, storyRef.current?.verses]);
 
   // Handle like action with optimistic UI and proper story state update
   const handleLike = async () => {
@@ -635,7 +659,7 @@ const VerseViewer = ({
       // Revert on error
       setIsLiked(!newLikedState);
       setLikeCount(likeCount);
-      error('Error toggling verse like:', error);
+      console.error('Error toggling verse like:', error);
     }
   };
 
@@ -673,7 +697,7 @@ const VerseViewer = ({
       // Revert on error
       setIsSaved(!newSavedState);
       setSaveCount(saveCount);
-      error('Error toggling verse save:', error);
+      console.error('Error toggling verse save:', error);
     }
   };
 
@@ -1190,7 +1214,7 @@ const VerseViewer = ({
                       e.preventDefault();
                       e.stopPropagation();
                       const username = getAuthorUsername();
-                      log('Follow button clicked, username:', username); // Debug log
+                      console.log('Follow button clicked, username:', username); // Debug log
                       setIsFollowing(true); // Optimistically hide immediately and never revert
                       if (!isAuthenticated) {
                         if (typeof openAuthModal === 'function') openAuthModal('follow', username);
@@ -1198,10 +1222,10 @@ const VerseViewer = ({
                       }
                       userApi.followUser(username)
                         .then(() => {
-                          log('Follow API call succeeded for:', username);
+                          console.log('Follow API call succeeded for:', username);
                         })
                         .catch((err) => {
-                          error('Failed to follow user:', err);
+                          console.error('Failed to follow user:', err);
                           // Do not revert isFollowing
                         });
                     }}
@@ -1399,7 +1423,7 @@ const VerseViewer = ({
               // Update the story state with the new data
               // This will trigger a re-render with the new verse
             } catch (error) {
-              error('Error refreshing story data:', error);
+              console.error('Error refreshing story data:', error);
             }
           }
         }}
@@ -1443,7 +1467,7 @@ const VerseViewer = ({
                     }
                     alert('Verse deleted successfully!');
                   } catch (error) {
-                    error('Error deleting verse:', error);
+                    console.error('Error deleting verse:', error);
                     alert('Error deleting verse. Please try again.');
                   }
                 }}
@@ -1515,8 +1539,6 @@ const VerseViewer = ({
             transform: translateY(0) translateX(0);
           }
         }
-        
-        /* bounce-slow animation removed (scroll teaser) */
       `}</style>
     </div>
   );
