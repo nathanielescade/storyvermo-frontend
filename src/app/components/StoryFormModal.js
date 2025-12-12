@@ -437,19 +437,16 @@ const StoryFormModal = ({
       })) || [], 
       slug: editingVerse.slug
     }] : 
-    (editingStory?.verses || [])
-      .sort((a, b) => (a.order || 0) - (b.order || 0)) // Sort by order field
-      .map(verse => ({
-        id: verse.slug || generateUniqueId(),
-        content: verse.content || '',
-        isExisting: true,
-        imageIds: verse.moments?.filter(m => m.image).map(m => ({ 
-          public_id: m.image.public_id,
-          file_url: m.image.file_url
-        })) || [],
-        slug: verse.slug,
-        order: verse.order // Preserve the order field
-      })) || [{ id: generateUniqueId(), content: '', isExisting: false, imageIds: [] }]
+    editingStory?.verses?.map(verse => ({
+      id: verse.slug || generateUniqueId(),
+      content: verse.content || '',
+      isExisting: true,
+      imageIds: verse.moments?.filter(m => m.image).map(m => ({ 
+        public_id: m.image.public_id,
+        file_url: m.image.file_url
+      })) || [],
+      slug: verse.slug
+    })) || [{ id: generateUniqueId(), content: '', isExisting: false, imageIds: [] }]
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -658,7 +655,6 @@ const StoryFormModal = ({
         });
         console.log(`[StoryFormModal] Compressed result: ${compressed.compressedSize}KB`);
         
-
         setImageFile(compressed.file);
         setImagePreview(compressed.preview);
         console.log(`Image compressed: ${compressed.originalSize}KB → ${compressed.compressedSize}KB (${compressed.ratio}% reduction)`);
@@ -1108,12 +1104,11 @@ const StoryFormModal = ({
         return hasContent || hasImages;
       });
 
-      const versePromises = versesToProcess.map(async (verse, processIndex) => {
-        // Use the index from versesToProcess for correct sequential ordering
+      const versePromises = versesToProcess.map(async (verse, index) => {
         const verseData = {
           story: storyIdentifier,
           content: (verse.content || '').trim(),
-          order: processIndex + 1, // Use processIndex + 1 for correct sequential ordering (1, 2, 3, 4...)
+          order: verse.order || index + 1,
           image_ids: verse.uploadedImageIds || []
         };
 

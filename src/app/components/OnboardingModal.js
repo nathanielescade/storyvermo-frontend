@@ -6,7 +6,7 @@ const OnboardingModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-lg z-600 flex items-center justify-center p-6">
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-lg z-[10100] flex items-center justify-center p-6">
       <div className="w-full max-w-3xl max-h-[90vh] bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 rounded-3xl shadow-2xl overflow-hidden transform scale-100 transition-all duration-500 flex flex-col">
 
         {/* Decorative Borders */}
@@ -36,7 +36,7 @@ const OnboardingModal = ({ isOpen, onClose }) => {
         </div>
 
         {/* Main Content */}
-        <div className="relative z-10 p-8 overflow-y-auto grow custom-scrollbar">
+        <div className="relative z-[10] p-8 overflow-y-auto grow custom-scrollbar">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
             {/* Stories */}
             <div className="space-y-3">
