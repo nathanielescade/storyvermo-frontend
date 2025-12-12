@@ -157,11 +157,14 @@ const NotificationBell = ({ isOpen = false, onOpen, onClose }) => {
 
   const getNotificationRoute = (notification) => {
     if (notification.story) {
-      return `/story/${notification.story.id}`;
+      const slug = notification.story.slug || notification.story?.slugified || notification.story.id;
+      return `/story/${slug}`;
     } else if (notification.verse) {
-      return `/verse/${notification.verse.id}`;
+      const slug = notification.verse.slug || notification.verse?.slugified || notification.verse.id;
+      return `/verse/${slug}`;
     } else if (notification.sender) {
-      return `/profile/${notification.sender.id}`;
+      const username = notification.sender.username || notification.sender.slug || notification.sender.id;
+      return `/profile/${username}`;
     }
     return '/notifications';
   };

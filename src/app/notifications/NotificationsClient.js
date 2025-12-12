@@ -187,11 +187,13 @@ export function NotificationsClient() {
       }
     }
 
-    // Navigate to related content if available
+    // Navigate to related content if available - prefer slugs, fallback to id
     if (notification.story) {
-      router.push(`/story/${notification.story.id}`);
+      const slug = notification.story.slug || notification.story?.slugified || notification.story.id;
+      router.push(`/story/${slug}`);
     } else if (notification.verse) {
-      router.push(`/verse/${notification.verse.id}`);
+      const slug = notification.verse.slug || notification.verse?.slugified || notification.verse.id;
+      router.push(`/verse/${slug}`);
     }
   };
 

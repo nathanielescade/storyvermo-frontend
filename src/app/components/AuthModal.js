@@ -284,7 +284,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
     if (!formData.username || !String(formData.username).trim()) newErrors.username = 'Username is required';
 
     if (!formData.password) newErrors.password = 'Password is required';
-    else if (formData.password.length < 8) newErrors.password = 'Password must be at least 8 characters';
+    else if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
 
     if (formData.password !== formData.password_confirm) newErrors.password_confirm = 'Passwords do not match';
 
@@ -328,8 +328,8 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
     
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
-      newErrors.password = 'Password must be at least 8 characters';
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
     }
     
     if (!isLoginMode && formData.password !== formData.password_confirm) {
