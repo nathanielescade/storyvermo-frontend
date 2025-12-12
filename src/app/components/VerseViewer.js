@@ -224,6 +224,7 @@ const VerseViewer = ({
   const [readingProgress, setReadingProgress] = useState(0);
   const [isTextVisible, setIsTextVisible] = useState(true);
   const [showScrollHint, setShowScrollHint] = useState(false);
+  const [pullDownProgress, setPullDownProgress] = useState(0); // Track pull-down animation
   // Modal state
   // const [showContributeModal, setShowContributeModal] = useState(false);
   
@@ -237,6 +238,10 @@ const VerseViewer = ({
   // Touch tracking for moments carousel
   const touchStartRef = useRef(0);
   const touchEndRef = useRef(0);
+  
+  // Touch tracking for pull-down gesture
+  const pullDownTouchStartRef = useRef(0);
+  const pullDownTimeoutRef = useRef(null);
   
   // Check if current verse has moments (images)
   const hasMoments = currentVerse?.moments && currentVerse.moments.length > 0;
@@ -338,11 +343,22 @@ const VerseViewer = ({
   // Update metadata when current verse changes
   useEffect(() => {
     if (currentVerse) {
-      // Force immediate metadata update from the current verse
-      setIsLiked(currentVerse.user_has_liked || currentVerse.is_liked_by_user || false);
-      setIsSaved(currentVerse.user_has_saved || currentVerse.is_saved_by_user || false);
-      setLikeCount(currentVerse.likes_count || 0);
-      setSaveCount(currentVerse.saves_count || 0);
+      // First check if we have cached metadata for this verse
+      const cachedMetadata = verseMetadataRef.current[currentVerse.id];
+      
+      if (cachedMetadata) {
+        // Use cached metadata
+        setIsLiked(cachedMetadata.is_liked_by_user);
+        setIsSaved(cachedMetadata.is_saved_by_user);
+        setLikeCount(cachedMetadata.likes_count);
+        setSaveCount(cachedMetadata.saves_count);
+      } else {
+        // Fall back to verse data properties
+        setIsLiked(currentVerse.user_has_liked || currentVerse.is_liked_by_user || false);
+        setIsSaved(currentVerse.user_has_saved || currentVerse.is_saved_by_user || false);
+        setLikeCount(currentVerse.likes_count || 0);
+        setSaveCount(currentVerse.saves_count || 0);
+      }
       setCurrentMomentIndex(0);
       setIsContentExpanded(false);
       setIsTextVisible(true);
@@ -481,42 +497,56 @@ const VerseViewer = ({
       
       // Pre-fetch metadata for all verses to ensure we have the data
       if (story?.verses) {
-        Promise.all(story.verses.map(verse => fetchVerseMetadata(verse))).then(metadataArray => {
-          const updatedVerses = story.verses.map((verse, index) => {
-            const metadata = metadataArray[index];
-            if (metadata) {
-              return {
-                ...verse,
-                ...metadata,
-                user_has_liked: metadata.is_liked_by_user,
-                user_has_saved: metadata.is_saved_by_user
-              };
+        // Only fetch if we don't already have metadata for these verses
+        const versesNeedingMetadata = story.verses.filter(verse => !verseMetadataRef.current[verse.id]);
+        
+        if (versesNeedingMetadata.length > 0) {
+          Promise.all(versesNeedingMetadata.map(verse => fetchVerseMetadata(verse))).then(metadataArray => {
+            const updatedVerses = story.verses.map((verse) => {
+              const cachedMetadata = verseMetadataRef.current[verse.id];
+              if (cachedMetadata) {
+                return {
+                  ...verse,
+                  ...cachedMetadata,
+                  user_has_liked: cachedMetadata.is_liked_by_user,
+                  user_has_saved: cachedMetadata.is_saved_by_user
+                };
+              }
+              return verse;
+            });
+
+            const updatedStory = {
+              ...storyRef.current,
+              verses: updatedVerses
+            };
+
+            // Update story ref
+            storyRef.current = updatedStory;
+
+            // Call parent update if available (only once with updated data)
+            if (typeof onStoryUpdate === 'function') {
+              onStoryUpdate(updatedStory);
             }
-            return verse;
+
+            // Set initial verse state
+            const initialVerse = updatedVerses[initialVerseIndex];
+            if (initialVerse) {
+              setIsLiked(initialVerse.is_liked_by_user || initialVerse.user_has_liked || false);
+              setLikeCount(initialVerse.likes_count || 0);
+              setIsSaved(initialVerse.is_saved_by_user || initialVerse.user_has_saved || false);
+              setSaveCount(initialVerse.saves_count || 0);
+            }
           });
-
-          const updatedStory = {
-            ...storyRef.current,
-            verses: updatedVerses
-          };
-
-          // Update story ref
-          storyRef.current = updatedStory;
-
-          // Call parent update if available
-          if (typeof onStoryUpdate === 'function') {
-            onStoryUpdate(updatedStory);
-          }
-
-          // Set initial verse state
-          const initialVerse = updatedVerses[initialVerseIndex];
+        } else {
+          // Metadata already cached, just set state
+          const initialVerse = story.verses[initialVerseIndex];
           if (initialVerse) {
             setIsLiked(initialVerse.is_liked_by_user || initialVerse.user_has_liked || false);
             setLikeCount(initialVerse.likes_count || 0);
             setIsSaved(initialVerse.is_saved_by_user || initialVerse.user_has_saved || false);
             setSaveCount(initialVerse.saves_count || 0);
           }
-        });
+        }
       }
       
       // (Removed automatic scroll hint teaser)
@@ -525,7 +555,20 @@ const VerseViewer = ({
     return () => {
       // cleanup
     };
-  }, [isOpen, initialVerseIndex, story]);
+  }, [isOpen, initialVerseIndex, story?.id, story?.verses?.length]);
+
+  // Auto-show pull-down animation when viewer opens on first verse
+  useEffect(() => {
+    if (isOpen && currentVerseIndex === 0 && story?.verses?.length > 1) {
+      // Show pull-down animation for 3 seconds then fade out
+      setPullDownProgress(1); // Set to full progress
+      const timer = setTimeout(() => {
+        setPullDownProgress(0);
+      }, 3000); // Show for 3 seconds
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, currentVerseIndex, story?.verses?.length]);
 
   // Notify parent that the viewer has rendered and is ready (used to stop button loading states)
   useEffect(() => {
@@ -939,16 +982,53 @@ const VerseViewer = ({
               {story.title} <span className="opacity-60 font-normal">- Verse {currentVerseIndex + 1} of {story.verses.length}</span>
             </span>
           </div>
-          <div className="flex items-center gap-3">
-            <button 
-              className="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-black/60 transition-all border border-cyan-400/20 shadow"
-              onClick={onClose}
-            >
-              <i className="fas fa-times"></i>
-            </button>
+          
+          {/* Scroll Direction Indicators */}
+          <div className="flex items-center gap-4 mr-2">
+            {/* Vertical Scroll Indicators (Up/Down for verses) */}
+            <div className="flex flex-col gap-0.5">
+              {/* Up Arrow - show if not on first verse */}
+              {currentVerseIndex > 0 && (
+                <div className="text-cyan-400 text-lg opacity-70 animate-pulse">↑</div>
+              )}
+              {/* Down Arrow - show if not on last verse */}
+              {currentVerseIndex < story.verses.length - 1 && (
+                <div className="text-cyan-400 text-lg opacity-70 animate-pulse">↓</div>
+              )}
+            </div>
+            
+            {/* Horizontal Scroll Indicators (Left/Right for moments) */}
+            {hasMoments && (
+              <div className="flex gap-2">
+                {/* Left Arrow - show if not on first moment */}
+                {currentMomentIndex > 0 && (
+                  <div className="text-purple-400 text-lg opacity-70 animate-pulse">←</div>
+                )}
+                {/* Right Arrow - show if not on last moment */}
+                {currentMomentIndex < currentVerse.moments.length - 1 && (
+                  <div className="text-purple-400 text-lg opacity-70 animate-pulse">→</div>
+                )}
+              </div>
+            )}
           </div>
+          
+          <button 
+            className="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-black/60 transition-all border border-cyan-400/20 shadow"
+            onClick={onClose}
+          >
+            <i className="fas fa-times"></i>
+          </button>
         </div>
       </div>
+
+      {/* Moments Counter - below header */}
+      {!focusMode && currentVerse?.moments && currentVerse.moments.length > 0 && (
+        <div className="fixed top-24 right-4 z-40 text-right pointer-events-none">
+          <div className="text-cyan-400 font-mono text-lg font-bold drop-shadow-lg">
+            {currentMomentIndex + 1}/{currentVerse.moments.length}
+          </div>
+        </div>
+      )}
       
       {/* Vertical scroll container for verses - TikTok style */}
       <div 
@@ -960,12 +1040,37 @@ const VerseViewer = ({
           height: '100vh',
           overflow: 'auto',
         }}
-        onTouchStart={() => setIsUserScrolling(true)}
+        onTouchStart={(e) => {
+          setIsUserScrolling(true);
+          if (pullDownTimeoutRef.current) clearTimeout(pullDownTimeoutRef.current);
+          // Store the starting Y position for pull-down tracking
+          const touch = e.touches[0];
+          pullDownTouchStartRef.current = touch.clientY;
+        }}
+        onTouchMove={(e) => {
+          // Track pull-down gesture at the top of the scroll
+          if (containerRef.current && containerRef.current.scrollTop === 0) {
+            const touch = e.touches[0];
+            const currentY = touch.clientY;
+            const startY = pullDownTouchStartRef.current;
+            // Calculate the delta (how much they've pulled down from the start)
+            const delta = Math.max(0, currentY - startY);
+            // Calculate progress: 50px = full effect
+            const progress = Math.min(delta / 50, 1);
+            setPullDownProgress(progress);
+          }
+        }}
         onTouchEnd={() => {
+          // Smoothly animate out over 2 seconds then hide
+          if (pullDownTimeoutRef.current) clearTimeout(pullDownTimeoutRef.current);
+          pullDownTimeoutRef.current = setTimeout(() => {
+            setPullDownProgress(0);
+          }, 2000);
           if (userScrollTimeout.current) clearTimeout(userScrollTimeout.current);
           userScrollTimeout.current = setTimeout(() => setIsUserScrolling(false), 150);
         }}
         onWheel={() => {
+          setPullDownProgress(0);
           setIsUserScrolling(true);
           if (userScrollTimeout.current) clearTimeout(userScrollTimeout.current);
           userScrollTimeout.current = setTimeout(() => setIsUserScrolling(false), 150);
@@ -989,6 +1094,22 @@ const VerseViewer = ({
                 scrollSnapStop: 'always',
               }}
             >
+              {/* Pull-down hint - only show on first verse when there are more verses below */}
+              {verseIndex === 0 && story.verses.length > 1 && (
+                <div 
+                  className="absolute top-0 left-0 right-0 z-40 flex justify-center pt-8 pointer-events-none"
+                  style={{
+                    opacity: Math.max(0, pullDownProgress * 2),
+                    transform: `translateY(${Math.min(pullDownProgress * 40, 30)}px)`,
+                    transition: pullDownProgress === 0 ? 'all 0.3s ease-out' : 'none'
+                  }}
+                >
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="text-4xl text-cyan-400 animate-bounce" style={{ animationDelay: '0s', opacity: Math.max(0, pullDownProgress * 2) }}>↓</div>
+                    <span className="text-cyan-300 text-sm font-medium whitespace-nowrap">Scroll for more verses</span>
+                  </div>
+                </div>
+              )}
               {/* Moments (horizontal scroll) */}
               {verse.moments && verse.moments.length > 0 ? (
                 <div className="w-full h-full flex items-center justify-center bg-black/10 cursor-pointer relative" onClick={toggleFocusMode} style={{ display: 'flex', position: 'relative', width: '100%', height: '100%' }}>

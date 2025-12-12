@@ -317,13 +317,35 @@ export default function StoryCard({
             }
             
             setTimeout(() => {
+                // Show success notification
+                try {
+                  const event = new CustomEvent('notification:show', {
+                    detail: {
+                      message: 'Your story has been deleted successfully',
+                      type: 'success',
+                      duration: 3000
+                    }
+                  });
+                  window.dispatchEvent(event);
+                } catch (e) { /* notification failed */ }
+                
                 if (typeof onDeleteStory === 'function') {
                     try { onDeleteStory(slug); } catch (e) { /* onDeleteStory callback failed */ }
                 }
             }, 500);
         } catch (err) {
             console.error('Failed to delete story:', err);
-            alert(`Failed to delete story: ${err.message || err}`);
+            // Show error notification
+            try {
+              const event = new CustomEvent('notification:show', {
+                detail: {
+                  message: `Failed to delete story: ${err.message || err}`,
+                  type: 'error',
+                  duration: 4000
+                }
+              });
+              window.dispatchEvent(event);
+            } catch (e) { /* notification failed */ }
         } finally {
             setIsDeleting(false);
         }

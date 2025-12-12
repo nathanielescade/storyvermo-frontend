@@ -15,6 +15,7 @@ export default function ProfileSettingsClient() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const [toast, setToast] = useState(null); // Toast notification state
   const formRef = useRef(null);
 
   const [formData, setFormData] = useState({
@@ -308,18 +309,33 @@ export default function ProfileSettingsClient() {
     setSuccess(false);
 
     try {
-      // Create a copy of formData and remove the username field since it's disabled
-      const dataToSend = { ...formData };
-      delete dataToSend.username;
-      
-      // Log the data being sent
+      if (!currentUser || !currentUser.username) {
+        setError('Unable to determine current user');
+        setSaving(false);
+        return;
+      }
+
+      // Create a copy of formData with username
+      const dataToSend = { 
+        ...formData,
+        username: currentUser.username // Include username for the API endpoint
+      };
       
       await userApi.updateCurrentUserProfile(dataToSend);
       await refreshAuth(); // Refresh auth context with new user data
+      
+      // Show success toast notification
+      setToast({ type: 'success', message: 'Profile updated successfully!' });
+      setTimeout(() => setToast(null), 3000);
+      
+      // Also set success state but don't scroll
       setSuccess(true);
-      // Scroll to top to show success message
-      window.scrollTo(0, 0);
+      setTimeout(() => setSuccess(false), 3000);
     } catch (error) {
+      // Show error toast notification
+      setToast({ type: 'error', message: error.message || 'Failed to update profile' });
+      setTimeout(() => setToast(null), 4000);
+      
       setError(error.message || 'Failed to update profile');
     } finally {
       setSaving(false);
@@ -328,14 +344,14 @@ export default function ProfileSettingsClient() {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950">
+      <div className="fixed inset-0 z-[10100] flex items-center justify-center bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950">
         <div className="text-gray-400">Loading profile settings...</div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950">
+    <div className="fixed inset-0 z-[10100] flex items-center justify-center bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950">
       <div className="w-full max-w-2xl h-[100dvh] overflow-y-auto rounded-2xl shadow-2xl bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 p-0 m-0 flex flex-col justify-start pb-24">
         {/* Success/Error Messages */}
         <div className="p-6">
