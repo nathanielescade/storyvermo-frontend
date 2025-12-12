@@ -54,10 +54,10 @@ const Header = ({ openAuthModal }) => {
     <div className="fixed-header ">
       <Logo />
       
-      <div className="flex gap-4 items-center ml-auto relative">
+      <div className="flex gap-2.5 items-center ml-auto relative">
         {/* Trending Tags Button */}
         <button 
-          className="trending-tags-btn w-10 h-10 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 flex items-center justify-center shadow-[0_0_12px_rgba(251,191,36,0.3)] transition-all hover:scale-110 hover:shadow-[0_0_20px_rgba(251,191,36,0.5)]"
+          className="trending-tags-btn w-10 h-10 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 flex items-center justify-center shadow-[0_0_15px_rgba(251,191,36,0.8)] transition-all hover:scale-110 hover:shadow-[0_0_25px_rgba(251,191,36,1)]"
           onClick={() => {
             if (showTrendingTags) {
               setShowTrendingTags(false);

@@ -60,7 +60,7 @@ const UserMenu = ({ openAuthModal, isOpen = false, onOpen, onClose }) => {
       {isAuthenticated && currentUser ? (
         <>
           <button 
-            className="w-10 h-10 rounded-full bg-gradient-to-r from-accent-orange to-neon-pink flex items-center justify-center text-white font-bold text-lg shadow-[0_0_15px_rgba(255,107,53,0.7)] transition-transform hover:scale-105 overflow-hidden"
+            className="relative w-10 h-10 rounded-full bg-gradient-to-r from-accent-orange to-neon-pink flex items-center justify-center text-white font-bold text-lg shadow-[0_0_15px_rgba(0,212,255,0.7)] transition-transform hover:scale-105 overflow-hidden flex-shrink-0"
             onClick={() => {
               if (isOpen) {
                 onClose?.();
@@ -70,12 +70,12 @@ const UserMenu = ({ openAuthModal, isOpen = false, onOpen, onClose }) => {
             }}
           >
             {getProfileImageUrl(currentUser) ? (
-              // FIXED: Using Next.js Image for optimization
+              // FIXED: Using Next.js Image for optimization with circular display
               <Image 
                 src={getProfileImageUrl(currentUser)} 
                 alt={`${getUsername(currentUser)}'s profile`} 
                 fill
-                className="object-cover"
+                className="object-cover rounded-full"
                 quality={75}
               />
             ) : (

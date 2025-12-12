@@ -21,6 +21,8 @@ const CommentModal = ({
   const [error, setError] = useState('');
   const [modalPosition, setModalPosition] = useState(0); // 0 = closed, 1 = open
   const [newCommentId, setNewCommentId] = useState(null); // Track newly added comment
+  const [editingComment, setEditingComment] = useState(null); // Track comment being edited
+  const [openMenu, setOpenMenu] = useState(null); // Track which comment/reply has menu open
   
   const replyInputRef = useRef(null);
   const modalRef = useRef(null);
@@ -28,6 +30,7 @@ const CommentModal = ({
   const commentRefs = useRef({}); // Refs for each comment
   const commentTextareaRef = useRef(null);
   const replyTextareaRef = useRef(null);
+  const menuRef = useRef(null); // Ref for menu outside click detection
   
   // Get current user and auth helpers from AuthContext
   const { currentUser, isAuthenticated, refreshAuth } = useAuth();
@@ -110,6 +113,20 @@ const CommentModal = ({
   useEffect(() => {
     adjustTextareaHeight(replyTextareaRef.current);
   }, [replyContent]);
+
+  // Handle click outside to close menu
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setOpenMenu(null);
+      }
+    };
+
+    if (openMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [openMenu]);
   
   const fetchCommentsData = useCallback(async () => {
     try {
@@ -154,6 +171,40 @@ const CommentModal = ({
 
       console.log('📝 Sorted comments:', sortedComments);
       setComments(sortedComments);
+      
+      // Re-fetch replies for any comments that were previously expanded
+      const previouslyExpandedCommentIds = Object.keys(expandedReplies).filter(id => expandedReplies[id]);
+      if (previouslyExpandedCommentIds.length > 0) {
+        // Fetch replies for all previously expanded comments in parallel
+        const repliesPromises = previouslyExpandedCommentIds.map(commentId =>
+          commentsApi.fetchCommentReplies(commentId)
+            .then(repliesData => ({ commentId, repliesData }))
+            .catch(() => ({ commentId, repliesData: [] }))
+        );
+        
+        Promise.all(repliesPromises).then(results => {
+          // Update comments with their fetched replies
+          let updatedComments = [...sortedComments];
+          results.forEach(({ commentId, repliesData }) => {
+            let repliesArray = [];
+            if (Array.isArray(repliesData)) {
+              repliesArray = repliesData;
+            } else if (repliesData && repliesData.results && Array.isArray(repliesData.results)) {
+              repliesArray = repliesData.results;
+            } else if (repliesData && Array.isArray(repliesData.replies)) {
+              repliesArray = repliesData.replies;
+            }
+            
+            updatedComments = updatedComments.map(comment => 
+              comment.public_id === commentId 
+                ? { ...comment, replies: repliesArray }
+                : comment
+            );
+          });
+          
+          setComments(updatedComments);
+        });
+      }
     } catch (error) {
       console.error('❌ Error fetching comments:', error);
       setError('Failed to load comments. Please try again.');
@@ -237,6 +288,95 @@ const CommentModal = ({
   const handleCancelReply = () => {
     setReplyingTo(null);
     setReplyContent('');
+  };
+
+  const handleDeleteComment = async (commentOrReply) => {
+    if (!commentOrReply || !commentOrReply.public_id) {
+      setError('Invalid comment. Please try again.');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to delete this comment?')) {
+      return;
+    }
+
+    try {
+      await commentsApi.deleteComment(commentOrReply.public_id);
+      
+      // Remove the comment/reply from state
+      const updatedComments = comments.map(comment => {
+        if (comment.public_id === commentOrReply.public_id) {
+          return null; // Mark for removal
+        }
+        // Also check if this is a reply being deleted
+        if (comment.replies && Array.isArray(comment.replies)) {
+          return {
+            ...comment,
+            replies: comment.replies.filter(r => r.public_id !== commentOrReply.public_id),
+            reply_count: (comment.reply_count || 0) - (comment.replies.some(r => r.public_id === commentOrReply.public_id) ? 1 : 0)
+          };
+        }
+        return comment;
+      }).filter(c => c !== null);
+      
+      setComments(updatedComments);
+      setOpenMenu(null);
+      updateCommentCount(post.slug, -1);
+    } catch (error) {
+      setError('Failed to delete comment. Please try again.');
+    }
+  };
+
+  const handleEditComment = (commentOrReply) => {
+    if (!commentOrReply || !commentOrReply.public_id) {
+      setError('Invalid comment. Please try again.');
+      return;
+    }
+    
+    setEditingComment(commentOrReply);
+    setOpenMenu(null);
+  };
+
+  const handleSaveEdit = async (commentOrReply) => {
+    if (!commentOrReply.content.trim()) {
+      setError('Comment cannot be empty');
+      return;
+    }
+
+    try {
+      await commentsApi.updateComment(commentOrReply.public_id, {
+        content: commentOrReply.content
+      });
+      
+      // Update the comment in state
+      const updatedComments = comments.map(comment => {
+        if (comment.public_id === commentOrReply.public_id) {
+          return commentOrReply;
+        }
+        // Also check if this is a reply being updated
+        if (comment.replies && Array.isArray(comment.replies)) {
+          return {
+            ...comment,
+            replies: comment.replies.map(r => r.public_id === commentOrReply.public_id ? commentOrReply : r)
+          };
+        }
+        return comment;
+      });
+      
+      setComments(updatedComments);
+      setEditingComment(null);
+    } catch (error) {
+      setError('Failed to update comment. Please try again.');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingComment(null);
+  };
+
+  const isCommentOwner = (commentAuthor) => {
+    if (!currentUser || !commentAuthor) return false;
+    return currentUser.id === commentAuthor.id || currentUser.username === commentAuthor.username;
   };
   
   const handleAddReply = async (parentComment) => {
@@ -496,7 +636,7 @@ const CommentModal = ({
         {/* Post Preview */}
         <div className="py-2 px-6 border-b border-cyan-500/20 bg-black/30 relative z-10">
           <div className="flex items-start space-x-3">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-white font-bold overflow-hidden">
+            <div className="relative w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-white font-bold overflow-hidden flex-shrink-0">
               {(() => {
                 const creator = post.creator || {};
                 const imgUrl = creator.profile_image_url || creator.profile_image || creator.profileImageUrl || creator.profileImage || null;
@@ -505,7 +645,8 @@ const CommentModal = ({
                     <Image
                       src={absoluteUrl(imgUrl)}
                       alt={getDisplayName(creator)}
-                      fill
+                      width={40}
+                      height={40}
                       className="object-cover rounded-full"
                       quality={75}
                     />
@@ -544,12 +685,13 @@ const CommentModal = ({
                 {/* Comment */}
                 <div className="relative bg-gradient-to-b from-gray-800/50 to-black/50 rounded-xl p-4 border border-cyan-500/20 backdrop-blur-sm">
                   <div className="flex space-x-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-white font-bold flex-shrink-0 overflow-hidden">
+                    <div className="relative w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-white font-bold flex-shrink-0 overflow-hidden">
                       {comment.author?.profile_image_url ? (
                         <Image
                           src={absoluteUrl(comment.author.profile_image_url)}
                           alt={getDisplayName(comment.author)}
-                          fill
+                          width={40}
+                          height={40}
                           className="object-cover rounded-full"
                           quality={75}
                         />
@@ -558,21 +700,75 @@ const CommentModal = ({
                       )}
                     </div>
                     <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-bold text-white">{getDisplayName(comment.author)}</span>
-                        <span className="text-gray-500 text-sm">{formatTimeAgo(comment.created_at)}</span>
-                        {comment.reply_count > 0 && (
-                          <span className="bg-cyan-500/20 text-cyan-400 text-xs px-2 py-1 rounded-full">
-                            {comment.reply_count} {comment.reply_count === 1 ? 'reply' : 'replies'}
-                          </span>
-                        )}
-                        {calculateCommentScore(comment) > 10000 && (
-                          <span className="bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs px-2 py-1 rounded-full">
-                            New
-                          </span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-bold text-white">{getDisplayName(comment.author)}</span>
+                          <span className="text-gray-500 text-sm">{formatTimeAgo(comment.created_at)}</span>
+                          {comment.reply_count > 0 && (
+                            <span className="bg-cyan-500/20 text-cyan-400 text-xs px-2 py-1 rounded-full">
+                              {comment.reply_count} {comment.reply_count === 1 ? 'reply' : 'replies'}
+                            </span>
+                          )}
+                          {calculateCommentScore(comment) > 10000 && (
+                            <span className="bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs px-2 py-1 rounded-full">
+                              New
+                            </span>
+                          )}
+                        </div>
+                        {isCommentOwner(comment.author) && (
+                          <div className="relative" ref={openMenu === comment.public_id ? menuRef : null}>
+                            <button
+                              onClick={() => setOpenMenu(openMenu === comment.public_id ? null : comment.public_id)}
+                              className="p-1 hover:bg-gray-700/50 rounded-lg transition-colors"
+                              title="Comment options"
+                            >
+                              <span className="text-gray-400 hover:text-white text-lg">⋯</span>
+                            </button>
+                            {openMenu === comment.public_id && (
+                              <div className="absolute right-0 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50 overflow-hidden">
+                                <button
+                                  onClick={() => handleEditComment(comment)}
+                                  className="w-full text-left px-4 py-2 text-white hover:bg-gray-700 transition-colors flex items-center gap-2 text-sm"
+                                >
+                                  <span>✏️</span> Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteComment(comment)}
+                                  className="w-full text-left px-4 py-2 text-red-400 hover:bg-gray-700 transition-colors flex items-center gap-2 text-sm border-t border-gray-700"
+                                >
+                                  <span>🗑️</span> Delete
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
-                      <p className="text-gray-200 mt-1">{comment.content}</p>
+                      {editingComment?.public_id === comment.public_id ? (
+                        <div className="mt-2 space-y-2">
+                          <textarea
+                            value={editingComment.content}
+                            onChange={(e) => setEditingComment({...editingComment, content: e.target.value})}
+                            className="w-full bg-slate-900/60 border border-gray-700 rounded-xl text-white px-4 py-3 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 resize-none"
+                            rows={3}
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleSaveEdit(editingComment)}
+                              className="px-3 py-2 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-lg text-white text-sm font-medium hover:opacity-90 transition-opacity"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              className="px-3 py-2 bg-gray-700 rounded-lg text-gray-300 text-sm font-medium hover:bg-gray-600 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-gray-200 mt-1">{comment.content}</p>
+                      )}
                       <div className="flex items-center space-x-4 mt-2">
                         <button 
                           onClick={() => handleReplyClick(comment)}
@@ -592,6 +788,24 @@ const CommentModal = ({
                   {/* Reply Input (when replying to this comment) */}
                   {replyingTo?.public_id === comment.public_id && (
                     <div key={`reply-input-${comment.public_id}`} className="mt-4 ml-12 flex flex-col space-y-2">
+                      {/* Emoji Row for Reply */}
+                      <div className="flex gap-2 mb-2 justify-center">
+                        {['🔥','😂','❤️','😍','😮','👍','🙏'].map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            className="text-xl px-1.5 py-0.5 rounded-full bg-slate-800/60 hover:bg-purple-500/30 transition-all duration-200 shadow hover:scale-110"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setReplyContent((prev) => prev + emoji);
+                              setTimeout(() => replyTextareaRef.current?.focus(), 0);
+                            }}
+                            title={`Add ${emoji}`}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
                       <div className="flex space-x-2">
                         <textarea
                           ref={replyTextareaRef}
@@ -654,12 +868,13 @@ const CommentModal = ({
                               className="relative bg-gradient-to-b from-gray-700/30 to-black/30 rounded-xl p-3 border border-purple-500/20 backdrop-blur-sm"
                             >
                               <div className="flex space-x-3">
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 overflow-hidden">
+                                <div className="relative w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 overflow-hidden">
                                   {reply.author?.profile_image_url ? (
                                     <Image
                                       src={absoluteUrl(reply.author.profile_image_url)}
                                       alt={getDisplayName(reply.author)}
-                                      fill
+                                      width={32}
+                                      height={32}
                                       className="object-cover rounded-full"
                                       quality={75}
                                     />
@@ -668,11 +883,65 @@ const CommentModal = ({
                                   )}
                                 </div>
                                 <div className="flex-1">
-                                  <div className="flex items-center space-x-2">
-                                    <span className="font-bold text-white">{getDisplayName(reply.author)}</span>
-                                    <span className="text-gray-500 text-sm">{formatTimeAgo(reply.created_at)}</span>
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center space-x-2">
+                                      <span className="font-bold text-white">{getDisplayName(reply.author)}</span>
+                                      <span className="text-gray-500 text-sm">{formatTimeAgo(reply.created_at)}</span>
+                                    </div>
+                                    {isCommentOwner(reply.author) && (
+                                      <div className="relative" ref={openMenu === reply.public_id ? menuRef : null}>
+                                        <button
+                                          onClick={() => setOpenMenu(openMenu === reply.public_id ? null : reply.public_id)}
+                                          className="p-1 hover:bg-gray-700/50 rounded-lg transition-colors"
+                                          title="Reply options"
+                                        >
+                                          <span className="text-gray-400 hover:text-white text-lg">⋯</span>
+                                        </button>
+                                        {openMenu === reply.public_id && (
+                                          <div className="absolute right-0 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50 overflow-hidden">
+                                            <button
+                                              onClick={() => handleEditComment(reply)}
+                                              className="w-full text-left px-4 py-2 text-white hover:bg-gray-700 transition-colors flex items-center gap-2 text-sm"
+                                            >
+                                              <span>✏️</span> Edit
+                                            </button>
+                                            <button
+                                              onClick={() => handleDeleteComment(reply)}
+                                              className="w-full text-left px-4 py-2 text-red-400 hover:bg-gray-700 transition-colors flex items-center gap-2 text-sm border-t border-gray-700"
+                                            >
+                                              <span>🗑️</span> Delete
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
-                                  <p className="text-gray-200 mt-1">{reply.content}</p>
+                                  {editingComment?.public_id === reply.public_id ? (
+                                    <div className="mt-2 space-y-2">
+                                      <textarea
+                                        value={editingComment.content}
+                                        onChange={(e) => setEditingComment({...editingComment, content: e.target.value})}
+                                        className="w-full bg-slate-900/60 border border-gray-700 rounded-xl text-white px-4 py-3 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition-all duration-300 resize-none"
+                                        rows={2}
+                                      />
+                                      <div className="flex gap-2">
+                                        <button
+                                          onClick={() => handleSaveEdit(editingComment)}
+                                          className="px-3 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg text-white text-sm font-medium hover:opacity-90 transition-opacity"
+                                        >
+                                          Save
+                                        </button>
+                                        <button
+                                          onClick={handleCancelEdit}
+                                          className="px-3 py-2 bg-gray-700 rounded-lg text-gray-300 text-sm font-medium hover:bg-gray-600 transition-colors"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <p className="text-gray-200 mt-1">{reply.content}</p>
+                                  )}
                                   <div className="flex items-center space-x-4 mt-2">
                                     <button 
                                       onClick={() => handleReplyClick(reply)}
@@ -689,6 +958,24 @@ const CommentModal = ({
                                   
                                   {replyingTo?.public_id === reply.public_id && (
                                     <div key={`reply-to-reply-${reply.public_id}`} className="mt-2 flex flex-col space-y-2">
+                                      {/* Emoji Row for Reply-to-Reply */}
+                                      <div className="flex gap-2 mb-2 justify-center">
+                                        {['🔥','😂','❤️','😍','😮','👍','🙏'].map((emoji) => (
+                                          <button
+                                            key={emoji}
+                                            type="button"
+                                            className="text-xl px-1.5 py-0.5 rounded-full bg-slate-800/60 hover:bg-purple-500/30 transition-all duration-200 shadow hover:scale-110"
+                                            onMouseDown={(e) => {
+                                              e.preventDefault();
+                                              setReplyContent((prev) => prev + emoji);
+                                              setTimeout(() => replyTextareaRef.current?.focus(), 0);
+                                            }}
+                                            title={`Add ${emoji}`}
+                                          >
+                                            {emoji}
+                                          </button>
+                                        ))}
+                                      </div>
                                       <div className="flex space-x-2">
                                         <textarea
                                           value={replyContent}
@@ -748,7 +1035,19 @@ const CommentModal = ({
                   key={emoji}
                   type="button"
                   className="text-2xl px-2 py-1 rounded-full bg-slate-800/60 hover:bg-cyan-500/30 transition-all duration-200 shadow hover:scale-110"
-                  onClick={() => setNewComment((prev) => prev + emoji)}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    // Determine which textarea is active (reply or main comment)
+                    const activeTextarea = replyTextareaRef.current?.offsetHeight ? replyTextareaRef.current : commentTextareaRef.current;
+                    
+                    if (activeTextarea === replyTextareaRef.current) {
+                      setReplyContent((prev) => prev + emoji);
+                      setTimeout(() => replyTextareaRef.current?.focus(), 0);
+                    } else {
+                      setNewComment((prev) => prev + emoji);
+                      setTimeout(() => commentTextareaRef.current?.focus(), 0);
+                    }
+                  }}
                   title={`Add ${emoji}`}
                 >
                   {emoji}
