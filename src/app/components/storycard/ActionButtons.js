@@ -132,8 +132,8 @@ const ActionButtons = ({
             // Optimistic UI update (instant)
             setIsSaved(!wasSaved);
 
-            // Call backend API
-            const response = await storiesApi.toggleStorySave(story.id);
+            // Call backend API (use slug and existing storiesApi.toggleSave)
+            const response = await storiesApi.toggleSave(story.slug);
             console.log('✅ Save toggle response:', response);
 
             // Update with actual server response
