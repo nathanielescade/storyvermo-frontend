@@ -431,7 +431,7 @@ export function NotificationsClient() {
                     {/* Content Preview */}
                     {(notification.story || notification.verse) && (
                       <div className="flex gap-3 mt-3 md:flex-row flex-col">
-                        <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0">
+                        <div className="w-16 h-16 rounded-lg overflow-hidden shrink-0 relative">
                           {notification.story?.cover_image ? (
                             <SmartImg 
                               src={getImageUrl(notification.story.cover_image)} 
