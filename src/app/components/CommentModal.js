@@ -377,15 +377,21 @@ const CommentModal = ({
       setError('');
       const replyData = {
         story: post.slug, // Send the slug
-        parent: parentComment.public_id, // Send the public_id of the parent comment
+        parent: parentComment.public_id, // Send the public_id of the immediate parent (reply or comment)
         content: replyContent.trim(),
       };
-      
+
       const newReply = await commentsApi.createComment(replyData);
-      
-      // Update the parent comment with the new reply - add to top
+
+      // Determine the top-level comment id to attach this reply under.
+      // If replying to a reply, that reply should have a `parent` field pointing
+      // to the top-level comment. Use that when present; otherwise use the
+      // immediate parent's id (top-level comment).
+      const topLevelParentId = parentComment.parent || parentComment.public_id;
+
+      // Update the top-level parent comment with the new reply - add to top
       const updatedComments = comments.map(comment => {
-        if (comment.public_id === parentComment.public_id) {
+        if (comment.public_id === topLevelParentId) {
           // Add new reply to the very top of replies list
           const updatedReplies = comment.replies ? [newReply, ...comment.replies] : [newReply];
           return {
@@ -498,8 +504,8 @@ const CommentModal = ({
       {/* Modal container */}
       <div 
         ref={modalRef}
-        className="relative w-full h-full max-w-2xl bg-gradient-to-br from-gray-900 to-black rounded-2xl border border-cyan-500/30 shadow-2xl overflow-hidden flex flex-col "
-        style={{ ...getModalStyle(), height: '100vh', maxHeight: '100vh' }}
+        className="relative w-full max-w-2xl bg-gradient-to-br from-gray-900 to-black rounded-2xl border border-cyan-500/30 shadow-2xl overflow-hidden flex flex-col mx-1 my-8"
+        style={{ ...getModalStyle(), maxHeight: 'calc(100vh - 4rem)', height: 'auto' }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Animated neon border effect */}

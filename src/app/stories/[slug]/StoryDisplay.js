@@ -63,9 +63,6 @@ export default function StoryDisplay({ initialStory, slug }) {
   }, [handleTagSwitch, isAuthenticated, router]);
 
   const wrapperRef = useRef(null);
-  const overscrollRef = useRef(0);
-  const wheelTimeoutRef = useRef(null);
-  const touchStartRef = useRef(null);
 
   // Reusable refetch function so child components can request a story refresh
   const refetchStory = useCallback(async () => {
@@ -110,95 +107,7 @@ export default function StoryDisplay({ initialStory, slug }) {
     }
   }, [story, searchParams]);
 
-  // Overscroll "stretch" effect handlers (wheel + touch)
-  useEffect(() => {
-    const MAX = 80; // px max stretch
-
-    const applyTransform = (amount) => {
-      if (!wrapperRef.current) return;
-      const capped = Math.min(amount, MAX);
-      const translate = capped; // move content up when pulling at bottom
-      const scale = 1 + Math.min(capped / 1000, 0.06); // small vertical scale
-      wrapperRef.current.style.transform = `translateY(${-translate}px) scaleY(${scale})`;
-    };
-
-    const resetTransform = () => {
-      if (!wrapperRef.current) return;
-      wrapperRef.current.style.transition = 'transform 450ms cubic-bezier(.2,.8,.2,1)';
-      wrapperRef.current.style.transform = '';
-      // clear transition after animation
-      window.setTimeout(() => {
-        if (wrapperRef.current) wrapperRef.current.style.transition = '';
-      }, 500);
-      overscrollRef.current = 0;
-    };
-
-    let wheelTimer = null;
-
-    const onWheel = (e) => {
-      try {
-        // Only act on downward scroll attempts
-        if (e.deltaY <= 0) return;
-
-        const atBottom = (document.documentElement.scrollTop + window.innerHeight) >= (document.documentElement.scrollHeight - 1);
-        if (!atBottom) return;
-
-        // Prevent native scrolling beyond bottom so we can show stretch
-        e.preventDefault();
-
-        overscrollRef.current = Math.min(overscrollRef.current + e.deltaY, 300);
-        applyTransform(overscrollRef.current);
-
-        // debounce release
-        clearTimeout(wheelTimer);
-        wheelTimer = setTimeout(() => {
-          resetTransform();
-        }, 80);
-      } catch (err) {
-        // swallow any errors to avoid breaking scroll
-      }
-    };
-
-    const onTouchStart = (e) => {
-      if (!e.touches || e.touches.length === 0) return;
-      touchStartRef.current = e.touches[0].clientY;
-    };
-
-    const onTouchMove = (e) => {
-      if (!e.touches || e.touches.length === 0) return;
-      const y = e.touches[0].clientY;
-      const startY = touchStartRef.current || y;
-      const delta = startY - y; // positive when dragging up
-      if (delta <= 0) return;
-
-      const atBottom = (document.documentElement.scrollTop + window.innerHeight) >= (document.documentElement.scrollHeight - 1);
-      if (!atBottom) return;
-
-      // Prevent native overscroll
-      e.preventDefault();
-
-      overscrollRef.current = Math.min(delta, 300);
-      applyTransform(overscrollRef.current);
-    };
-
-    const onTouchEnd = () => {
-      resetTransform();
-    };
-
-    // Use passive:false for wheel/touchmove so preventDefault works
-    window.addEventListener('wheel', onWheel, { passive: false });
-    window.addEventListener('touchstart', onTouchStart, { passive: true });
-    window.addEventListener('touchmove', onTouchMove, { passive: false });
-    window.addEventListener('touchend', onTouchEnd, { passive: true });
-
-    return () => {
-      window.removeEventListener('wheel', onWheel);
-      window.removeEventListener('touchstart', onTouchStart);
-      window.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('touchend', onTouchEnd);
-      clearTimeout(wheelTimer);
-    };
-  }, []);
+  // Overscroll/stretch effect removed to avoid interfering with modals and native scrolling.
 
   if (!story) {
     return (
