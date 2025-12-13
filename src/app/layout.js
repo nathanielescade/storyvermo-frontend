@@ -70,9 +70,31 @@ export default function RootLayout({ children }) {
         <link rel="preconnect" href="https://cdn.tailwindcss.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossOrigin="anonymous" />
 
-        {/* Stylesheets */}
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css" />
+        {/* Stylesheets (deferred to reduce unused CSS on first load) */}
+        <link
+          rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+          media="print"
+          onLoad="this.media='all'"
+          crossOrigin="anonymous"
+        />
+        <noscript>
+          <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+            crossOrigin="anonymous"
+          />
+        </noscript>
+
+        <link
+          rel="stylesheet"
+          href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css"
+          media="print"
+          onLoad="this.media='all'"
+        />
+        <noscript>
+          <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css" />
+        </noscript>
 
         {/* Global Site Schema */}
         <script type="application/ld+json">
