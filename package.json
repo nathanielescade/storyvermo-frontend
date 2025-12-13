@@ -39,10 +39,10 @@
   }
   ,
   "browserslist": [
-    "last 2 chrome versions",
-    "last 2 firefox versions",
-    "last 2 edge versions",
-    "last 2 safari versions",
+    "chrome >= 92",
+    "edge >= 92",
+    "firefox >= 90",
+    "safari >= 15.4",
     "not dead",
     "not ie 11"
   ]

@@ -52,6 +52,10 @@ const nextConfig = {
       },
     ],
   },
+  // Enable CSS optimization to reduce and inline critical CSS where possible
+  experimental: {
+    optimizeCss: true,
+  },
 };
 
 export default nextConfig;
