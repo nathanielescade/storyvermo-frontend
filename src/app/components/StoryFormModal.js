@@ -14,6 +14,9 @@ const DEFAULT_TAGS = ['Fantasy', 'Adventure', 'Mystery', 'Romance', 'Sci-Fi',
                       'Horror', 'Thriller', 'Poetry', 'Life', 'Travel',
                       'Food', 'Technology', 'Art', 'Music', 'History'];
 
+// Title emoji quick-bar (moved 😞 to 7th position)
+const TITLE_EMOJI_BAR = ['🔥','💯','🎉','😀','😍','🙌','😞','🌌'];
+
 // Helper function to get CSRF token
 const getCsrfToken = () => {
   if (typeof document === 'undefined') return '';
@@ -426,6 +429,7 @@ const StoryFormModal = ({
   const [imagePreview, setImagePreview] = useState(editingStory?.cover_image?.file_url || null);
   const [imageFile, setImageFile] = useState(null);
   const [title, setTitle] = useState(editingStory?.title || editingVerse?.title || '');
+  const titleTextareaRef = useRef(null);
   const [description, setDescription] = useState(editingStory?.description || editingVerse?.description || '');
   const [verses, setVerses] = useState(editingVerse ? 
     [{ 
@@ -570,6 +574,27 @@ const StoryFormModal = ({
       }
     }
   }, [editingStory]);
+
+  // Insert emoji into title textarea without forcing focus (keeps mobile keyboard visible)
+  const insertTitleEmoji = (emoji) => {
+    try {
+      const active = typeof document !== 'undefined' ? document.activeElement : null;
+      const ta = titleTextareaRef.current;
+      if (active === ta && ta) {
+        const start = ta.selectionStart ?? ta.value.length;
+        const end = ta.selectionEnd ?? start;
+        const newVal = (title || '').slice(0, start) + emoji + (title || '').slice(end);
+        setTitle(newVal);
+        requestAnimationFrame(() => {
+          try { const pos = start + emoji.length; ta.setSelectionRange(pos, pos); } catch (e) {}
+        });
+        return;
+      }
+      setTitle((s) => (s || '') + emoji);
+    } catch (e) {
+      setTitle((s) => (s || '') + emoji);
+    }
+  };
   
   // Check if all verses are empty (no content and no images)
   const areAllVersesEmpty = useCallback(() => {
@@ -1637,9 +1662,26 @@ const StoryFormModal = ({
                     <span className="fas fa-heading text-cyan-400"></span> Title <span className="text-red-400">*</span>
                   </label>
                   <div className="relative">
+                    <div className="mb-2 flex items-center gap-2 overflow-x-auto py-1">
+                      {TITLE_EMOJI_BAR.map((em) => (
+                        <button
+                          key={em}
+                          type="button"
+                          onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                          onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                          onClick={(e) => { e.stopPropagation(); insertTitleEmoji(em); }}
+                          className="w-8 h-8 flex items-center justify-center text-base leading-none rounded-md hover:bg-gray-800/40"
+                          aria-label={`Insert ${em}`}
+                        >
+                          <span className="inline-block leading-none">{em}</span>
+                        </button>
+                      ))}
+                    </div>
                     <textarea 
                       id="story-title"
                       placeholder="Give your story a captivating title"
+                      ref={titleTextareaRef}
                       value={title}
                       onChange={(e) => {
                         // Enforce 50 character limit

@@ -30,9 +30,9 @@ const CommentModal = ({
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [emojiTarget, setEmojiTarget] = useState(null); // unused now - kept for compatibility
 
-  const EMOJIS = ['👍','❤️','😂','🔥','✨','🌿','🎉','🤩','😄','🙌','😅','🤗','😎','💯'];
-  // Expanded quick-bar (10 emojis) with a single laughing emoji ('😂') and nature emoji
-  const EMOJI_BAR = ['👍','❤️','😂','🔥','✨','🌿','🎉','🤩','😄','🙌'];
+  const EMOJIS = ['👍','❤️','😂','🔥','✨','🌿','🎉','🤩','🌌','🙌','😅','🤗','😎','💯'];
+  // Expanded quick-bar (10 emojis) with a single laughing emoji ('😂'), nature emoji, and night icon
+  const EMOJI_BAR = ['👍','❤️','😂','🔥','✨','🌿','🎉','🤩','🌌','🙌'];
   const menuRef = useRef(null); // Ref for menu outside click detection
   
   // Get current user and auth helpers from AuthContext
