@@ -16,19 +16,26 @@ export default function RootLayout({ children }) {
 
       <meta name="google-site-verification" content="wJjq83au-maldcRICvQfKYPlbzQ1pdustQ_GOSqJuVY" />
 
-        {/* Google Analytics (gtag.js) using next/script */}
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-JCM36RQZ8G"
-          strategy="afterInteractive"
-        />
-        <Script id="gtag-init" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-JCM36RQZ8G');
-          `}
-        </Script>
+        {/* Google Analytics (gtag.js) - only load in production and lazily */}
+        {process.env.NODE_ENV === 'production' && (
+          <>
+            <Script
+              src="https://www.googletagmanager.com/gtag/js?id=G-JCM36RQZ8G"
+              strategy="lazyOnload"
+            />
+            <Script id="gtag-init" strategy="lazyOnload">
+              {`
+                window.dataLayer = window.dataLayer || [];
+                function gtag(){dataLayer.push(arguments);} 
+                if (typeof window.gtag === 'undefined') {
+                  window.gtag = gtag;
+                }
+                gtag('js', new Date());
+                gtag('config', 'G-JCM36RQZ8G');
+              `}
+            </Script>
+          </>
+        )}
 
 
         {/* Favicon and App Icons */}
