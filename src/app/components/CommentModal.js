@@ -16,8 +16,6 @@ const CommentModal = ({
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState(null);
   const [replyContent, setReplyContent] = useState('');
-  const [expandedReplies, setExpandedReplies] = useState({});
-  const [loadingReplies, setLoadingReplies] = useState({});
   const [error, setError] = useState('');
   const [modalPosition, setModalPosition] = useState(0); // 0 = closed, 1 = open
   const [newCommentId, setNewCommentId] = useState(null); // Track newly added comment
@@ -69,19 +67,6 @@ const CommentModal = ({
     }
   }, [isOpen]);
 
-  // Scroll to new comment when it's added
-  useEffect(() => {
-    if (newCommentId && commentRefs.current[newCommentId]) {
-      setTimeout(() => {
-        commentRefs.current[newCommentId]?.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center' 
-        });
-        setNewCommentId(null); // Reset after scrolling
-      }, 100);
-    }
-  }, [newCommentId, comments]);
-
   // Fetch comments when modal opens
   useEffect(() => {
     if (isOpen && post?.slug) {
@@ -93,7 +78,6 @@ const CommentModal = ({
       setReplyContent('');
       setError('');
       setNewCommentId(null);
-      // Keep expandedReplies and loadingReplies for when modal reopens
     }
   }, [isOpen, post?.slug]);
 
@@ -105,7 +89,6 @@ const CommentModal = ({
     textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px'; // Max height for ~3 rows
   };
 
-  // Adjust textarea heights when content changes
   useEffect(() => {
     adjustTextareaHeight(commentTextareaRef.current);
   }, [newComment]);
@@ -172,39 +155,35 @@ const CommentModal = ({
       console.log('📝 Sorted comments:', sortedComments);
       setComments(sortedComments);
       
-      // Re-fetch replies for any comments that were previously expanded
-      const previouslyExpandedCommentIds = Object.keys(expandedReplies).filter(id => expandedReplies[id]);
-      if (previouslyExpandedCommentIds.length > 0) {
-        // Fetch replies for all previously expanded comments in parallel
-        const repliesPromises = previouslyExpandedCommentIds.map(commentId =>
-          commentsApi.fetchCommentReplies(commentId)
-            .then(repliesData => ({ commentId, repliesData }))
-            .catch(() => ({ commentId, repliesData: [] }))
-        );
-        
-        Promise.all(repliesPromises).then(results => {
-          // Update comments with their fetched replies
-          let updatedComments = [...sortedComments];
-          results.forEach(({ commentId, repliesData }) => {
-            let repliesArray = [];
-            if (Array.isArray(repliesData)) {
-              repliesArray = repliesData;
-            } else if (repliesData && repliesData.results && Array.isArray(repliesData.results)) {
-              repliesArray = repliesData.results;
-            } else if (repliesData && Array.isArray(repliesData.replies)) {
-              repliesArray = repliesData.replies;
-            }
-            
-            updatedComments = updatedComments.map(comment => 
-              comment.public_id === commentId 
-                ? { ...comment, replies: repliesArray }
-                : comment
-            );
-          });
+      // Fetch replies for all comments in parallel
+      const repliesPromises = sortedComments.map(comment =>
+        commentsApi.fetchCommentReplies(comment.public_id)
+          .then(repliesData => ({ commentId: comment.public_id, repliesData }))
+          .catch(() => ({ commentId: comment.public_id, repliesData: [] }))
+      );
+      
+      Promise.all(repliesPromises).then(results => {
+        // Update comments with their fetched replies
+        let updatedComments = [...sortedComments];
+        results.forEach(({ commentId, repliesData }) => {
+          let repliesArray = [];
+          if (Array.isArray(repliesData)) {
+            repliesArray = repliesData;
+          } else if (repliesData && repliesData.results && Array.isArray(repliesData.results)) {
+            repliesArray = repliesData.results;
+          } else if (repliesData && Array.isArray(repliesData.replies)) {
+            repliesArray = repliesData.replies;
+          }
           
-          setComments(updatedComments);
+          updatedComments = updatedComments.map(comment => 
+            comment.public_id === commentId 
+              ? { ...comment, replies: repliesArray }
+              : comment
+          );
         });
-      }
+        
+        setComments(updatedComments);
+      });
     } catch (error) {
       console.error('❌ Error fetching comments:', error);
       setError('Failed to load comments. Please try again.');
@@ -436,14 +415,6 @@ const CommentModal = ({
       setReplyingTo(null);
       setReplyContent('');
       
-      // Scroll to the parent comment so user can see the new reply in context
-      setTimeout(() => {
-        commentRefs.current[parentComment.public_id]?.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'start' 
-        });
-      }, 100);
-      
       // Update comment count in parent component
       updateCommentCount(post.slug, 1);
     } catch (error) {
@@ -454,66 +425,6 @@ const CommentModal = ({
       } else {
         setError('Failed to post reply. Please try again.');
       }
-    }
-  };
-  
-  const handleToggleReplies = async (comment) => {
-    if (!comment || !comment.public_id) {
-      setError('Invalid comment. Please try again.');
-      return;
-    }
-    
-    const commentId = comment.public_id;
-    
-    // If already expanded, just collapse it
-    if (expandedReplies[commentId]) {
-      setExpandedReplies(prev => ({
-        ...prev,
-        [commentId]: false
-      }));
-      return;
-    }
-    
-    try {
-      setLoadingReplies(prev => ({
-        ...prev,
-        [commentId]: true
-      }));
-      
-      const response = await commentsApi.fetchCommentReplies(commentId);
-      
-      let repliesArray = [];
-      if (Array.isArray(response)) {
-        repliesArray = response;
-      } else if (response && response.results && Array.isArray(response.results)) {
-        repliesArray = response.results;
-      } else if (response && Array.isArray(response.replies)) {
-        repliesArray = response.replies;
-      }
-      
-      // Update the comment with the fetched replies AND mark as expanded
-      const updatedComments = comments.map(c => {
-        if (c.public_id === commentId) {
-          return {
-            ...c,
-            replies: repliesArray
-          };
-        }
-        return c;
-      });
-      
-      setComments(updatedComments);
-      setExpandedReplies(prev => ({
-        ...prev,
-        [commentId]: true
-      }));
-    } catch (error) {
-      setError('Failed to load replies. Please try again.');
-    } finally {
-      setLoadingReplies(prev => ({
-        ...prev,
-        [commentId]: false
-      }));
     }
   };
   
@@ -587,7 +498,7 @@ const CommentModal = ({
       {/* Modal container */}
       <div 
         ref={modalRef}
-        className="relative w-full h-full max-w-2xl bg-gradient-to-br from-gray-900 to-black rounded-2xl border border-cyan-500/30 shadow-2xl overflow-hidden flex flex-col transform transition-all duration-300 scale-95 animate-scaleIn"
+        className="relative w-full h-full max-w-2xl bg-gradient-to-br from-gray-900 to-black rounded-2xl border border-cyan-500/30 shadow-2xl overflow-hidden flex flex-col "
         style={{ ...getModalStyle(), height: '100vh', maxHeight: '100vh' }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -665,7 +576,7 @@ const CommentModal = ({
         {/* Comments Section */}
         <div 
           ref={contentRef}
-          className="flex-1 overflow-y-auto scrollbar-thin p-6 space-y-6 relative z-10 overscroll-contain"
+          className="flex-1 overflow-y-auto p-6 space-y-6 relative z-10"
         >
           {loading ? (
             <div className="flex justify-center items-center h-full">
@@ -679,7 +590,6 @@ const CommentModal = ({
             comments.map(comment => (
               <div 
                 key={`comment-${comment.public_id}`} 
-                ref={el => commentRefs.current[comment.public_id] = el}
                 className="space-y-4"
               >
                 {/* Comment */}
@@ -788,24 +698,6 @@ const CommentModal = ({
                   {/* Reply Input (when replying to this comment) */}
                   {replyingTo?.public_id === comment.public_id && (
                     <div key={`reply-input-${comment.public_id}`} className="mt-4 ml-12 flex flex-col space-y-2">
-                      {/* Emoji Row for Reply */}
-                      <div className="flex gap-2 mb-2 justify-center">
-                        {['🔥','😂','❤️','😍','😮','👍','🙏'].map((emoji) => (
-                          <button
-                            key={emoji}
-                            type="button"
-                            className="text-xl px-1.5 py-0.5 rounded-full bg-slate-800/60 hover:bg-purple-500/30 transition-all duration-200 shadow hover:scale-110"
-                            onMouseDown={(e) => {
-                              e.preventDefault();
-                              setReplyContent((prev) => prev + emoji);
-                              setTimeout(() => replyTextareaRef.current?.focus(), 0);
-                            }}
-                            title={`Add ${emoji}`}
-                          >
-                            {emoji}
-                          </button>
-                        ))}
-                      </div>
                       <div className="flex space-x-2">
                         <textarea
                           ref={replyTextareaRef}
@@ -843,180 +735,144 @@ const CommentModal = ({
                     </div>
                   )}
                   
-                  {/* Replies Section */}
-                  {comment.reply_count > 0 && (
-                    <div key={`replies-section-${comment.public_id}`} className="mt-3 ml-12">
-                      <button
-                        onClick={() => handleToggleReplies(comment)}
-                        disabled={loadingReplies[comment.public_id]}
-                        className="text-cyan-400 hover:text-cyan-300 text-sm flex items-center space-x-1 disabled:opacity-50"
-                      >
-                        <span>
-                          {expandedReplies[comment.public_id] ? 'Hide replies' : `View replies`}
-                        </span>
-                        {loadingReplies[comment.public_id] && (
-                          <span className="ml-2 animate-pulse">Loading...</span>
-                        )}
-                      </button>
-                      
-                      {expandedReplies[comment.public_id] && comment.replies && (
-                        <div key={`replies-list-${comment.public_id}`} className="mt-3 space-y-3">
-                          {comment.replies.map(reply => (
-                            <div 
-                              key={`reply-${reply.public_id}`}
-                              ref={el => commentRefs.current[reply.public_id] = el}
-                              className="relative bg-gradient-to-b from-gray-700/30 to-black/30 rounded-xl p-3 border border-purple-500/20 backdrop-blur-sm"
-                            >
-                              <div className="flex space-x-3">
-                                <div className="relative w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 overflow-hidden">
-                                  {reply.author?.profile_image_url ? (
-                                    <Image
-                                      src={absoluteUrl(reply.author.profile_image_url)}
-                                      alt={getDisplayName(reply.author)}
-                                      width={32}
-                                      height={32}
-                                      className="object-cover rounded-full"
-                                      quality={75}
-                                    />
-                                  ) : (
-                                    (reply.author?.first_name?.charAt(0) || getDisplayName(reply.author)?.charAt(0) || 'U').toUpperCase()
-                                  )}
+                  {/* Replies Section - Always visible */}
+                  {comment.replies && comment.replies.length > 0 && (
+                    <div key={`replies-section-${comment.public_id}`} className="mt-3 ml-12 space-y-3">
+                      {comment.replies.map(reply => (
+                        <div 
+                          key={`reply-${reply.public_id}`}
+                          className="relative bg-gradient-to-b from-gray-700/30 to-black/30 rounded-xl p-3 border border-purple-500/20 backdrop-blur-sm"
+                        >
+                          <div className="flex space-x-3">
+                            <div className="relative w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0 overflow-hidden">
+                              {reply.author?.profile_image_url ? (
+                                <Image
+                                  src={absoluteUrl(reply.author.profile_image_url)}
+                                  alt={getDisplayName(reply.author)}
+                                  width={32}
+                                  height={32}
+                                  className="object-cover rounded-full"
+                                  quality={75}
+                                />
+                              ) : (
+                                (reply.author?.first_name?.charAt(0) || getDisplayName(reply.author)?.charAt(0) || 'U').toUpperCase()
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2">
+                                  <span className="font-bold text-white">{getDisplayName(reply.author)}</span>
+                                  <span className="text-gray-500 text-sm">{formatTimeAgo(reply.created_at)}</span>
                                 </div>
-                                <div className="flex-1">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-2">
-                                      <span className="font-bold text-white">{getDisplayName(reply.author)}</span>
-                                      <span className="text-gray-500 text-sm">{formatTimeAgo(reply.created_at)}</span>
-                                    </div>
-                                    {isCommentOwner(reply.author) && (
-                                      <div className="relative" ref={openMenu === reply.public_id ? menuRef : null}>
+                                {isCommentOwner(reply.author) && (
+                                  <div className="relative" ref={openMenu === reply.public_id ? menuRef : null}>
+                                    <button
+                                      onClick={() => setOpenMenu(openMenu === reply.public_id ? null : reply.public_id)}
+                                      className="p-1 hover:bg-gray-700/50 rounded-lg transition-colors"
+                                      title="Reply options"
+                                    >
+                                      <span className="text-gray-400 hover:text-white text-lg">⋯</span>
+                                    </button>
+                                    {openMenu === reply.public_id && (
+                                      <div className="absolute right-0 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50 overflow-hidden">
                                         <button
-                                          onClick={() => setOpenMenu(openMenu === reply.public_id ? null : reply.public_id)}
-                                          className="p-1 hover:bg-gray-700/50 rounded-lg transition-colors"
-                                          title="Reply options"
+                                          onClick={() => handleEditComment(reply)}
+                                          className="w-full text-left px-4 py-2 text-white hover:bg-gray-700 transition-colors flex items-center gap-2 text-sm"
                                         >
-                                          <span className="text-gray-400 hover:text-white text-lg">⋯</span>
+                                          <span>✏️</span> Edit
                                         </button>
-                                        {openMenu === reply.public_id && (
-                                          <div className="absolute right-0 mt-1 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-50 overflow-hidden">
-                                            <button
-                                              onClick={() => handleEditComment(reply)}
-                                              className="w-full text-left px-4 py-2 text-white hover:bg-gray-700 transition-colors flex items-center gap-2 text-sm"
-                                            >
-                                              <span>✏️</span> Edit
-                                            </button>
-                                            <button
-                                              onClick={() => handleDeleteComment(reply)}
-                                              className="w-full text-left px-4 py-2 text-red-400 hover:bg-gray-700 transition-colors flex items-center gap-2 text-sm border-t border-gray-700"
-                                            >
-                                              <span>🗑️</span> Delete
-                                            </button>
-                                          </div>
-                                        )}
+                                        <button
+                                          onClick={() => handleDeleteComment(reply)}
+                                          className="w-full text-left px-4 py-2 text-red-400 hover:bg-gray-700 transition-colors flex items-center gap-2 text-sm border-t border-gray-700"
+                                        >
+                                          <span>🗑️</span> Delete
+                                        </button>
                                       </div>
                                     )}
                                   </div>
-                                  {editingComment?.public_id === reply.public_id ? (
-                                    <div className="mt-2 space-y-2">
-                                      <textarea
-                                        value={editingComment.content}
-                                        onChange={(e) => setEditingComment({...editingComment, content: e.target.value})}
-                                        className="w-full bg-slate-900/60 border border-gray-700 rounded-xl text-white px-4 py-3 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition-all duration-300 resize-none"
-                                        rows={2}
-                                      />
-                                      <div className="flex gap-2">
-                                        <button
-                                          onClick={() => handleSaveEdit(editingComment)}
-                                          className="px-3 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg text-white text-sm font-medium hover:opacity-90 transition-opacity"
-                                        >
-                                          Save
-                                        </button>
-                                        <button
-                                          onClick={handleCancelEdit}
-                                          className="px-3 py-2 bg-gray-700 rounded-lg text-gray-300 text-sm font-medium hover:bg-gray-600 transition-colors"
-                                        >
-                                          Cancel
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <p className="text-gray-200 mt-1">{reply.content}</p>
-                                  )}
-                                  <div className="flex items-center space-x-4 mt-2">
-                                    <button 
-                                      onClick={() => handleReplyClick(reply)}
-                                      className="flex items-center space-x-1 text-gray-400 hover:text-purple-400 transition-colors"
+                                )}
+                              </div>
+                              {editingComment?.public_id === reply.public_id ? (
+                                <div className="mt-2 space-y-2">
+                                  <textarea
+                                    value={editingComment.content}
+                                    onChange={(e) => setEditingComment({...editingComment, content: e.target.value})}
+                                    className="w-full bg-slate-900/60 border border-gray-700 rounded-xl text-white px-4 py-3 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition-all duration-300 resize-none"
+                                    rows={2}
+                                  />
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => handleSaveEdit(editingComment)}
+                                      className="px-3 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg text-white text-sm font-medium hover:opacity-90 transition-opacity"
                                     >
-                                      <span className="inline-block w-4 h-4">
-                                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
-                                          <path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/>
-                                        </svg>
-                                      </span>
-                                      <span className="text-sm">Reply</span>
+                                      Save
+                                    </button>
+                                    <button
+                                      onClick={handleCancelEdit}
+                                      className="px-3 py-2 bg-gray-700 rounded-lg text-gray-300 text-sm font-medium hover:bg-gray-600 transition-colors"
+                                    >
+                                      Cancel
                                     </button>
                                   </div>
-                                  
-                                  {replyingTo?.public_id === reply.public_id && (
-                                    <div key={`reply-to-reply-${reply.public_id}`} className="mt-2 flex flex-col space-y-2">
-                                      {/* Emoji Row for Reply-to-Reply */}
-                                      <div className="flex gap-2 mb-2 justify-center">
-                                        {['🔥','😂','❤️','😍','😮','👍','🙏'].map((emoji) => (
-                                          <button
-                                            key={emoji}
-                                            type="button"
-                                            className="text-xl px-1.5 py-0.5 rounded-full bg-slate-800/60 hover:bg-purple-500/30 transition-all duration-200 shadow hover:scale-110"
-                                            onMouseDown={(e) => {
-                                              e.preventDefault();
-                                              setReplyContent((prev) => prev + emoji);
-                                              setTimeout(() => replyTextareaRef.current?.focus(), 0);
-                                            }}
-                                            title={`Add ${emoji}`}
-                                          >
-                                            {emoji}
-                                          </button>
-                                        ))}
-                                      </div>
-                                      <div className="flex space-x-2">
-                                        <textarea
-                                          value={replyContent}
-                                          onChange={(e) => setReplyContent(e.target.value)}
-                                          className="flex-1 bg-slate-800/60 border border-gray-700 rounded-xl text-white px-4 py-3 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition-all duration-300 resize-none min-h-[40px] max-h-[120px]"
-                                          placeholder="Write a reply..."
-                                          autoFocus
-                                          rows={1}
-                                          onKeyDown={(e) => {
-                                            if (e.key === 'Enter' && !e.shiftKey) {
-                                              e.preventDefault();
-                                              handleAddReply(reply);
-                                            }
-                                          }}
-                                        />
-                                        <button
-                                          onClick={() => handleAddReply(reply)}
-                                          disabled={!replyContent.trim()}
-                                          className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl text-white disabled:opacity-50 disabled:cursor-not-allowed self-end"
-                                        >
-                                          <span className="inline-block w-5 h-5">
-                                            <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
-                                              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                                            </svg>
-                                          </span>
-                                        </button>
-                                      </div>
-                                      <button
-                                        onClick={handleCancelReply}
-                                        className="ml-auto text-gray-400 hover:text-gray-200 text-sm"
-                                      >
-                                        Cancel
-                                      </button>
-                                    </div>
-                                  )}
                                 </div>
+                              ) : (
+                                <p className="text-gray-200 mt-1">{reply.content}</p>
+                              )}
+                              <div className="flex items-center space-x-4 mt-2">
+                                <button 
+                                  onClick={() => handleReplyClick(reply)}
+                                  className="flex items-center space-x-1 text-gray-400 hover:text-purple-400 transition-colors"
+                                >
+                                  <span className="inline-block w-4 h-4">
+                                    <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
+                                      <path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/>
+                                    </svg>
+                                  </span>
+                                  <span className="text-sm">Reply</span>
+                                </button>
                               </div>
+                              
+                              {replyingTo?.public_id === reply.public_id && (
+                                <div key={`reply-to-reply-${reply.public_id}`} className="mt-2 flex flex-col space-y-2">
+                                  <div className="flex space-x-2">
+                                    <textarea
+                                      value={replyContent}
+                                      onChange={(e) => setReplyContent(e.target.value)}
+                                      className="flex-1 bg-slate-800/60 border border-gray-700 rounded-xl text-white px-4 py-3 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition-all duration-300 resize-none min-h-[40px] max-h-[120px]"
+                                      placeholder="Write a reply..."
+                                      autoFocus
+                                      rows={1}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                          e.preventDefault();
+                                          handleAddReply(reply);
+                                        }
+                                      }}
+                                    />
+                                    <button
+                                      onClick={() => handleAddReply(reply)}
+                                      disabled={!replyContent.trim()}
+                                      className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl text-white disabled:opacity-50 disabled:cursor-not-allowed self-end"
+                                    >
+                                      <span className="inline-block w-5 h-5">
+                                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
+                                          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                                        </svg>
+                                      </span>
+                                    </button>
+                                  </div>
+                                  <button
+                                    onClick={handleCancelReply}
+                                    className="ml-auto text-gray-400 hover:text-gray-200 text-sm"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              )}
                             </div>
-                          ))}
+                          </div>
                         </div>
-                      )}
+                      ))}
                     </div>
                   )}
                 </div>
@@ -1027,60 +883,32 @@ const CommentModal = ({
         
         {/* Add Comment Section */}
         <div className="p-2 border-t border-cyan-500/30 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md relative z-10">
-          <div className="flex flex-col gap-2">
-            {/* Emoji Reaction Row */}
-            <div className="flex gap-2 mb-2 justify-center">
-              {['🔥','😂','❤️','😍','😮','👍','🙏'].map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  className="text-2xl px-2 py-1 rounded-full bg-slate-800/60 hover:bg-cyan-500/30 transition-all duration-200 shadow hover:scale-110"
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    // Determine which textarea is active (reply or main comment)
-                    const activeTextarea = replyTextareaRef.current?.offsetHeight ? replyTextareaRef.current : commentTextareaRef.current;
-                    
-                    if (activeTextarea === replyTextareaRef.current) {
-                      setReplyContent((prev) => prev + emoji);
-                      setTimeout(() => replyTextareaRef.current?.focus(), 0);
-                    } else {
-                      setNewComment((prev) => prev + emoji);
-                      setTimeout(() => commentTextareaRef.current?.focus(), 0);
-                    }
-                  }}
-                  title={`Add ${emoji}`}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-            <div className="flex-1 flex space-x-3">
-              <textarea
-                ref={commentTextareaRef}
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                className="flex-1 bg-slate-900/60 border border-gray-700 rounded-xl text-white px-4 py-3 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 resize-none min-h-[40px] max-h-[120px]"
-                placeholder="Add a comment..."
-                rows={1}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleAddComment();
-                  }
-                }}
-              />
-              <button
-                onClick={handleAddComment}
-                disabled={!newComment.trim()}
-                className="p-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-xl text-white disabled:opacity-50 disabled:cursor-not-allowed self-end"
-              >
-                <span className="inline-block w-5 h-5">
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
-                    <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                  </svg>
-                </span>
-              </button>
-            </div>
+          <div className="flex-1 flex space-x-3">
+            <textarea
+              ref={commentTextareaRef}
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              className="flex-1 bg-slate-900/60 border border-gray-700 rounded-xl text-white px-4 py-3 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 resize-none min-h-[40px] max-h-[120px]"
+              placeholder="Add a comment..."
+              rows={1}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleAddComment();
+                }
+              }}
+            />
+            <button
+              onClick={handleAddComment}
+              disabled={!newComment.trim()}
+              className="p-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-xl text-white disabled:opacity-50 disabled:cursor-not-allowed self-end"
+            >
+              <span className="inline-block w-5 h-5">
+                <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                </svg>
+              </span>
+            </button>
           </div>
         </div>
         

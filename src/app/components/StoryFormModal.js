@@ -95,38 +95,6 @@ const DeleteVerseConfirmation = ({ isOpen, verseNumber, onConfirm, onCancel }) =
 // Add displayName to DeleteVerseConfirmation
 DeleteVerseConfirmation.displayName = 'DeleteVerseConfirmation';
 
-// Simple Emoji Picker Component
-const EMOJI_SET = [
-  '😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','😉','😊','😇','😍','😘',
-  '😜','🤪','🤩','🤔','🤨','😎','🤓','😴','😮‍💨','😮','😲','😳','😢','😭','😡',
-  '👍','👎','👏','🙌','🔥','✨','🎉','💖','💯','✔️','🎈','🌟','🌈','🍀','🍕'
-];
-
-function EmojiPicker({ onSelect, onClose }) {
-  return (
-    <div className="rounded-xl p-3 bg-gradient-to-br from-slate-900 to-gray-900 border border-gray-800 shadow-lg">
-      <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-1">
-        {EMOJI_SET.map((emoji) => (
-          <button
-            key={emoji}
-            type="button"
-            onClick={() => { onSelect(emoji); }}
-            className="w-10 h-10 rounded-lg flex items-center justify-center hover:bg-slate-800/50 transition-colors text-xl"
-            aria-label={`Insert ${emoji}`}
-          >
-            {emoji}
-          </button>
-        ))}
-      </div>
-      <div className="mt-2 text-right">
-        <button onClick={onClose} className="text-sm text-gray-300 hover:text-white">Close</button>
-      </div>
-    </div>
-  );
-}
-
-EmojiPicker.displayName = 'EmojiPicker';
-
 // Optimized Verse Content Component with internal state
 const VerseContent = memo(({ value, onChange, verseId, ...props }) => {
   const textareaRef = useRef(null);
@@ -458,8 +426,6 @@ const StoryFormModal = ({
   const [imagePreview, setImagePreview] = useState(editingStory?.cover_image?.file_url || null);
   const [imageFile, setImageFile] = useState(null);
   const [title, setTitle] = useState(editingStory?.title || editingVerse?.title || '');
-  const titleRef = useRef(null);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [description, setDescription] = useState(editingStory?.description || editingVerse?.description || '');
   const [verses, setVerses] = useState(editingVerse ? 
     [{ 
@@ -1671,9 +1637,8 @@ const StoryFormModal = ({
                     <span className="fas fa-heading text-cyan-400"></span> Title <span className="text-red-400">*</span>
                   </label>
                   <div className="relative">
-                      <textarea 
+                    <textarea 
                       id="story-title"
-                        ref={titleRef}
                       placeholder="Give your story a captivating title"
                       value={title}
                       onChange={(e) => {
@@ -1695,21 +1660,6 @@ const StoryFormModal = ({
                         validationErrors.title ? 'border-red-500/50' : 'border-gray-700'
                       }`}
                     />
-                    {/* Emoji button (toggle) */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowEmojiPicker(prev => !prev);
-                        // focus the title so insertion works
-                        setTimeout(() => {
-                          try { titleRef.current && titleRef.current.focus(); } catch (e) {}
-                        }, 0);
-                      }}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 w-9 h-9 rounded-full bg-slate-800/60 flex items-center justify-center text-white hover:bg-slate-700/70 transition-colors"
-                      title="Insert emoji"
-                    >
-                      <span className="text-lg">😊</span>
-                    </button>
                     <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500/5 to-blue-500/5 opacity-0 pointer-events-none transition-opacity duration-300"></div>
                   </div>
                   {title.length >= 50 && (
@@ -1717,29 +1667,6 @@ const StoryFormModal = ({
                   )}
                   {validationErrors.title && (
                     <p className="text-red-400 text-sm mt-2">{validationErrors.title}</p>
-                  )}
-                  {/* Emoji picker - mobile-friendly fixed bottom when open */}
-                  {isClient && showEmojiPicker && (
-                    <div className="fixed left-0 right-0 bottom-0 z-[10300] p-3 bg-gradient-to-t from-slate-900/95 to-transparent backdrop-blur-sm border-t border-gray-800">
-                      <EmojiPicker onSelect={(emoji) => {
-                        // insert at caret in titleRef
-                        try {
-                          const el = titleRef.current;
-                          if (!el) return setTitle(prev => prev + emoji);
-                          const start = el.selectionStart || el.value.length;
-                          const end = el.selectionEnd || start;
-                          const newVal = el.value.slice(0, start) + emoji + el.value.slice(end);
-                          setTitle(newVal);
-                          // place caret after inserted emoji
-                          requestAnimationFrame(() => {
-                            el.selectionStart = el.selectionEnd = start + emoji.length;
-                            el.focus();
-                          });
-                        } catch (e) {
-                          setTitle(prev => prev + emoji);
-                        }
-                      }} onClose={() => setShowEmojiPicker(false)} />
-                    </div>
                   )}
                 </div>
                 
