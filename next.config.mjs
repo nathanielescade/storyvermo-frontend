@@ -57,6 +57,11 @@ const nextConfig = {
         pathname: '/**',
       },
     ],
+    // Explicit domain list (fallback / compatibility)
+    domains: [
+      'storyvermo.nyc3.cdn.digitaloceanspaces.com',
+      'storyvermo.nyc3.cdn.digitaloceanspaces.com',
+    ],
   },
 
   // ==========================================
