@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
+import Image from 'next/image';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
+import { buildImageUrl } from '@/utils/cdn';
 import { storiesApi, versesApi, momentsApi } from '../../../lib/api';
 import { useImageCompressionUploader } from '../../../hooks/useImageCompressionUploader';
 
@@ -191,32 +193,31 @@ const VerseItem = memo(({
           <span className="fas fa-images text-purple-400"></span> Verse Moments (Images)
         </label>
         
-        {verse.imageIds && verse.imageIds.length > 0 ? (
+                {verse.imageIds && verse.imageIds.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {verse.imageIds.map((image, imgIndex) => (
               <div key={imgIndex} className="relative group">
                 {typeof image === 'string' ? (
                   <div className="relative w-full h-36">
-                    <img 
-                      src={image} 
-                      alt={title ? `${title} - Moment ${imgIndex + 1}` : `Moment ${imgIndex + 1}`} 
-                      className="w-full h-full object-cover rounded-xl border border-gray-700"
+                    <Image
+                      src={buildImageUrl(image, { w: 1080, fmt: 'webp' })}
+                      alt={title ? `${title} - Moment ${imgIndex + 1}` : `Moment ${imgIndex + 1}`}
+                      fill
+                      sizes="(max-width: 768px) 50vw, 33vw"
+                      className="object-cover rounded-xl border border-gray-700"
                       onError={(e) => {
-                        e.target.src = '';
-                        e.target.alt = "Image failed to load";
+                        // next/image doesn't expose the underlying img element directly here
                       }}
                     />
                   </div>
                 ) : (
                   <div className="relative w-full h-36">
-                    <img 
-                      src={image.preview || image.url || image.file_url || (image.file ? URL.createObjectURL(image.file) : '')} 
-                      alt={title ? `${title} - Moment ${imgIndex + 1}` : `Moment ${imgIndex + 1}`} 
-                      className="w-full h-full object-cover rounded-xl border border-gray-700"
-                      onError={(e) => {
-                        e.target.src = '';
-                        e.target.alt = "Image failed to load";
-                      }}
+                    <Image
+                      src={image.preview || image.url || image.file_url || (image.file ? URL.createObjectURL(image.file) : '')}
+                      alt={title ? `${title} - Moment ${imgIndex + 1}` : `Moment ${imgIndex + 1}`}
+                      fill
+                      sizes="(max-width: 768px) 50vw, 33vw"
+                      className="object-cover rounded-xl border border-gray-700"
                     />
                   </div>
                 )}

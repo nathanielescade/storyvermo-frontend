@@ -10,8 +10,17 @@ export const config = {
 
 const nextConfig = {
   images: {
-    // Optimize images in production, unoptimized only in development for local IPs
+    // Let Next.js optimize remote images in production. In development it's fine
+    // to leave images unoptimized for local workflows.
     unoptimized: process.env.NODE_ENV === 'development',
+    // Prefer modern formats when possible to reduce transfer sizes
+    formats: ['image/avif', 'image/webp'],
+    // Device widths Next.js will generate images for (reduce if you want fewer sizes)
+    deviceSizes: [320, 420, 768, 1024, 1280, 1600],
+    // Additional image sizes used for srcset
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
+    // Cache optimized remote images at least 1 hour (3600s)
+    minimumCacheTTL: 3600,
     remotePatterns: [
       // Local development backend
       {
