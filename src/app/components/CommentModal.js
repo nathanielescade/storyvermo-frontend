@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '../../../contexts/AuthContext';
 import { commentsApi, absoluteUrl } from '../../../lib/api';
@@ -15,7 +16,6 @@ const CommentModal = ({
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
   const [replyingTo, setReplyingTo] = useState(null);
-  const [replyContent, setReplyContent] = useState('');
   const [error, setError] = useState('');
   const [modalPosition, setModalPosition] = useState(0); // 0 = closed, 1 = open
   const [newCommentId, setNewCommentId] = useState(null); // Track newly added comment
@@ -27,7 +27,12 @@ const CommentModal = ({
   const contentRef = useRef(null);
   const commentRefs = useRef({}); // Refs for each comment
   const commentTextareaRef = useRef(null);
-  const replyTextareaRef = useRef(null);
+  const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
+  const [emojiTarget, setEmojiTarget] = useState(null); // unused now - kept for compatibility
+
+  const EMOJIS = ['👍','❤️','😂','🔥','✨','🌿','🎉','🤩','😄','🙌','😅','🤗','😎','💯'];
+  // Expanded quick-bar (10 emojis) with a single laughing emoji ('😂') and nature emoji
+  const EMOJI_BAR = ['👍','❤️','😂','🔥','✨','🌿','🎉','🤩','😄','🙌'];
   const menuRef = useRef(null); // Ref for menu outside click detection
   
   // Get current user and auth helpers from AuthContext
@@ -54,6 +59,98 @@ const CommentModal = ({
     return 'Unknown';
   };
 
+  const router = useRouter();
+
+  // Render content and make a leading @mention clickable when possible.
+  const renderContentWithMention = (text, parentComment = null, replyObj = null) => {
+    if (!text || typeof text !== 'string') return <p className="text-gray-200 mt-1">{text}</p>;
+
+    const original = text.trimStart();
+    if (!original.startsWith('@')) return <p className="text-gray-200 mt-1 break-words">{text}</p>;
+
+    // Build a list of candidate authors (top-level + replies) to match display names.
+    const candidates = [];
+    if (parentComment && parentComment.author) {
+      candidates.push({ name: getDisplayName(parentComment.author).trim(), username: parentComment.author.username });
+    }
+    if (parentComment && Array.isArray(parentComment.replies)) {
+      parentComment.replies.forEach(r => {
+        if (r && r.author) candidates.push({ name: getDisplayName(r.author).trim(), username: r.author.username });
+      });
+    }
+
+    // Normalize and dedupe candidates, sort by longest name first so multi-word names match first
+    const unique = [];
+    const seen = new Set();
+    candidates.forEach(c => {
+      if (!c || !c.name) return;
+      const key = c.name.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      unique.push(c);
+    });
+    unique.sort((a, b) => b.name.length - a.name.length);
+
+    // Try to match the longest display name at the start of the text (after @)
+    let match = null;
+    for (const c of unique) {
+      const lower = original.slice(1).toLowerCase();
+      if (lower.startsWith(c.name.toLowerCase())) {
+        // ensure boundary: next char is space, punctuation, or end
+        const nextChar = lower.charAt(c.name.length) || '';
+        if (nextChar === '' || /\s|[.,:;!?]/.test(nextChar)) {
+          match = c;
+          break;
+        }
+      }
+    }
+
+    let mentionToken = null;
+    let rest = '';
+    let profileUsername = null;
+
+    if (match) {
+      mentionToken = match.name;
+      profileUsername = match.username || null;
+      rest = original.substring(1 + mentionToken.length).replace(/^\s+/, '');
+    } else {
+      // Fallback: capture the first word after @ like before
+      const m = original.match(/^@(\S+)\s*(.*)$/s);
+      if (!m) return <p className="text-gray-200 mt-1 break-words">{text}</p>;
+      mentionToken = m[1];
+      rest = m[2] || '';
+
+      // Try to resolve username by exact display name match
+      if (parentComment) {
+        const found = (parentComment.replies || []).find(r => getDisplayName(r.author).toLowerCase() === mentionToken.toLowerCase());
+        if (found && found.author && found.author.username) profileUsername = found.author.username;
+        else if (parentComment.author && getDisplayName(parentComment.author).toLowerCase() === mentionToken.toLowerCase()) profileUsername = parentComment.author.username;
+      }
+    }
+
+    const handleClickProfile = (e) => {
+      e.stopPropagation();
+      if (!profileUsername) return;
+      try { router.push(`/${profileUsername}`); } catch (err) { window.location.href = `/${profileUsername}`; }
+    };
+
+    return (
+      <p className="text-gray-200 mt-1 break-words">
+        <span
+          role="link"
+          tabIndex={0}
+          onClick={handleClickProfile}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleClickProfile(e); }}
+          className={`inline-block mr-1 ${profileUsername ? 'text-cyan-400 hover:underline cursor-pointer font-semibold' : 'text-yellow-300'}`}
+          title={profileUsername ? `Open ${mentionToken}'s profile` : mentionToken}
+        >
+          @{mentionToken}
+        </span>
+        <span>{rest}</span>
+      </p>
+    );
+  };
+
   // Handle modal open/close animation
   useEffect(() => {
     if (isOpen) {
@@ -75,7 +172,6 @@ const CommentModal = ({
       // Only reset form fields when modal closes, NOT the comments
       setNewComment('');
       setReplyingTo(null);
-      setReplyContent('');
       setError('');
       setNewCommentId(null);
     }
@@ -93,9 +189,42 @@ const CommentModal = ({
     adjustTextareaHeight(commentTextareaRef.current);
   }, [newComment]);
 
-  useEffect(() => {
-    adjustTextareaHeight(replyTextareaRef.current);
-  }, [replyContent]);
+  const isTouchDevice = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+
+  // Insert emoji into the currently focused textarea (reply if focused, else comment).
+  const openEmojiPicker = (target) => {
+    // kept for backward compatibility; no-op
+    setEmojiTarget(target);
+    setEmojiPickerOpen(true);
+  };
+
+  const insertEmojiAtCursor = (emoji) => {
+    try {
+      const active = typeof document !== 'undefined' ? document.activeElement : null;
+      const commentTa = commentTextareaRef.current;
+
+      // Prefer inserting into the focused main textarea without focusing it (avoid forcing mobile keyboard).
+      if (active === commentTa && commentTa) {
+        const start = commentTa.selectionStart ?? commentTa.value.length;
+        const end = commentTa.selectionEnd ?? start;
+        const newVal = (newComment || '').slice(0, start) + emoji + (newComment || '').slice(end);
+        setNewComment(newVal);
+        requestAnimationFrame(() => {
+          try {
+            const pos = start + emoji.length;
+            commentTa.setSelectionRange(pos, pos);
+          } catch (e) {}
+        });
+        return;
+      }
+
+      // If no textarea is focused, append to main comment textarea without focusing it.
+      setNewComment((s) => (s || '') + emoji);
+    } catch (err) {
+      // Fallback append to comment
+      setNewComment((s) => (s || '') + emoji);
+    }
+  };
 
   // Handle click outside to close menu
   useEffect(() => {
@@ -248,25 +377,23 @@ const CommentModal = ({
   };
   
   const handleReplyClick = (comment) => {
+    // Use the main comment textarea for replying (don't open inline reply inputs)
     setReplyingTo(comment);
-    setReplyContent(`@${getDisplayName(comment.author)} `);
-    
-    // Focus on the reply input immediately
+    const mention = `@${getDisplayName(comment.author)} `;
+    setNewComment(mention);
+    // Focus the main comment textarea so the keyboard appears and the user types there
     setTimeout(() => {
-      if (replyTextareaRef.current) {
-        replyTextareaRef.current.focus();
-        // Move cursor to end of text
-        replyTextareaRef.current.setSelectionRange(
-          replyTextareaRef.current.value.length,
-          replyTextareaRef.current.value.length
-        );
+      if (commentTextareaRef.current) {
+        commentTextareaRef.current.focus();
+        const len = (commentTextareaRef.current.value || '').length;
+        try { commentTextareaRef.current.setSelectionRange(len, len); } catch (e) {}
       }
     }, 10);
   };
   
   const handleCancelReply = () => {
     setReplyingTo(null);
-    setReplyContent('');
+    setNewComment('');
   };
 
   const handleDeleteComment = async (commentOrReply) => {
@@ -359,7 +486,8 @@ const CommentModal = ({
   };
   
   const handleAddReply = async (parentComment) => {
-    if (!replyContent.trim()) {
+    const content = (newComment || '').trim();
+    if (!content) {
       setError('Reply cannot be empty');
       return;
     }
@@ -378,7 +506,7 @@ const CommentModal = ({
       const replyData = {
         story: post.slug, // Send the slug
         parent: parentComment.public_id, // Send the public_id of the immediate parent (reply or comment)
-        content: replyContent.trim(),
+        content,
       };
 
       const newReply = await commentsApi.createComment(replyData);
@@ -418,8 +546,22 @@ const CommentModal = ({
       });
       
       setComments(sortedComments);
+
+      // After the comments update, scroll the top-level parent comment into view
+      setTimeout(() => {
+        try {
+          const el = typeof document !== 'undefined' ? document.getElementById(`comment-${topLevelParentId}`) : null;
+          if (el && contentRef?.current) {
+            // Scroll the comment into view inside the scrollable content area
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        } catch (e) {
+          // ignore
+        }
+      }, 80);
+
       setReplyingTo(null);
-      setReplyContent('');
+      setNewComment('');
       
       // Update comment count in parent component
       updateCommentCount(post.slug, 1);
@@ -595,11 +737,11 @@ const CommentModal = ({
           ) : (
             comments.map(comment => (
               <div 
-                key={`comment-${comment.public_id}`} 
-                className="space-y-4"
-              >
-                {/* Comment */}
-                <div className="relative bg-gradient-to-b from-gray-800/50 to-black/50 rounded-xl p-4 border border-cyan-500/20 backdrop-blur-sm">
+                  key={`comment-${comment.public_id}`} 
+                  className="space-y-4"
+                >
+                  {/* Comment */}
+                  <div id={`comment-${comment.public_id}`} className="relative bg-gradient-to-b from-gray-800/50 to-black/50 rounded-xl p-4 border border-cyan-500/20 backdrop-blur-sm">
                   <div className="flex space-x-3">
                     <div className="relative w-10 h-10 rounded-full bg-gradient-to-r from-cyan-500 to-purple-500 flex items-center justify-center text-white font-bold flex-shrink-0 overflow-hidden">
                       {comment.author?.profile_image_url ? (
@@ -683,7 +825,7 @@ const CommentModal = ({
                           </div>
                         </div>
                       ) : (
-                        <p className="text-gray-200 mt-1">{comment.content}</p>
+                        renderContentWithMention(comment.content, comment, null)
                       )}
                       <div className="flex items-center space-x-4 mt-2">
                         <button 
@@ -701,45 +843,7 @@ const CommentModal = ({
                     </div>
                   </div>
                   
-                  {/* Reply Input (when replying to this comment) */}
-                  {replyingTo?.public_id === comment.public_id && (
-                    <div key={`reply-input-${comment.public_id}`} className="mt-4 ml-12 flex flex-col space-y-2">
-                      <div className="flex space-x-2">
-                        <textarea
-                          ref={replyTextareaRef}
-                          value={replyContent}
-                          onChange={(e) => setReplyContent(e.target.value)}
-                          className="flex-1 bg-slate-900/60 border border-gray-700 rounded-xl text-white px-4 py-3 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition-all duration-300 resize-none min-h-[40px] max-h-[120px]"
-                          placeholder="Write a reply..."
-                          autoFocus
-                          rows={1}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              handleAddReply(comment);
-                            }
-                          }}
-                        />
-                        <button
-                          onClick={() => handleAddReply(comment)}
-                          disabled={!replyContent.trim()}
-                          className="p-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-xl text-white disabled:opacity-50 disabled:cursor-not-allowed self-end"
-                        >
-                          <span className="inline-block w-5 h-5">
-                            <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
-                              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                            </svg>
-                          </span>
-                        </button>
-                      </div>
-                      <button
-                        onClick={handleCancelReply}
-                        className="ml-auto text-gray-400 hover:text-gray-200 text-sm"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  )}
+                  {/* Inline reply inputs removed - replying uses main textarea at bottom */}
                   
                   {/* Replies Section - Always visible */}
                   {comment.replies && comment.replies.length > 0 && (
@@ -822,7 +926,7 @@ const CommentModal = ({
                                   </div>
                                 </div>
                               ) : (
-                                <p className="text-gray-200 mt-1">{reply.content}</p>
+                                renderContentWithMention(reply.content, comment, reply)
                               )}
                               <div className="flex items-center space-x-4 mt-2">
                                 <button 
@@ -838,43 +942,7 @@ const CommentModal = ({
                                 </button>
                               </div>
                               
-                              {replyingTo?.public_id === reply.public_id && (
-                                <div key={`reply-to-reply-${reply.public_id}`} className="mt-2 flex flex-col space-y-2">
-                                  <div className="flex space-x-2">
-                                    <textarea
-                                      value={replyContent}
-                                      onChange={(e) => setReplyContent(e.target.value)}
-                                      className="flex-1 bg-slate-800/60 border border-gray-700 rounded-xl text-white px-4 py-3 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition-all duration-300 resize-none min-h-[40px] max-h-[120px]"
-                                      placeholder="Write a reply..."
-                                      autoFocus
-                                      rows={1}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                          e.preventDefault();
-                                          handleAddReply(reply);
-                                        }
-                                      }}
-                                    />
-                                    <button
-                                      onClick={() => handleAddReply(reply)}
-                                      disabled={!replyContent.trim()}
-                                      className="p-3 bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl text-white disabled:opacity-50 disabled:cursor-not-allowed self-end"
-                                    >
-                                      <span className="inline-block w-5 h-5">
-                                        <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
-                                          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                                        </svg>
-                                      </span>
-                                    </button>
-                                  </div>
-                                  <button
-                                    onClick={handleCancelReply}
-                                    className="ml-auto text-gray-400 hover:text-gray-200 text-sm"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                              )}
+                              {/* Inline reply-to-reply inputs removed - use main textarea */}
                             </div>
                           </div>
                         </div>
@@ -887,9 +955,35 @@ const CommentModal = ({
           )}
         </div>
         
+        {/* Emoji quick-bar (6 emojis) */}
+        <div className="px-6 pt-4 pb-2">
+          <div className="flex items-center gap-3 overflow-x-auto py-1">
+            {EMOJI_BAR.map((em) => (
+              <button
+                key={em}
+                type="button"
+                onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onClick={(e) => { e.stopPropagation(); insertEmojiAtCursor(em); }}
+                className="text-2xl px-2 py-1 rounded-md hover:bg-gray-800/40"
+                aria-label={`Insert ${em}`}
+              >
+                {em}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Add Comment Section */}
         <div className="p-2 border-t border-cyan-500/30 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md relative z-10">
-          <div className="flex-1 flex space-x-3">
+          {replyingTo && (
+            <div className="px-4 pb-2 flex items-center justify-between text-sm text-gray-300">
+              <div className="truncate">Replying to <span className="font-semibold text-white">{getDisplayName(replyingTo.author)}</span></div>
+              <button onClick={handleCancelReply} className="text-yellow-300 hover:underline ml-4">Cancel</button>
+            </div>
+          )}
+          <div className="flex-1 flex items-end space-x-3">
             <textarea
               ref={commentTextareaRef}
               value={newComment}
@@ -897,15 +991,17 @@ const CommentModal = ({
               className="flex-1 bg-slate-900/60 border border-gray-700 rounded-xl text-white px-4 py-3 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 resize-none min-h-[40px] max-h-[120px]"
               placeholder="Add a comment..."
               rows={1}
+              onFocus={() => { /* intentionally do not open keyboard/picker */ }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  handleAddComment();
+                  if (replyingTo) handleAddReply(replyingTo); else handleAddComment();
                 }
               }}
             />
+            {/* emoji bar above replaces per-input emoji button */}
             <button
-              onClick={handleAddComment}
+              onClick={() => replyingTo ? handleAddReply(replyingTo) : handleAddComment()}
               disabled={!newComment.trim()}
               className="p-3 bg-gradient-to-r from-cyan-500 to-purple-500 rounded-xl text-white disabled:opacity-50 disabled:cursor-not-allowed self-end"
             >
