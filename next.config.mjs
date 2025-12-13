@@ -3,24 +3,28 @@
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '1024mb',
+      sizeLimit: '1024mb', // match your Nginx & Django limits
     },
   },
 };
 
 const nextConfig = {
-  // ==========================================
-  // PERFORMANCE: Image Optimization
-  // ==========================================
   images: {
+    // Let Next.js optimize remote images in production. In development it's fine
+    // to leave images unoptimized for local workflows.
     unoptimized: process.env.NODE_ENV === 'development',
+    // Prefer modern formats when possible to reduce transfer sizes
     formats: ['image/avif', 'image/webp'],
-    // Supported image quality presets
-    qualities: [75, 90],
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
+      // Quality presets supported by Next Image (add any values used across app)
+      qualities: [75, 90],
+    // Device widths Next.js will generate images for (reduce if you want fewer sizes)
+    deviceSizes: [320, 420, 768, 1024, 1280, 1600],
+    // Additional image sizes used for srcset
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    minimumCacheTTL: 31536000, // 1 year cache
+    // Cache optimized remote images at least 1 hour (3600s)
+    minimumCacheTTL: 3600,
     remotePatterns: [
+      // Local development backend
       {
         protocol: 'http',
         hostname: '192.168.43.100',
@@ -36,6 +40,7 @@ const nextConfig = {
         hostname: '127.0.0.1',
         pathname: '/media/**',
       },
+      // DigitalOcean Spaces - multiple patterns to cover all variations
       {
         protocol: 'https',
         hostname: 'nyc3.digitaloceanspaces.com',
@@ -57,153 +62,17 @@ const nextConfig = {
         pathname: '/**',
       },
     ],
-    // Explicit domain list (fallback / compatibility)
-    domains: [
-      'storyvermo.nyc3.cdn.digitaloceanspaces.com',
-      'storyvermo.nyc3.cdn.digitaloceanspaces.com',
-    ],
   },
-
-  // ==========================================
-  // PERFORMANCE: Compiler Optimizations
-  // ==========================================
-  compiler: {
-    // Remove console.logs in production
-    removeConsole: process.env.NODE_ENV === 'production' ? {
-      exclude: ['error', 'warn'],
-    } : false,
-  },
-
-  // Turbopack configuration placeholder (silence turbopack/webpack mismatch)
-  turbopack: {},
-
-  // Allowed dev origins for cross-origin dev requests
-  allowedDevOrigins: [
-    'http://192.168.43.100',
-    'http://localhost',
-  ],
-
-  // ==========================================
-  // PERFORMANCE: Experimental Features
-  // ==========================================
+  // Enable CSS optimization to reduce and inline critical CSS where possible
   experimental: {
     optimizeCss: true,
-    optimizePackageImports: [
-      '@fortawesome/react-fontawesome',
-      '@fortawesome/free-solid-svg-icons',
-      'lucide-react',
-      'framer-motion',
-      'lodash',
-    ],
   },
 
-  // ==========================================
-  // PERFORMANCE: Webpack Bundle Optimization
-  // ==========================================
-  webpack: (config, { dev, isServer, webpack }) => {
-    // Bundle analyzer in development
-    if (process.env.ANALYZE === 'true' && !isServer) {
-      const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer');
-      config.plugins.push(
-        new BundleAnalyzerPlugin({
-          analyzerMode: 'static',
-          reportFilename: './analyze/client.html',
-          openAnalyzer: false,
-        })
-      );
-    }
-
-    // Optimize bundle splitting
-    if (!isServer) {
-      config.optimization = {
-        ...config.optimization,
-        splitChunks: {
-          chunks: 'all',
-          cacheGroups: {
-            default: false,
-            vendors: false,
-            // Separate vendor libraries
-            lib: {
-              test: /[\\/]node_modules[\\/]/,
-              name(module) {
-                const packageName = module.context.match(
-                  /[\\/]node_modules[\\/](.*?)([\\/]|$)/
-                )?.[1];
-                return `npm.${packageName?.replace('@', '')}`;
-              },
-              priority: 10,
-              minChunks: 1,
-              reuseExistingChunk: true,
-            },
-            // Separate React/React-DOM
-            react: {
-              test: /[\\/]node_modules[\\/](react|react-dom)[\\/]/,
-              name: 'react',
-              priority: 20,
-              reuseExistingChunk: true,
-            },
-            // Heavy libraries in separate chunks
-            commons: {
-              test: /[\\/]node_modules[\\/](framer-motion|lodash|@tanstack)[\\/]/,
-              name: 'commons',
-              priority: 15,
-              reuseExistingChunk: true,
-            },
-          },
-        },
-      };
-    }
-
-    // Optimize module resolution
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      'lodash': 'lodash-es', // Use ES modules version
-    };
-
-    return config;
+  // Development UI indicators (show small build/reload indicator in dev)
+  devIndicators: {
+    buildActivity: true,
+    buildActivityPosition: 'top-right',
   },
-
-  // ==========================================
-  // PRODUCTION: Security & Headers
-  // ==========================================
-  async headers() {
-    return [
-      {
-        source: '/:all*(svg|jpg|jpeg|png|gif|webp|avif|woff|woff2)',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-        ],
-      },
-      {
-        source: '/_next/static/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-        ],
-      },
-    ];
-  },
-
-  // ==========================================
-  // PRODUCTION: Compression
-  // ==========================================
-  compress: true,
-
-  // ==========================================
-  // PRODUCTION: Output Settings
-  // ==========================================
-  output: 'standalone',
-  poweredByHeader: false,
-
-  // ==========================================
-  // PERFORMANCE: React Strict Mode
-  // ==========================================
-  reactStrictMode: true,
 };
 
 export default nextConfig;

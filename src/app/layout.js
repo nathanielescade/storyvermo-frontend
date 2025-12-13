@@ -80,7 +80,6 @@ export default function RootLayout({ children }) {
           rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
           media="print"
-          data-deferred="true"
           crossOrigin="anonymous"
         />
         <noscript>
@@ -96,11 +95,37 @@ export default function RootLayout({ children }) {
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css"
           media="print"
-          data-deferred="true"
         />
         <noscript>
           <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css" />
         </noscript>
+
+        {/* Client-side flipping of deferred CSS media to avoid passing event handlers in Server Components */}
+        <Script id="deferred-css" strategy="lazyOnload">
+          {`
+            (function(){
+              try {
+                const hrefs = [
+                  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
+                  'https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css'
+                ];
+                hrefs.forEach((href) => {
+                  const link = document.querySelector('link[rel="stylesheet"][href="' + href + '"]');
+                  if (!link) return;
+                  if (link.sheet) {
+                    link.media = 'all';
+                    return;
+                  }
+                  link.addEventListener('load', function(){ link.media = 'all'; });
+                  // fallback in case load doesn't fire
+                  setTimeout(function(){ link.media = 'all'; }, 5000);
+                });
+              } catch (e) {
+                // ignore
+              }
+            })();
+          `}
+        </Script>
 
         {/* 🔥 ADD FONT-DISPLAY: SWAP for Font Awesome */}
         <style dangerouslySetInnerHTML={{__html: `
@@ -147,19 +172,6 @@ export default function RootLayout({ children }) {
             ]
           }
         `}} />
-        {/* Deferred activation for non-blocking styles (server-safe) */}
-        <Script id="deferred-styles" strategy="lazyOnload">
-          {`
-            window.addEventListener('load', function () {
-              try {
-                document.querySelectorAll('link[data-deferred]').forEach(function(link) {
-                  link.media = 'all';
-                  link.removeAttribute('data-deferred');
-                });
-              } catch (e) { /* ignore */ }
-            });
-          `}
-        </Script>
       </head>
       
       <body className="bg-black text-white font-rajdhani" data-authenticated="false">

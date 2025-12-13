@@ -494,7 +494,7 @@ export default function StoryCard({
                             src={coverImageUrl} 
                             alt={story.title || 'Story cover'} 
                             fill
-                            className="scene-bg w-full h-full "
+                            className="scene-bg w-full h-full     "
                             quality={75}
                             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
                             priority={index === 0}  // ✅ THIS IS CORRECT - KEEP IT
