@@ -67,8 +67,14 @@ const nextConfig = {
     } : false,
   },
 
-  // Use SWC minifier (faster than Terser)
-  swcMinify: true,
+  // Turbopack configuration placeholder (silence turbopack/webpack mismatch)
+  turbopack: {},
+
+  // Allowed dev origins for cross-origin dev requests
+  allowedDevOrigins: [
+    'http://192.168.43.100',
+    'http://localhost',
+  ],
 
   // ==========================================
   // PERFORMANCE: Experimental Features

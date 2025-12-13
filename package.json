@@ -3,12 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --webpack",
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "analyze": "ANALYZE=true next build"
-  },  
+    "analyze": "ANALYZE=true next build",
+    "postinstall": "node -e \"try{require('webpack-bundle-analyzer')}catch(e){console.log('Install webpack-bundle-analyzer for bundle analysis')}\""
+  },
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
