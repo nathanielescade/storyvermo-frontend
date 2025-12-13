@@ -13,17 +13,31 @@ export default function RootLayout({ children }) {
       <head>
         <meta charSet="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+        <meta name="google-site-verification" content="wJjq83au-maldcRICvQfKYPlbzQ1pdustQ_GOSqJuVY" />
 
-      <meta name="google-site-verification" content="wJjq83au-maldcRICvQfKYPlbzQ1pdustQ_GOSqJuVY" />
+        {/* 🔥 CRITICAL PRECONNECTS - Load these FIRST */}
+        <link rel="preconnect" href="https://storyvermo.nyc3.cdn.digitaloceanspaces.com" />
+        <link rel="dns-prefetch" href="https://storyvermo.nyc3.cdn.digitaloceanspaces.com" />
+        <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
+        
+        {/* 🔥 PRELOAD CRITICAL FONT (with font-display: swap) */}
+        <link
+          rel="preload"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
 
-        {/* Google Analytics (gtag.js) - only load in production and lazily */}
+        {/* Google Analytics - DEFERRED to afterInteractive */}
         {process.env.NODE_ENV === 'production' && (
           <>
             <Script
               src="https://www.googletagmanager.com/gtag/js?id=G-JCM36RQZ8G"
-              strategy="lazyOnload"
+              strategy="afterInteractive"  // 🔥 Changed from lazyOnload
             />
-            <Script id="gtag-init" strategy="lazyOnload">
+            <Script id="gtag-init" strategy="afterInteractive">
               {`
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);} 
@@ -31,12 +45,13 @@ export default function RootLayout({ children }) {
                   window.gtag = gtag;
                 }
                 gtag('js', new Date());
-                gtag('config', 'G-JCM36RQZ8G');
+                gtag('config', 'G-JCM36RQZ8G', {
+                  page_path: window.location.pathname,
+                });
               `}
             </Script>
           </>
         )}
-
 
         {/* Favicon and App Icons */}
         <link rel="icon" href="/favicon.ico" type="image/x-icon" />
@@ -60,22 +75,12 @@ export default function RootLayout({ children }) {
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="StoryVermo" />
 
-    {/* Note: do not hardcode title/description/OG/Twitter tags here.
-      The app router's metadata API (route `metadata` exports / generateMetadata)
-      should supply per-route tags. Keeping static SEO tags here prevents
-      route-level metadata from taking effect (e.g. story pages).
-      We keep favicons, core meta, PWA, schemas, preconnect and styles here. */}
-
-        {/* Preconnect to Critical Origins */}
-        <link rel="preconnect" href="https://cdn.tailwindcss.com" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossOrigin="anonymous" />
-
-        {/* Stylesheets (deferred to reduce unused CSS on first load) */}
+        {/* 🔥 OPTIMIZED: Defer Font Awesome CSS (non-blocking) */}
         <link
           rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
           media="print"
-          onLoad="this.media='all'"
+          onLoad="this.media='all'; this.onload=null;"
           crossOrigin="anonymous"
         />
         <noscript>
@@ -86,92 +91,87 @@ export default function RootLayout({ children }) {
           />
         </noscript>
 
+        {/* 🔥 OPTIMIZED: Defer Swiper CSS (non-blocking) */}
         <link
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css"
           media="print"
-          onLoad="this.media='all'"
+          onLoad="this.media='all'; this.onload=null;"
         />
         <noscript>
           <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css" />
         </noscript>
 
+        {/* 🔥 ADD FONT-DISPLAY: SWAP for Font Awesome */}
+        <style dangerouslySetInnerHTML={{__html: `
+          @font-face {
+            font-family: 'Font Awesome 6 Free';
+            font-style: normal;
+            font-weight: 900;
+            font-display: swap;
+            src: url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2') format('woff2');
+          }
+        `}} />
+
         {/* Global Site Schema */}
-        <script type="application/ld+json">
-          {`
-            {
-              "@context": "https://schema.org",
-              "@type": "WebSite",
-              "url": "https://storyvermo.com",
-              "name": "StoryVermo",
-              "description": "StoryVermo is a social storytelling platform where people create and share their stories in a unique way. A story is the core piece of content, and it can stand alone or be expanded with verses and moments that add depth, layers, and different perspectives.",
-              "slogan": "Every moment has a story",
-              "potentialAction": {
-                "@type": "SearchAction",
-                "target": "https://storyvermo.com/search?q={search_term_string}",
-                "query-input": "required name=search_term_string"
-              }
+        <script type="application/ld+json" dangerouslySetInnerHTML={{__html: `
+          {
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "url": "https://storyvermo.com",
+            "name": "StoryVermo",
+            "description": "StoryVermo is a social storytelling platform where people create and share their stories in a unique way. A story is the core piece of content, and it can stand alone or be expanded with verses and moments that add depth, layers, and different perspectives.",
+            "slogan": "Every moment has a story",
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": "https://storyvermo.com/search?q={search_term_string}",
+              "query-input": "required name=search_term_string"
             }
-          `}
-        </script>
+          }
+        `}} />
 
         {/* Organization Schema */}
-        <script type="application/ld+json">
-          {`
-            {
-              "@context": "https://schema.org",
-              "@type": "Organization",
-              "name": "StoryVermo",
-              "url": "https://storyvermo.com",
-              "logo": "https://storyvermo.com/storyvermo_logo.png",
-              "slogan": "Every moment has a story",
-              "description": "StoryVermo is a social storytelling platform where people create and share their stories in a unique way. A story is the core piece of content, and it can stand alone or be expanded with verses and moments that add depth, layers, and different perspectives.",
-              "sameAs": [
-                "https://twitter.com/storyvermo",
-                "https://www.facebook.com/storyvermo",
-                "https://www.instagram.com/storyvermo"
-              ]
-            }
-          `}
-        </script>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{__html: `
+          {
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "name": "StoryVermo",
+            "url": "https://storyvermo.com",
+            "logo": "https://storyvermo.com/storyvermo_logo.png",
+            "slogan": "Every moment has a story",
+            "description": "StoryVermo is a social storytelling platform where people create and share their stories in a unique way. A story is the core piece of content, and it can stand alone or be expanded with verses and moments that add depth, layers, and different perspectives.",
+            "sameAs": [
+              "https://twitter.com/storyvermo",
+              "https://www.facebook.com/storyvermo",
+              "https://www.instagram.com/storyvermo"
+            ]
+          }
+        `}} />
       </head>
       
       <body className="bg-black text-white font-rajdhani" data-authenticated="false">
         <AuthProvider>
-          {/* Sidebar Component */}
           <Sidebar />
-          {/* Global header, navigation and global modals */}
           <GlobalShell />
           
-          {/* Main Content */}
-
-
           <main className="main-content">
             {children}
           </main>
           
-          {/* ShareModal is rendered by components (StoryCard, VerseViewer) with dynamic props. */}
-          
-          {/* Remove StoryFormModal from layout since it's already in page.js */}
-          
-          {/* Comment Modal Component */}
           <CommentModal />
           
-          {/* Verse Viewer Component */}
-          {/* Discover Modal is now controlled by GlobalShell */}
-          
-          {/* Service Worker Registration */}
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `
-                if ('serviceWorker' in navigator) {
-                  window.addEventListener('load', function() {
-                    navigator.serviceWorker.register('/service-worker.js')
+          {/* 🔥 OPTIMIZED: Service Worker Registration (deferred) */}
+          <Script id="sw-register" strategy="lazyOnload">
+            {`
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/service-worker.js').catch(function(err) {
+                    console.log('SW registration failed:', err);
                   });
-                }
-              `,
-            }}
-          />
+                });
+              }
+            `}
+          </Script>
         </AuthProvider>
       </body>
     </html>

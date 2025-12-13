@@ -489,17 +489,17 @@ export default function StoryCard({
                 >
                     {coverImageUrl ? (
                         <div className="relative w-full h-full">
-                            {/* Using Next.js Image for automatic optimization, lazy loading, and format conversion */}
-                            <Image 
-                                src={coverImageUrl} 
-                                alt={story.title || 'Story cover'} 
-                                fill
-                                className="scene-bg w-full h-full object-cover"
-                                quality={75}
-                                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
-                                priority={index === 0}
-                            />
-                        </div>
+                        {/* Using Next.js Image for automatic optimization, lazy loading, and format conversion */}
+                        <Image 
+                            src={coverImageUrl} 
+                            alt={story.title || 'Story cover'} 
+                            fill
+                            className="scene-bg w-full h-full object-cover"
+                            quality={75}
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
+                            priority={index === 0}  // ✅ THIS IS CORRECT - KEEP IT
+                        />
+                    </div>
                     ) : (
                         <div className="scene-bg-placeholder bg-linear-to-br from-slate-800 to-slate-900 flex items-center justify-center">
                             <div className="text-slate-600 text-4xl">
