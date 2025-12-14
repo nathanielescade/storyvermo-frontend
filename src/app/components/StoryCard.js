@@ -7,19 +7,21 @@ import { formatNumber, formatTimeAgo, createBubbles } from '../../../lib/utils';
 import { absoluteUrl, storiesApi, userApi } from '../../../lib/api';
 
 // Import modular components
+
 import HologramIcons from './storycard/HologramIcons';
 import TitleSection from './storycard/TitleSection';
 import TagsSection from './storycard/TagsSection';
 import ActionButtons from './storycard/ActionButtons';
 import CreatorChip from './storycard/CreatorChip';
-import ContributeModal from './storycard/ContributeModal';
+import dynamic from 'next/dynamic';
+const ContributeModal = dynamic(() => import('./storycard/ContributeModal'), { ssr: false });
 import RecommendModal from './storycard/RecommendModal';
 import EnlargeModal from './storycard/EnlargeModal';
 import DeleteModal from './storycard/DeleteModal';
 import DropdownMenu from './storycard/DropdownModal';
 
 // Import additional modals that were missing
-import StoryFormModal from './StoryFormModal';
+const StoryFormModal = dynamic(() => import('./StoryFormModal'), { ssr: false });
 import CommentModal from './CommentModal';
 import VerseViewer from './VerseViewer';
 import ShareModal from './ShareModal';

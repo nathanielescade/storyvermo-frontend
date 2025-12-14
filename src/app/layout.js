@@ -21,14 +21,7 @@ export default function RootLayout({ children }) {
         <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
         
-        {/* 🔥 PRELOAD CRITICAL FONT (with font-display: swap) */}
-        <link
-          rel="preload"
-          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2"
-          as="font"
-          type="font/woff2"
-          crossOrigin="anonymous"
-        />
+        {/* Font preload removed to avoid adding large font to initial payload; CSS is deferred below */}
 
         {/* Google Analytics - DEFERRED to afterInteractive */}
         {process.env.NODE_ENV === 'production' && (
