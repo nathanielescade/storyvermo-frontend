@@ -115,6 +115,19 @@ export function AuthProvider({ children }) {
     
     const verifyAuth = async () => {
       try {
+        // Ensure backend sets CSRF cookie (double-submit pattern) before any
+        // state-changing requests. Some backends provide an endpoint that sets
+        // a `csrftoken` cookie when requested; call it here but ignore errors.
+        try {
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.storyvermo.com'}/auth/get-csrf-token/`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: { 'Accept': 'application/json' }
+          });
+        } catch (e) {
+          // Non-fatal: backend may already set the cookie or not expose this
+          // endpoint. Continue to auth check regardless.
+        }
         // Set a timeout so we don't wait forever
         timeoutId = setTimeout(() => {
           if (mounted) {

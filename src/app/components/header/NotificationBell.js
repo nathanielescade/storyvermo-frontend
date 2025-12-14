@@ -16,21 +16,23 @@ const NotificationBell = ({ isOpen = false, onOpen, onClose }) => {
   // Fetch unread count on mount and whenever authenticated status changes
   useEffect(() => {
     let mounted = true;
-    
+
     const fetchUnreadCount = async () => {
-      // Skip if not authenticated
+      // If not authenticated, show a single default guest notification
+      // so users know they can sign in to get personalized notifications.
       if (!isAuthenticated) {
-        if (mounted) setUnreadCount(0);
+        if (mounted) setUnreadCount(1);
         return;
       }
-      
+
       try {
         let data = null;
-        try { 
+        try {
           data = await notificationsApi.getUnreadCount();
         } catch (e) {
           data = null;
         }
+
         let count = 0;
         if (typeof data === 'number') {
           count = data;
@@ -41,7 +43,7 @@ const NotificationBell = ({ isOpen = false, onOpen, onClose }) => {
           else if (data.notifications) count = (data.notifications.filter ? data.notifications.filter(n => !n.is_read).length : 0);
           else if (data.results) count = (data.results.filter ? data.results.filter(n => !n.is_read).length : 0);
         }
-        
+
         // If no count found, try fetching full notifications list
         if (!count) {
           try {
@@ -49,29 +51,29 @@ const NotificationBell = ({ isOpen = false, onOpen, onClose }) => {
             const list = full?.notifications ?? full?.results ?? (Array.isArray(full) ? full : []);
             count = list.filter(n => !n.is_read).length;
           } catch (e) {
-            // ignore
+            // ignore errors fetching unread count
           }
         }
-        
+
         if (mounted) setUnreadCount(count);
       } catch (err) {
         if (mounted) setUnreadCount(0);
       }
     };
-    
+
     // Fetch immediately when authenticated
     fetchUnreadCount();
-    
+
     // Also set up polling every 30 seconds
     const intervalId = setInterval(fetchUnreadCount, 30000);
-    
+
     // Listen for custom event updates (real-time from other components)
     const handleCountUpdate = (event) => {
       const newCount = typeof event.detail === 'number' ? event.detail : 0;
       if (mounted) setUnreadCount(newCount);
     };
     window.addEventListener('notifications:count:update', handleCountUpdate);
-    
+
     return () => {
       mounted = false;
       clearInterval(intervalId);
@@ -85,7 +87,25 @@ const NotificationBell = ({ isOpen = false, onOpen, onClose }) => {
     setPreviewLoading(true);
     (async () => {
       if (!isAuthenticated) {
-        setNotificationsPreview([]);
+        // Provide two friendly default notifications for unauthenticated visitors
+        // to encourage sign-in and content creation.
+        const guestNotifications = [
+          {
+            id: 'guest-1',
+            message: 'Welcome to StoryVermo — sign up or log in to get personalized updates and join the conversation!',
+            title: 'Welcome',
+            is_read: false,
+            notification_type: 'WELCOME'
+          },
+          {
+            id: 'guest-2',
+            message: 'Join the community — create lasting stories, collaborate with others, and build memorable experiences together.',
+            title: 'About StoryVermo',
+            is_read: false,
+            notification_type: 'SYSTEM'
+          }
+        ];
+        setNotificationsPreview(guestNotifications);
         setPreviewLoading(false);
         return;
       }
@@ -107,6 +127,16 @@ const NotificationBell = ({ isOpen = false, onOpen, onClose }) => {
 
   const markAsRead = async (id) => {
     try {
+      // If this is the guest-default notification, don't call the API —
+      // simply clear the local preview and badge and prompt login if needed.
+      if (id === 'guest-default') {
+        setNotificationsPreview([]);
+        const newCount = 0;
+        setUnreadCount(newCount);
+        window.dispatchEvent(new CustomEvent('notifications:count:update', { detail: newCount }));
+        return;
+      }
+
       await notificationsApi.markAsRead(id);
       setNotificationsPreview(prev => prev.map(x => x.id === id ? { ...x, is_read: true } : x));
       const newCount = Math.max(0, unreadCount - 1);
@@ -118,6 +148,14 @@ const NotificationBell = ({ isOpen = false, onOpen, onClose }) => {
 
   const markAllAsRead = async () => {
     try {
+      // If unauthenticated, clear local guest preview only
+      if (!isAuthenticated) {
+        setNotificationsPreview([]);
+        setUnreadCount(0);
+        window.dispatchEvent(new CustomEvent('notifications:count:update', { detail: 0 }));
+        return;
+      }
+
       await notificationsApi.markAllAsRead();
       setNotificationsPreview([]);
       setUnreadCount(0);
@@ -213,7 +251,10 @@ const NotificationBell = ({ isOpen = false, onOpen, onClose }) => {
           }}
         >
           <div className="notification-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'transparent', borderBottom: '1px solid rgba(255,255,255,0.04)', flex: 'none' }}>
-            <div className="notification-title">Notifications</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div className="notification-title">Notifications</div>
+              {/* Header login button removed per UX request */}
+            </div>
             <div className="notification-clear" style={{ cursor: 'pointer', color: '#9bdff8', fontSize: '0.9rem', padding: '6px 8px', borderRadius: '6px', background: 'rgba(0,0,0,0.25)' }} onClick={markAllAsRead}>
               Clear all
             </div>
@@ -225,30 +266,62 @@ const NotificationBell = ({ isOpen = false, onOpen, onClose }) => {
               <div className="text-center py-4 text-gray-400">No notifications yet</div>
             ) : (
               notificationsPreview.slice(0,5).map(n => {
+                const isGuest = !isAuthenticated;
                 return (
                   <div
                     key={n.id}
-                    className="px-2 py-2 rounded cursor-pointer transition-all mb-1 hover:bg-slate-700/40 bg-slate-800/30 border border-slate-700/40"
+                    className="px-2 py-2 rounded transition-all mb-2 hover:bg-slate-700/40 bg-slate-800/30 border border-slate-700/40 cursor-pointer"
                     onClick={async (e) => {
+                      // Authenticated users: clicking the notification navigates to the target
+                      if (isGuest) return;
                       e.stopPropagation();
-                      if (!n.is_read) await markAsRead(n.id);
-                      
-                      // Navigate to appropriate location
-                      const route = getNotificationRoute(n);
-                      onClose?.();
-                      router.push(route);
+                      try {
+                        if (!n.is_read) await markAsRead(n.id);
+                        const route = getNotificationRoute(n);
+                        onClose?.();
+                        router.push(route);
+                      } catch (err) {
+                        // swallow navigation/mark errors
+                      }
                     }}
                   >
                     <div className="flex items-center gap-2">
                       {/* Icon */}
                       <span className="text-base shrink-0">{getNotificationIcon(n)}</span>
 
-                      {/* Title - single line */}
-                      <span className="text-sm font-medium text-white truncate flex-1">{n.message || n.title}</span>
+                      {/* Title (single-line for authenticated users) + optional message for guests */}
+                      <div className="flex-1">
+                        <div className="text-sm font-semibold text-white truncate">{n.title || n.notification_type}</div>
+                        {isGuest && (
+                          <div className="text-xs text-gray-300 whitespace-normal break-words">{n.message}</div>
+                        )}
+                      </div>
 
                       {/* Unread Indicator */}
                       {!n.is_read && (
                         <div className="shrink-0 w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                      )}
+
+                      {/* Guest-only CTA for the first guest message */}
+                      {isGuest && n.id === 'guest-1' && (
+                        <div className="ml-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              try {
+                                window.dispatchEvent(new CustomEvent('auth:open', { detail: { type: 'signup' } }));
+                              } catch (err) {
+                                router.push('/signup');
+                              }
+                              // clear the preview locally for this guest notification
+                              setNotificationsPreview(prev => prev.filter(x => x.id !== n.id));
+                              setUnreadCount(Math.max(0, unreadCount - 1));
+                            }}
+                            className="px-3 py-1 rounded bg-cyan-500 text-black font-semibold text-sm"
+                          >
+                            Join us
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -256,10 +329,21 @@ const NotificationBell = ({ isOpen = false, onOpen, onClose }) => {
               })
             )}
           </div>
-          <div className="notification-footer" style={{ padding: '12px', borderTop: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', flex: 'none' }}>
-            <Link href="/notifications" onClick={() => onClose?.()} className="notification-view-all" style={{ cursor: 'pointer', color: '#fff', textAlign: 'center', padding: '12px', display: 'block', margin: '0', borderRadius: '8px', background: 'linear-gradient(90deg, rgba(0,212,255,0.3) 0%, rgba(155,223,248,0.3) 100%)', transition: 'all 0.2s ease', fontWeight: '600', textShadow: '0 0 10px rgba(155,223,248,0.5)', border: '1px solid rgba(155,223,248,0.4)', boxShadow: '0 0 15px rgba(155,223,248,0.15)' }}>
+          <div className="notification-footer" style={{ padding: '10px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.16)', flex: 'none' }}>
+            <button
+              onClick={() => {
+                try {
+                  window.dispatchEvent(new CustomEvent('auth:open', { detail: { type: 'login' } }));
+                } catch (e) {
+                  router.push('/login');
+                }
+                onClose?.();
+              }}
+              className="notification-view-all"
+              style={{ width: '100%', cursor: 'pointer', color: '#fff', textAlign: 'center', padding: '8px 10px', display: 'block', margin: '0', borderRadius: '6px', background: 'linear-gradient(90deg, rgba(0,212,255,0.18) 0%, rgba(155,223,248,0.18) 100%)', transition: 'all 0.12s ease', fontWeight: '600', fontSize: '0.95rem', border: '1px solid rgba(155,223,248,0.28)' }}
+            >
               <i className="fas fa-bell" style={{ marginRight: '8px' }}></i>View all notifications
-            </Link>
+            </button>
           </div>
         </div>
       </div>
