@@ -99,21 +99,12 @@ const authUtils = {
 };
 
 export function AuthProvider({ children }) {
-  // Initialize state instantly from localStorage for fast hydration
-  const [currentUser, setCurrentUser] = useState(() => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const saved = localStorage.getItem('currentUser');
-      return saved ? JSON.parse(saved) : null;
-    } catch (e) {
-      return null;
-    }
-  });
-  
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('isAuthenticated') === 'true';
-  });
+  // Keep auth state in-memory only. Rely on server-side rendering / server
+  // session cookies for initial auth state and call `checkAuth()` from the
+  // client to hydrate. Avoid persisting tokens or auth flags in localStorage
+  // to reduce XSS attack surface.
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   const [loading, setLoading] = useState(false);
 
@@ -128,7 +119,7 @@ export function AuthProvider({ children }) {
         timeoutId = setTimeout(() => {
           if (mounted) {
             clearTimeout(timeoutId);
-            // Don't update state on timeout, keep current state from localStorage
+            // Don't update state on timeout, keep current in-memory state
           }
         }, 3000);
         
@@ -145,10 +136,6 @@ export function AuthProvider({ children }) {
           if (mounted) {
             setCurrentUser(null);
             setIsAuthenticated(false);
-            if (typeof window !== 'undefined') {
-              localStorage.removeItem('currentUser');
-              localStorage.removeItem('isAuthenticated');
-            }
           }
           return;
         }
@@ -161,23 +148,16 @@ export function AuthProvider({ children }) {
         if (user) {
           setCurrentUser(user);
           setIsAuthenticated(true);
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('currentUser', JSON.stringify(user));
-            localStorage.setItem('isAuthenticated', 'true');
-          }
         } else {
           setCurrentUser(null);
           setIsAuthenticated(false);
-          if (typeof window !== 'undefined') {
-            localStorage.removeItem('currentUser');
-            localStorage.removeItem('isAuthenticated');
-          }
         }
       } catch (error) {
         clearTimeout(timeoutId);
         if (mounted) {
-          // On error, keep current localStorage state (don't clear it)
-          // This allows the app to continue working with cached auth state
+          // On error, keep current in-memory state. This allows the app to
+          // continue working with the cached auth state until a successful
+          // verification occurs.
         }
       }
     };
@@ -200,17 +180,9 @@ export function AuthProvider({ children }) {
     if (user) {
       setCurrentUser(user);
       setIsAuthenticated(true);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('currentUser', JSON.stringify(user));
-        localStorage.setItem('isAuthenticated', 'true');
-      }
     } else {
       setCurrentUser(null);
       setIsAuthenticated(false);
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('currentUser');
-        localStorage.removeItem('isAuthenticated');
-      }
     }
   };
 
