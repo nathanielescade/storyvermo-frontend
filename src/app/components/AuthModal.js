@@ -87,6 +87,17 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
   const router = useRouter();
   const formRef = useRef(null);
 
+  // Fields that belong to signup step 1 (basic account info)
+  const step1Fields = ['username', 'email', 'first_name', 'last_name', 'brand_name', 'password', 'password_confirm', 'gender'];
+  const hasStep1Errors = (errs) => {
+    if (!errs) return false;
+    try {
+      return step1Fields.some(f => Object.prototype.hasOwnProperty.call(errs, f) && errs[f]);
+    } catch (e) {
+      return false;
+    }
+  };
+
   // Custom styles for react-select
   const customSelectStyles = {
     control: (base, state) => ({
@@ -485,10 +496,10 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
         // Handle registration errors
         if (registerResult && registerResult.errors && Object.keys(registerResult.errors).length > 0) {
           setErrors(prev => ({ ...prev, ...registerResult.errors }));
-          // If backend returned username/email field errors, go back to step 1 so user can correct them
+          // If backend returned any step-1 field errors, go back to step 1 so user can correct them
           try {
             const fieldErrs = registerResult.errors || {};
-            if (fieldErrs.username || fieldErrs.email) {
+            if (hasStep1Errors(fieldErrs)) {
               setSignupStep(1);
               if (formRef && formRef.current) formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
@@ -497,13 +508,13 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
           const raw = registerResult.raw;
           if (raw && raw.response && raw.response.data) {
             const parsed = parseApiErrors(raw.response.data);
-            if (parsed && (parsed.username || parsed.email)) {
+            if (hasStep1Errors(parsed)) {
               setSignupStep(1);
               if (formRef && formRef.current) formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
           } else {
             const parsed = parseApiErrors(raw);
-            if (parsed && (parsed.username || parsed.email)) {
+            if (hasStep1Errors(parsed)) {
               setSignupStep(1);
               if (formRef && formRef.current) formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
             }
@@ -516,7 +527,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
       // If axios-like error, prefer response.data
       if (error && error.response && error.response.data) {
         const parsed = parseApiErrors(error.response.data);
-        if (!isLoginMode && parsed && (parsed.username || parsed.email)) {
+        if (!isLoginMode && hasStep1Errors(parsed)) {
           setSignupStep(1);
           if (formRef && formRef.current) formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
@@ -524,7 +535,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
         setErrors({ general: String(error.message) });
       } else {
         const parsed = parseApiErrors(error);
-        if (!isLoginMode && parsed && (parsed.username || parsed.email)) {
+        if (!isLoginMode && hasStep1Errors(parsed)) {
           setSignupStep(1);
           if (formRef && formRef.current) formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
