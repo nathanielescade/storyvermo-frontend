@@ -346,30 +346,35 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
     const source = payload && payload.details ? payload.details : (payload && payload.raw ? payload.raw : payload);
     // If it's an Error with message string, show general
     if (typeof source === 'string') {
-      setErrors({ general: source });
-      return;
+      const out = { general: source };
+      setErrors(out);
+      return out;
     }
 
     if (!source) {
-      setErrors({ general: 'Authentication failed' });
-      return;
+      const out = { general: 'Authentication failed' };
+      setErrors(out);
+      return out;
     }
 
     // If DRF-style { detail: '...' }
     if (typeof source.detail === 'string') {
-      setErrors({ general: source.detail });
-      return;
+      const out = { general: source.detail };
+      setErrors(out);
+      return out;
     }
 
     // If top-level message or error string
     if (typeof source.error === 'string') {
-      setErrors({ general: source.error });
-      return;
+      const out = { general: source.error };
+      setErrors(out);
+      return out;
     }
 
     if (typeof source.message === 'string') {
-      setErrors({ general: source.message });
-      return;
+      const out = { general: source.message };
+      setErrors(out);
+      return out;
     }
 
     // If object mapping field -> messages
@@ -393,10 +398,12 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
       }
 
       setErrors(prev => ({ ...prev, ...newErrors }));
-      return;
+      return newErrors;
     }
 
-    setErrors({ general: 'Authentication failed' });
+    const out = { general: 'Authentication failed' };
+    setErrors(out);
+    return out;
   };
 
   // Handle form submission
@@ -478,12 +485,28 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
         // Handle registration errors
         if (registerResult && registerResult.errors && Object.keys(registerResult.errors).length > 0) {
           setErrors(prev => ({ ...prev, ...registerResult.errors }));
+          // If backend returned username/email field errors, go back to step 1 so user can correct them
+          try {
+            const fieldErrs = registerResult.errors || {};
+            if (fieldErrs.username || fieldErrs.email) {
+              setSignupStep(1);
+              if (formRef && formRef.current) formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          } catch (e) {}
         } else if (registerResult && registerResult.raw) {
           const raw = registerResult.raw;
           if (raw && raw.response && raw.response.data) {
-            parseApiErrors(raw.response.data);
+            const parsed = parseApiErrors(raw.response.data);
+            if (parsed && (parsed.username || parsed.email)) {
+              setSignupStep(1);
+              if (formRef && formRef.current) formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
           } else {
-            parseApiErrors(raw);
+            const parsed = parseApiErrors(raw);
+            if (parsed && (parsed.username || parsed.email)) {
+              setSignupStep(1);
+              if (formRef && formRef.current) formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
           }
         } else {
           setErrors({ general: registerResult.error || 'Registration failed' });
@@ -492,11 +515,19 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
     } catch (error) {
       // If axios-like error, prefer response.data
       if (error && error.response && error.response.data) {
-        parseApiErrors(error.response.data);
+        const parsed = parseApiErrors(error.response.data);
+        if (!isLoginMode && parsed && (parsed.username || parsed.email)) {
+          setSignupStep(1);
+          if (formRef && formRef.current) formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
       } else if (error && error.message) {
         setErrors({ general: String(error.message) });
       } else {
-        parseApiErrors(error);
+        const parsed = parseApiErrors(error);
+        if (!isLoginMode && parsed && (parsed.username || parsed.email)) {
+          setSignupStep(1);
+          if (formRef && formRef.current) formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
       }
     } finally {
       setLoading(false);

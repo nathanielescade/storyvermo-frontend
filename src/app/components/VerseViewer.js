@@ -444,14 +444,14 @@ const VerseViewer = ({
   }, [isOpen]);
 
   // Subtle auto-nudge: when the viewer opens and there are more verses below the current one,
-  // after 2s gently scroll the container down a bit then return it — to hint that the user
-  // can scroll for more. Only run when not on the last verse and the user hasn't already
-  // interacted by scrolling.
+  // after 2s gently scroll the container down a bit using native smooth scrolling, then
+  // scroll back. This is simpler and more likely to be visible across browsers.
   useEffect(() => {
     if (!isOpen) return;
     const verses = storyRef.current?.verses || story?.verses || [];
     if (!Array.isArray(verses) || verses.length <= 1) return;
     if (currentVerseIndex >= verses.length - 1) return; // last verse — don't nudge
+
     const el = containerRef.current;
     if (!el) return;
 
@@ -460,61 +460,85 @@ const VerseViewer = ({
     const nudgeTimeout = setTimeout(() => {
       if (userScrolledRef.current) return; // user already scrolled — abort
 
-      const initial = el.scrollTop || 0;
-      const nudge = Math.min(80, Math.round(el.clientHeight * 0.08));
-      const duration = 600;
-      let rafId = null;
-      let start = null;
+      const nudge = Math.min(60, Math.round(el.clientHeight * 0.06));
 
-      const stepDown = (ts) => {
-        if (!start) start = ts;
-        const p = Math.min(1, (ts - start) / duration);
-        el.scrollTo({ top: initial + nudge * p, behavior: 'auto' });
-        if (p < 1) rafId = requestAnimationFrame(stepDown);
-      };
+      // Temporarily disable scroll-snap so the nudge doesn't trigger full-snap to next verse
+      const prevSnap = el.style.scrollSnapType || '';
+      try { el.style.scrollSnapType = 'none'; } catch (e) {}
 
-      // perform the nudge
-      rafId = requestAnimationFrame(stepDown);
-
-      // after a short pause, animate back to original position
-      const returnTimer = setTimeout(() => {
-        cancelAnimationFrame(rafId);
-        let backStart = null;
-        const backDuration = 500;
-        const stepUp = (ts2) => {
-          if (!backStart) backStart = ts2;
-          const p2 = Math.min(1, (ts2 - backStart) / backDuration);
-          el.scrollTo({ top: initial + nudge * (1 - p2), behavior: 'auto' });
-          if (p2 < 1) requestAnimationFrame(stepUp);
-        };
-        requestAnimationFrame(stepUp);
-      }, duration + 400);
-
-      // cleanup helpers
-      const cleanup = () => {
-        try { cancelAnimationFrame(rafId); } catch (e) {}
-        try { clearTimeout(returnTimer); } catch (e) {}
-      };
-
-      // If the user scrolls while animating, stop animation
-      const onUserScroll = () => {
+      // Listen for user scroll during the nudge; if detected, abort returning
+      const onUserScrollDuring = () => {
         userScrolledRef.current = true;
-        cleanup();
       };
-      el.addEventListener('scroll', onUserScroll, { passive: true });
+      el.addEventListener('scroll', onUserScrollDuring, { passive: true });
 
-      // Remove listener after animations finished
-      setTimeout(() => {
-        try { el.removeEventListener('scroll', onUserScroll); } catch (e) {}
-      }, duration + 1000 + 100);
+      // Perform small native smooth scroll down then back after a short pause
+      try {
+        el.scrollBy({ top: nudge, behavior: 'smooth' });
+      } catch (e) {
+        el.scrollTop = Math.min(el.scrollHeight, el.scrollTop + nudge);
+      }
+
+      const backDelay = 1200; // wait for the smooth scroll to finish + small pause
+      const returnTimer = setTimeout(() => {
+        if (!userScrolledRef.current) {
+          try {
+            el.scrollBy({ top: -nudge, behavior: 'smooth' });
+          } catch (e) {
+            el.scrollTop = Math.max(0, el.scrollTop - nudge);
+          }
+        }
+        // restore scroll-snap
+        try { el.style.scrollSnapType = prevSnap; } catch (e) {}
+        try { el.removeEventListener('scroll', onUserScrollDuring); } catch (e) {}
+      }, backDelay);
+
+      // Safety: ensure scroll-snap is restored eventually
+      const restoreTimer = setTimeout(() => {
+        try { el.style.scrollSnapType = prevSnap; } catch (e) {}
+        try { el.removeEventListener('scroll', onUserScrollDuring); } catch (e) {}
+      }, backDelay + 600);
+
+      // Clear timers on unmount
+      const clearAll = () => {
+        try { clearTimeout(returnTimer); } catch (e) {}
+        try { clearTimeout(restoreTimer); } catch (e) {}
+        try { el.removeEventListener('scroll', onUserScrollDuring); } catch (e) {}
+        try { el.style.scrollSnapType = prevSnap; } catch (e) {}
+      };
+
+      // Attach cleanup to closure so unmount can stop timers
+      el.__nudgeClear = clearAll;
 
     }, 2000);
 
     return () => {
       try { clearTimeout(nudgeTimeout); } catch (e) {}
+      // Run any attached cleanup on the element
+      try { if (containerRef.current && typeof containerRef.current.__nudgeClear === 'function') containerRef.current.__nudgeClear(); } catch (e) {}
       userScrolledRef.current = false;
     };
   }, [isOpen, currentVerseIndex, story]);
+
+  // Navigation helpers: scroll to specific verse index (full snap)
+  const scrollToVerseIndex = (targetIndex) => {
+    if (!verseBlockRefs.current || !verseBlockRefs.current.length) return;
+    const idx = Math.max(0, Math.min(targetIndex, verseBlockRefs.current.length - 1));
+    const el = verseBlockRefs.current[idx];
+    if (el && el.scrollIntoView) {
+      try {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } catch (e) {
+        // fallback: compute offset within container
+        if (containerRef.current) {
+          containerRef.current.scrollTop = el.offsetTop;
+        }
+      }
+    }
+  };
+
+  const scrollToNextVerse = () => scrollToVerseIndex(currentVerseIndex + 1);
+  const scrollToPrevVerse = () => scrollToVerseIndex(currentVerseIndex - 1);
 
   // Reset state when modal opens
   useEffect(() => {
@@ -1024,6 +1048,26 @@ const VerseViewer = ({
         </div>
       )}
       
+      {/* Left-side verse navigation arrows (prev/next) */}
+      <div className="absolute left-3 z-50 flex flex-col gap-2 pointer-events-auto" style={{ top: 'calc(50% + 48px)' }}>
+        <button
+          aria-label="Previous verse"
+          onClick={(e) => { e.stopPropagation(); scrollToPrevVerse(); }}
+          disabled={currentVerseIndex <= 0}
+          className={`w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center shadow-lg border border-white/10 transition-opacity ${currentVerseIndex <= 0 ? 'opacity-40 cursor-not-allowed' : 'hover:scale-105'}`}
+        >
+          <i className="fas fa-chevron-up"></i>
+        </button>
+        <button
+          aria-label="Next verse"
+          onClick={(e) => { e.stopPropagation(); scrollToNextVerse(); }}
+          disabled={story?.verses ? currentVerseIndex >= story.verses.length - 1 : true}
+          className={`w-10 h-10 rounded-full bg-black/50 text-white flex items-center justify-center shadow-lg border border-white/10 transition-opacity ${story?.verses && currentVerseIndex >= story.verses.length - 1 ? 'opacity-40 cursor-not-allowed' : 'hover:scale-105'}`}
+        >
+          <i className="fas fa-chevron-down"></i>
+        </button>
+      </div>
+
       {/* Vertical scroll container for verses - TikTok style with native CSS scroll-snap */}
       <div 
         ref={containerRef}
@@ -1077,7 +1121,8 @@ const VerseViewer = ({
                   {/* Left scroll indicator - hidden in focus mode */}
                   {!focusMode && hasMultipleMoments && currentMomentIndex > 0 && (
                     <button 
-                      className="absolute left-4 top-1/2 transform -translate-y-1/2 z-10 bg-black/50 backdrop-blur-lg rounded-full p-3 animate-pulse hover:bg-black/70 transition-all"
+                      className="absolute left-4 z-10 bg-black/50 backdrop-blur-lg rounded-full p-3 animate-pulse hover:bg-black/70 transition-all"
+                      style={{ top: '28%' }}
                       onClick={(e) => {
                         e.stopPropagation();
                         goToPreviousMoment();
@@ -1090,7 +1135,8 @@ const VerseViewer = ({
                   {/* Right scroll indicator - hidden in focus mode */}
                   {!focusMode && hasMultipleMoments && currentMomentIndex < verse.moments.length - 1 && (
                     <button 
-                      className="absolute right-4 top-1/2 transform -translate-y-1/2 z-10 bg-black/50 backdrop-blur-lg rounded-full p-3 animate-pulse hover:bg-black/70 transition-all"
+                      className="absolute right-4 z-10 bg-black/50 backdrop-blur-lg rounded-full p-3 animate-pulse hover:bg-black/70 transition-all"
+                      style={{ top: '28%' }}
                       onClick={(e) => {
                         e.stopPropagation();
                         goToNextMoment();
