@@ -17,6 +17,9 @@ const DEFAULT_TAGS = ['Fantasy', 'Adventure', 'Mystery', 'Romance', 'Sci-Fi',
 // Title emoji quick-bar (moved 😞 to 7th position)
 const TITLE_EMOJI_BAR = ['🔥','💯','🎉','😀','😍','🙌','😞','🌌'];
 
+// Description character limit
+const DESCRIPTION_CHAR_LIMIT = 700;
+
 // Helper function to get CSRF token
 const getCsrfToken = () => {
   if (typeof document === 'undefined') return '';
@@ -430,6 +433,7 @@ const StoryFormModal = ({
   const [imageFile, setImageFile] = useState(null);
   const [title, setTitle] = useState(editingStory?.title || editingVerse?.title || '');
   const titleTextareaRef = useRef(null);
+  const titleCaretRef = useRef({ start: 0, end: 0 });
   const [description, setDescription] = useState(editingStory?.description || editingVerse?.description || '');
   const [verses, setVerses] = useState(editingVerse ? 
     [{ 
@@ -578,16 +582,22 @@ const StoryFormModal = ({
   // Insert emoji into title textarea without forcing focus (keeps mobile keyboard visible)
   const insertTitleEmoji = (emoji) => {
     try {
-      const active = typeof document !== 'undefined' ? document.activeElement : null;
       const ta = titleTextareaRef.current;
-      if (active === ta && ta) {
-        const start = ta.selectionStart ?? ta.value.length;
-        const end = ta.selectionEnd ?? start;
+      if (ta) {
+        const caret = titleCaretRef.current || {};
+        const start = (typeof caret.start === 'number' ? caret.start : (ta.selectionStart ?? ta.value.length));
+        const end = (typeof caret.end === 'number' ? caret.end : (ta.selectionEnd ?? start));
         const newVal = (title || '').slice(0, start) + emoji + (title || '').slice(end);
         setTitle(newVal);
         requestAnimationFrame(() => {
-          try { const pos = start + emoji.length; ta.setSelectionRange(pos, pos); } catch (e) {}
+          try {
+            if (document.activeElement === ta) {
+              const pos = start + emoji.length;
+              ta.setSelectionRange(pos, pos);
+            }
+          } catch (e) {}
         });
+        titleCaretRef.current = { start: start + emoji.length, end: start + emoji.length };
         return;
       }
       setTitle((s) => (s || '') + emoji);
@@ -1684,28 +1694,43 @@ const StoryFormModal = ({
                       ref={titleTextareaRef}
                       value={title}
                       onChange={(e) => {
-                        // Enforce 50 character limit
-                        if (e.target.value.length <= 50) {
+                        // Enforce 150 character limit
+                        if (e.target.value.length <= 150) {
                           setTitle(e.target.value);
                           if (validationErrors.title) {
                             setValidationErrors(prev => ({...prev, title: null}));
                           }
                         }
-                        // Auto-expand textarea
+                        // Auto-expand textarea (same behavior as comment textarea)
                         const textarea = e.target;
                         textarea.style.height = 'auto';
-                        const newHeight = Math.min(textarea.scrollHeight, 42); // ~1.5 lines, expands to 2 when needed
+                        const MAX_TITLE_HEIGHT = 120;
+                        const newHeight = Math.min(textarea.scrollHeight, MAX_TITLE_HEIGHT); // allow multi-line expansion up to ~120px
                         textarea.style.height = newHeight + 'px';
+                        // Allow vertical scrolling when we've hit the max height
+                        textarea.style.overflowY = newHeight >= MAX_TITLE_HEIGHT ? 'auto' : 'hidden';
                       }}
                       rows={1}
-                      className={`w-full px-5 py-2 bg-slate-900/60 border rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 text-lg resize-none overflow-hidden ${
+                      onSelect={(e) => {
+                        try { const ta = e.target; titleCaretRef.current = { start: ta.selectionStart, end: ta.selectionEnd }; } catch (err) {}
+                      }}
+                      onKeyUp={(e) => {
+                        try { const ta = e.target; titleCaretRef.current = { start: ta.selectionStart, end: ta.selectionEnd }; } catch (err) {}
+                      }}
+                      onMouseUp={(e) => {
+                        try { const ta = e.target; titleCaretRef.current = { start: ta.selectionStart, end: ta.selectionEnd }; } catch (err) {}
+                      }}
+                      onTouchEnd={(e) => {
+                        try { const ta = e.target; titleCaretRef.current = { start: ta.selectionStart, end: ta.selectionEnd }; } catch (err) {}
+                      }}
+                      className={`w-full px-5 py-2 bg-slate-900/60 border rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 text-lg resize-none overflow-y-auto ${
                         validationErrors.title ? 'border-red-500/50' : 'border-gray-700'
                       }`}
                     />
                     <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500/5 to-blue-500/5 opacity-0 pointer-events-none transition-opacity duration-300"></div>
                   </div>
-                  {title.length >= 50 && (
-                    <p className="text-yellow-400 text-sm mt-2">⚠️ Character limit reached (50 characters max)</p>
+                  {title.length >= 150 && (
+                    <p className="text-yellow-400 text-sm mt-2">⚠️ Character limit reached (150 characters max)</p>
                   )}
                   {validationErrors.title && (
                     <p className="text-red-400 text-sm mt-2">{validationErrors.title}</p>
@@ -1722,7 +1747,9 @@ const StoryFormModal = ({
                       placeholder="Share your story, thoughts, or experiences..."
                       value={description}
                       onChange={(e) => {
-                        setDescription(e.target.value);
+                        // enforce max length
+                        const nextVal = e.target.value.slice(0, DESCRIPTION_CHAR_LIMIT);
+                        setDescription(nextVal);
                         // Auto-expand textarea
                         const textarea = e.target;
                         textarea.style.height = 'auto';
@@ -1734,6 +1761,9 @@ const StoryFormModal = ({
                     ></textarea>
                     <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500/5 to-blue-500/5 opacity-0 pointer-events-none transition-opacity duration-300"></div>
                   </div>
+                  {description.length >= DESCRIPTION_CHAR_LIMIT && (
+                    <p className="text-yellow-400 text-sm mt-2">⚠️ Character limit reached ({DESCRIPTION_CHAR_LIMIT} characters max)</p>
+                  )}
                 </div>
                 
                 <TagInput 

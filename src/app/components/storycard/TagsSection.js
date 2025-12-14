@@ -1,5 +1,7 @@
 import React from 'react';
 
+const DEFAULT_TAG_NAME = 'Uncategorized';
+
 const TagsSection = ({ 
     story, 
     currentTag, 
@@ -22,10 +24,16 @@ const TagsSection = ({
     };
 
     const currentTagSlug = toSlug(currentTag);
+
+    // If the story has no tags, show a single default tag for display purposes.
+    const tagList = (story && Array.isArray(story.tags) && story.tags.length > 0)
+        ? story.tags
+        : [DEFAULT_TAG_NAME];
+
     return (
         <div className="scene-tags-container">
             <div className="scene-tags">
-                {story.tags && Array.isArray(story.tags) && story.tags.map(tag => {
+                {tagList.map(tag => {
                     const tagName = getTagName(tag);
                     const tagId = getTagId(tag);
                     const tagSlug = toSlug(tagName);

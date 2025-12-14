@@ -35,12 +35,27 @@ export default function useMain(initialState = null) {
             isPrefetchingRef.current = true;
             const params = { 
                 cursor,
-                limit: 5,
-                tag
+                limit: 5
             };
+
+            // Special-case: if requesting the 'uncategorized' tag, do not pass a tag
+            // to the API (server likely doesn't support an 'uncategorized' filter).
+            // We'll filter client-side for stories that have no tags.
+            const tagSlug = String(tag || '').toLowerCase().replace(/\s+/g,'-');
+            const isUntagged = tagSlug === 'uncategorized';
+            if (!isUntagged && tag) params.tag = tag;
             
             const result = await storiesApi.getPaginatedStories(params);
             let prefetched = result.results || [];
+
+            // If we're loading the 'uncategorized' view, filter to stories with no tags
+            if (isUntagged) {
+                prefetched = prefetched.filter(s => {
+                    if (Array.isArray(s.tags)) return s.tags.length === 0;
+                    if (typeof s.tags_count === 'number') return s.tags_count === 0;
+                    return false;
+                });
+            }
             
             // 🎯 OPTIMIZATION: Strip verse images from prefetched stories
             prefetched = stripVerseImages(prefetched);
@@ -67,11 +82,14 @@ export default function useMain(initialState = null) {
             setCurrentTag(tag);
             lastFetchTagRef.current = tag;
 
+            const tagSlug = String(tag || '').toLowerCase().replace(/\s+/g,'-');
+            const isUntagged = tagSlug === 'uncategorized';
+
             const params = { 
                 cursor: null, // Reset cursor for new tag
-                limit: 5,
-                tag: tag
+                limit: 5
             };
+            if (!isUntagged && tag) params.tag = tag;
             if (force) params._t = Date.now();
 
             const result = await storiesApi.getPaginatedStories(params);
@@ -116,6 +134,82 @@ export default function useMain(initialState = null) {
             // Images will be lazy-loaded when user opens VerseViewer
             fetched = stripVerseImages(fetched);
 
+            // If we're showing the 'uncategorized' tag, filter fetched results to stories with no tags.
+            if (isUntagged) {
+                const MIN_UNTAGGED_TO_SHOW = 6; // try to accumulate this many untagged stories
+
+                const filterUntagged = (list) => list.filter(s => {
+                    if (Array.isArray(s.tags)) return s.tags.length === 0;
+                    if (typeof s.tags_count === 'number') return s.tags_count === 0;
+                    return false;
+                });
+
+                let untagged = filterUntagged(fetched);
+
+                // If we didn't gather enough untagged stories from the first page, fetch additional pages
+                // (bounded attempts) and accumulate until we have a decent batch to display.
+                if ((untagged.length < MIN_UNTAGGED_TO_SHOW) && result.next_cursor) {
+                    let accum = [...untagged];
+                    let cursor = result.next_cursor;
+                    let attempts = 0;
+                    const MAX_ATTEMPTS = 6;
+
+                    while ((accum.length < MIN_UNTAGGED_TO_SHOW) && cursor && attempts < MAX_ATTEMPTS) {
+                        try {
+                            const nextParams = { cursor, limit: 8 };
+                            const nextResult = await storiesApi.getPaginatedStories(nextParams);
+                            let page = nextResult.results || [];
+
+                            // Enrich page if needed (same logic as above)
+                            const pageNeedsEnrichment = page.some(story => !Array.isArray(story.tags) && story.tags_count === undefined);
+                            if (pageNeedsEnrichment) {
+                                try {
+                                    page = await Promise.all(
+                                        page.map(async (story) => {
+                                            if (!Array.isArray(story.tags) && story.tags_count === undefined) {
+                                                try {
+                                                    const fullStory = await storiesApi.getStoryBySlug(story.slug);
+                                                    return fullStory;
+                                                } catch (e) {
+                                                    return story;
+                                                }
+                                            }
+                                            return story;
+                                        })
+                                    );
+                                } catch (e) {
+                                    // ignore enrichment failures
+                                }
+                            }
+
+                            page = stripVerseImages(page);
+
+                            const filteredPage = filterUntagged(page);
+                            if (filteredPage.length > 0) {
+                                // Append new unique stories
+                                const existingIds = new Set(accum.map(s => s.id));
+                                filteredPage.forEach(s => {
+                                    if (!existingIds.has(s.id)) accum.push(s);
+                                });
+                                // update next cursor to continue pagination from here
+                                result.next_cursor = nextResult.next_cursor || null;
+                            }
+
+                            cursor = nextResult.next_cursor || null;
+                            attempts += 1;
+                        } catch (e) {
+                            break; // stop trying on error
+                        }
+                    }
+
+                    if (accum.length > 0) {
+                        untagged = accum;
+                    }
+                }
+
+                fetched = untagged;
+            }
+
             setStories(fetched);
             setNextCursor(result.next_cursor || null);
             setHasMore(result.has_more !== false);
@@ -139,16 +233,19 @@ export default function useMain(initialState = null) {
         
         try {
             isPrefetchingRef.current = true;
+            const tagSlug = String(tag || '').toLowerCase().replace(/\s+/g,'-');
+            const isUntagged = tagSlug === 'uncategorized';
+
             const params = { 
                 cursor,
-                limit: 5,
-                tag
+                limit: 5
             };
-            
+            if (!isUntagged && tag) params.tag = tag;
+
             const result = await storiesApi.getPaginatedStories(params);
             let prefetched = result.results || [];
             
-            // 🚀 OPTIMIZATION: Only enrich prefetched stories that are missing tag data
+                        // 🚀 OPTIMIZATION: Only enrich prefetched stories that are missing tag data
             const needsEnrichment = prefetched.some(story => 
               !Array.isArray(story.tags) && story.tags_count === undefined
             );
@@ -173,6 +270,15 @@ export default function useMain(initialState = null) {
                 }
             }
             
+            // If we're loading the 'uncategorized' view, filter to stories with no tags
+            if (isUntagged) {
+                prefetched = prefetched.filter(s => {
+                    if (Array.isArray(s.tags)) return s.tags.length === 0;
+                    if (typeof s.tags_count === 'number') return s.tags_count === 0;
+                    return false;
+                });
+            }
+
             // 🎯 OPTIMIZATION: Strip verse images from prefetched stories
             prefetched = stripVerseImages(prefetched);
             
@@ -220,12 +326,15 @@ export default function useMain(initialState = null) {
             }
             
             // 🔥 FALLBACK: If no prefetched data, fetch now (shouldn't happen often)
+            const tagSlug = String(currentTag || '').toLowerCase().replace(/\s+/g,'-');
+            const isUntagged = tagSlug === 'uncategorized';
+
             const params = { 
                 cursor: nextCursor,
-                limit: 5,
-                tag: currentTag
+                limit: 5
             };
-            
+            if (!isUntagged && currentTag) params.tag = currentTag;
+
             const result = await storiesApi.getPaginatedStories(params);
             let newStories = result.results || [];
             
@@ -254,6 +363,15 @@ export default function useMain(initialState = null) {
                 }
             }
             
+            // If we're loading the 'uncategorized' tag, filter to stories with no tags
+            if (isUntagged) {
+                newStories = newStories.filter(s => {
+                    if (Array.isArray(s.tags)) return s.tags.length === 0;
+                    if (typeof s.tags_count === 'number') return s.tags_count === 0;
+                    return false;
+                });
+            }
+
             // 🎯 OPTIMIZATION: Strip verse images from newly fetched stories
             newStories = stripVerseImages(newStories);
             

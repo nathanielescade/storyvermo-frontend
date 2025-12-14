@@ -27,6 +27,7 @@ const CommentModal = ({
   const contentRef = useRef(null);
   const commentRefs = useRef({}); // Refs for each comment
   const commentTextareaRef = useRef(null);
+  const commentCaretRef = useRef({ start: 0, end: 0 });
   const [emojiPickerOpen, setEmojiPickerOpen] = useState(false);
   const [emojiTarget, setEmojiTarget] = useState(null); // unused now - kept for compatibility
 
@@ -200,25 +201,30 @@ const CommentModal = ({
 
   const insertEmojiAtCursor = (emoji) => {
     try {
-      const active = typeof document !== 'undefined' ? document.activeElement : null;
       const commentTa = commentTextareaRef.current;
 
-      // Prefer inserting into the focused main textarea without focusing it (avoid forcing mobile keyboard).
-      if (active === commentTa && commentTa) {
-        const start = commentTa.selectionStart ?? commentTa.value.length;
-        const end = commentTa.selectionEnd ?? start;
+      if (commentTa) {
+        // Use last known caret position (updated via onSelect/onKeyUp) if available
+        const caret = commentCaretRef.current || {};
+        const start = (typeof caret.start === 'number' ? caret.start : (commentTa.selectionStart ?? commentTa.value.length));
+        const end = (typeof caret.end === 'number' ? caret.end : (commentTa.selectionEnd ?? start));
         const newVal = (newComment || '').slice(0, start) + emoji + (newComment || '').slice(end);
         setNewComment(newVal);
+        // Try to restore selection only if element is focused
         requestAnimationFrame(() => {
           try {
-            const pos = start + emoji.length;
-            commentTa.setSelectionRange(pos, pos);
+            if (document.activeElement === commentTa) {
+              const pos = start + emoji.length;
+              commentTa.setSelectionRange(pos, pos);
+            }
           } catch (e) {}
         });
+        // update caret ref to new position
+        commentCaretRef.current = { start: start + emoji.length, end: start + emoji.length };
         return;
       }
 
-      // If no textarea is focused, append to main comment textarea without focusing it.
+      // Fallback append to comment
       setNewComment((s) => (s || '') + emoji);
     } catch (err) {
       // Fallback append to comment
@@ -992,6 +998,30 @@ const CommentModal = ({
               placeholder="Add a comment..."
               rows={1}
               onFocus={() => { /* intentionally do not open keyboard/picker */ }}
+              onSelect={(e) => {
+                try {
+                  const ta = e.target;
+                  commentCaretRef.current = { start: ta.selectionStart, end: ta.selectionEnd };
+                } catch (err) {}
+              }}
+              onKeyUp={(e) => {
+                try {
+                  const ta = e.target;
+                  commentCaretRef.current = { start: ta.selectionStart, end: ta.selectionEnd };
+                } catch (err) {}
+              }}
+              onMouseUp={(e) => {
+                try {
+                  const ta = e.target;
+                  commentCaretRef.current = { start: ta.selectionStart, end: ta.selectionEnd };
+                } catch (err) {}
+              }}
+              onTouchEnd={(e) => {
+                try {
+                  const ta = e.target;
+                  commentCaretRef.current = { start: ta.selectionStart, end: ta.selectionEnd };
+                } catch (err) {}
+              }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
