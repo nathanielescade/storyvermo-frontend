@@ -1,6 +1,6 @@
 import React from 'react';
 
-const DEFAULT_TAG_NAME = 'Uncategorized';
+const DEFAULT_TAG_NAME = 'Untagged';
 
 const TagsSection = ({ 
     story, 

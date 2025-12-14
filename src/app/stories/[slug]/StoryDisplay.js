@@ -56,7 +56,13 @@ export default function StoryDisplay({ initialStory, slug }) {
     }
 
     try {
-      handleTagSwitch(tagName);
+      // Dispatch a global tag switch event so the main feed's useMain handles the change.
+      try {
+        window.dispatchEvent(new CustomEvent('tag:switch', { detail: { tag: tagName } }));
+      } catch (e) {
+        // Fallback: call local handler if dispatch fails
+        try { handleTagSwitch(tagName); } catch (err) { /* ignore */ }
+      }
     } catch (e) {
       // ignore
     }

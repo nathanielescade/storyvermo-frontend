@@ -187,13 +187,29 @@ export function NotificationsClient() {
       }
     }
 
-    // Navigate to related content if available - prefer slugs, fallback to id
-    if (notification.story) {
-      const slug = notification.story.slug || notification.story?.slugified || notification.story.id;
-      router.push(`/story/${slug}`);
-    } else if (notification.verse) {
-      const slug = notification.verse.slug || notification.verse?.slugified || notification.verse.id;
-      router.push(`/verse/${slug}`);
+    // Navigate to related content if available - prefer story+verse context when possible
+    const verse = notification.verse;
+    const story = notification.story;
+
+    const verseId = verse?.id || verse?.pk || verse?.verse_id || verse?.public_id || verse?.publicId || verse?.public_id;
+    const storySlug = (story && (story.slug || story.slugified || story.story_slug))
+      || (verse && (verse.story_slug || (verse.story && (verse.story.slug || verse.story.story_slug))));
+
+    if (storySlug && verseId) {
+      // Open story page and jump to the verse via query param (matches Verses page links)
+      router.push(`/stories/${encodeURIComponent(storySlug)}/?verse=${encodeURIComponent(verseId)}`);
+      return;
+    }
+
+    if (story) {
+      const slug = story.slug || story.slugified || story.id;
+      router.push(`/stories/${encodeURIComponent(slug)}`);
+      return;
+    }
+
+    if (verseId) {
+      router.push(`/verses/${encodeURIComponent(verseId)}`);
+      return;
     }
   };
 

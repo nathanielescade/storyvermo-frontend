@@ -158,13 +158,18 @@ const NotificationBell = ({ isOpen = false, onOpen, onClose }) => {
   const getNotificationRoute = (notification) => {
     if (notification.story) {
       const slug = notification.story.slug || notification.story?.slugified || notification.story.id;
-      return `/story/${slug}`;
+      return `/stories/${slug}`;
     } else if (notification.verse) {
-      const slug = notification.verse.slug || notification.verse?.slugified || notification.verse.id;
-      return `/verse/${slug}`;
+      const verseId = notification.verse.id || notification.verse?.pk || notification.verse?.verse_id || notification.verse?.public_id;
+      const storySlug = notification.verse.story_slug || notification.verse?.story?.slug || notification.story?.slug;
+      if (storySlug && verseId) return `/stories/${encodeURIComponent(storySlug)}/?verse=${encodeURIComponent(verseId)}`;
+      if (verseId) return `/verses/${encodeURIComponent(verseId)}`;
+      const slug = notification.verse.slug || notification.verse?.slugified || notification.verse?.id || '';
+      return `/verses/${encodeURIComponent(slug)}`;
     } else if (notification.sender) {
       const username = notification.sender.username || notification.sender.slug || notification.sender.id;
-      return `/profile/${username}`;
+      // Profiles are at the root `/${username}` route
+      return `/${username}`;
     }
     return '/notifications';
   };

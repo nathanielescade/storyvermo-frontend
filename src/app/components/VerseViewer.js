@@ -176,6 +176,7 @@ const VerseViewer = ({
   const contentRef = useRef(null);
   // Ref for each verse block
   const verseBlockRefs = useRef([]);
+  const userScrolledRef = useRef(false);
   const momentsContainerRef = useRef(null);
   
   // Touch tracking for moments carousel
@@ -429,6 +430,7 @@ const VerseViewer = ({
   // Hide scroll hint when user scrolls
   useEffect(() => {
     const handleScroll = () => {
+      userScrolledRef.current = true;
       setShowScrollHint(false);
     };
 
@@ -440,6 +442,79 @@ const VerseViewer = ({
       };
     }
   }, [isOpen]);
+
+  // Subtle auto-nudge: when the viewer opens and there are more verses below the current one,
+  // after 2s gently scroll the container down a bit then return it — to hint that the user
+  // can scroll for more. Only run when not on the last verse and the user hasn't already
+  // interacted by scrolling.
+  useEffect(() => {
+    if (!isOpen) return;
+    const verses = storyRef.current?.verses || story?.verses || [];
+    if (!Array.isArray(verses) || verses.length <= 1) return;
+    if (currentVerseIndex >= verses.length - 1) return; // last verse — don't nudge
+    const el = containerRef.current;
+    if (!el) return;
+
+    userScrolledRef.current = false;
+
+    const nudgeTimeout = setTimeout(() => {
+      if (userScrolledRef.current) return; // user already scrolled — abort
+
+      const initial = el.scrollTop || 0;
+      const nudge = Math.min(80, Math.round(el.clientHeight * 0.08));
+      const duration = 600;
+      let rafId = null;
+      let start = null;
+
+      const stepDown = (ts) => {
+        if (!start) start = ts;
+        const p = Math.min(1, (ts - start) / duration);
+        el.scrollTo({ top: initial + nudge * p, behavior: 'auto' });
+        if (p < 1) rafId = requestAnimationFrame(stepDown);
+      };
+
+      // perform the nudge
+      rafId = requestAnimationFrame(stepDown);
+
+      // after a short pause, animate back to original position
+      const returnTimer = setTimeout(() => {
+        cancelAnimationFrame(rafId);
+        let backStart = null;
+        const backDuration = 500;
+        const stepUp = (ts2) => {
+          if (!backStart) backStart = ts2;
+          const p2 = Math.min(1, (ts2 - backStart) / backDuration);
+          el.scrollTo({ top: initial + nudge * (1 - p2), behavior: 'auto' });
+          if (p2 < 1) requestAnimationFrame(stepUp);
+        };
+        requestAnimationFrame(stepUp);
+      }, duration + 400);
+
+      // cleanup helpers
+      const cleanup = () => {
+        try { cancelAnimationFrame(rafId); } catch (e) {}
+        try { clearTimeout(returnTimer); } catch (e) {}
+      };
+
+      // If the user scrolls while animating, stop animation
+      const onUserScroll = () => {
+        userScrolledRef.current = true;
+        cleanup();
+      };
+      el.addEventListener('scroll', onUserScroll, { passive: true });
+
+      // Remove listener after animations finished
+      setTimeout(() => {
+        try { el.removeEventListener('scroll', onUserScroll); } catch (e) {}
+      }, duration + 1000 + 100);
+
+    }, 2000);
+
+    return () => {
+      try { clearTimeout(nudgeTimeout); } catch (e) {}
+      userScrolledRef.current = false;
+    };
+  }, [isOpen, currentVerseIndex, story]);
 
   // Reset state when modal opens
   useEffect(() => {

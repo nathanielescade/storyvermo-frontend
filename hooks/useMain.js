@@ -38,11 +38,11 @@ export default function useMain(initialState = null) {
                 limit: 5
             };
 
-            // Special-case: if requesting the 'uncategorized' tag, do not pass a tag
-            // to the API (server likely doesn't support an 'uncategorized' filter).
+            // Special-case: if requesting the 'untagged' tag, do not pass a tag
+            // to the API (server likely doesn't support an 'untagged' filter).
             // We'll filter client-side for stories that have no tags.
             const tagSlug = String(tag || '').toLowerCase().replace(/\s+/g,'-');
-            const isUntagged = tagSlug === 'uncategorized';
+            const isUntagged = tagSlug === 'untagged';
             if (!isUntagged && tag) params.tag = tag;
             
             const result = await storiesApi.getPaginatedStories(params);
@@ -83,7 +83,7 @@ export default function useMain(initialState = null) {
             lastFetchTagRef.current = tag;
 
             const tagSlug = String(tag || '').toLowerCase().replace(/\s+/g,'-');
-            const isUntagged = tagSlug === 'uncategorized';
+            const isUntagged = tagSlug === 'untagged';
 
             const params = { 
                 cursor: null, // Reset cursor for new tag
