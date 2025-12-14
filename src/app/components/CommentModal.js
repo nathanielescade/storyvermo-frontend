@@ -344,7 +344,17 @@ const CommentModal = ({
         // try a quick refresh (useful if auth changed)
         await refreshAuth?.();
         if (!isAuthenticated) {
-          setError('You must be logged in to comment');
+          // Open the global auth modal and pass a pending comment action so
+          // GlobalShell/other listeners can resume the action after login.
+          try {
+            window.dispatchEvent(new CustomEvent('auth:open', { detail: {
+              type: 'comment',
+              data: { storySlug: post.slug, content: commentData.content, action: 'add' }
+            } }));
+          } catch (e) {
+            // Fallback: set a user-visible error
+            setError('You must be logged in to comment');
+          }
           return;
         }
       }
@@ -503,7 +513,16 @@ const CommentModal = ({
       if (!isAuthenticated) {
         await refreshAuth?.();
         if (!isAuthenticated) {
-          setError('You must be logged in to reply');
+          // Open the auth modal and include pending reply data so comment can be
+          // retried after successful auth.
+          try {
+            window.dispatchEvent(new CustomEvent('auth:open', { detail: {
+              type: 'comment',
+              data: { storySlug: post.slug, content: (newComment || '').trim(), action: 'reply', parentId: parentComment.public_id }
+            } }));
+          } catch (e) {
+            setError('You must be logged in to reply');
+          }
           return;
         }
       }
@@ -581,6 +600,47 @@ const CommentModal = ({
       }
     }
   };
+
+  // Listen for global auth success events so we can resume pending comment actions
+  useEffect(() => {
+    const handler = async (e) => {
+      try {
+        const detail = e?.detail || {};
+        if (!detail || detail.type !== 'comment') return;
+        const data = detail.data || {};
+        if (!data || data.storySlug !== post?.slug) return;
+
+        // Refresh auth state to ensure `isAuthenticated` is up-to-date
+        try { await refreshAuth?.(); } catch (err) {}
+
+        // If the event carries content, restore it into the textarea
+        if (data.content) {
+          setNewComment(data.content);
+        }
+
+        // If this was a reply action, find the parent comment and trigger reply
+        if (data.action === 'reply' && data.parentId) {
+          // try to find the parent in current comments
+          const parent = comments.find(c => c.public_id === data.parentId);
+          if (parent) {
+            // set replyingTo so handleAddReply will attach correctly
+            setReplyingTo(parent);
+            // small delay to ensure state updates
+            setTimeout(() => handleAddReply(parent), 80);
+            return;
+          }
+        }
+
+        // Default: try to add comment
+        setTimeout(() => handleAddComment(), 80);
+      } catch (err) {
+        // ignore errors from auth handler
+      }
+    };
+
+    window.addEventListener('auth:success', handler);
+    return () => window.removeEventListener('auth:success', handler);
+  }, [post?.slug, comments, handleAddComment, handleAddReply, refreshAuth]);
   
   const formatTimeAgo = (dateString) => {
     const date = new Date(dateString);
@@ -963,7 +1023,7 @@ const CommentModal = ({
         
         {/* Emoji quick-bar (6 emojis) */}
         <div className="px-6 pt-4 pb-2">
-          <div className="flex items-center gap-3 overflow-x-auto py-1">
+          <div className="flex items-center gap-0 overflow-x-auto py-1">
             {EMOJI_BAR.map((em) => (
               <button
                 key={em}
