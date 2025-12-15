@@ -1553,6 +1553,11 @@ const StoryFormModal = ({
     };
 
     const removeImage = () => {
+      try {
+        if (imagePreview && typeof imagePreview === 'string' && imagePreview.startsWith('blob:')) {
+          URL.revokeObjectURL(imagePreview);
+        }
+      } catch (e) {}
       setImagePreview(null);
       setImageFile(null);
       if (fileInputRef.current) {
