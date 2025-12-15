@@ -37,6 +37,28 @@ function SmartImg({ src, alt = '', width, height, fill, className, style }) {
     );
   }
 
+  // If explicit width/height not provided, render Image with `fill` inside
+  // a positioned container so Next Image has required sizing. We preserve
+  // any sizing classes passed in `className` by applying them to the wrapper
+  // and keep object-fit on the inner Image.
+  if (!width || !height) {
+    // Move sizing classes to wrapper and keep object-fit class for inner Image
+    const innerClass = (className || '').split(' ').includes('object-cover') ? 'object-cover' : '';
+    const wrapperClass = `relative ${className || 'w-full h-40'}`.replace(innerClass, '').trim();
+
+    return (
+      <div className={wrapperClass} style={{ position: 'relative', ...(style || {}) }}>
+        <Image
+          src={src}
+          alt={alt}
+          fill
+          className={innerClass}
+          style={{ objectFit: 'cover' }}
+        />
+      </div>
+    );
+  }
+
   return (
     <Image
       src={src}
@@ -255,7 +277,7 @@ const SavedPageClient = () => {
         <div className="fixed inset-0 z-[9999] bg-black">
           <button
             onClick={() => setStoryFeedModal({ visible: false, initialIndex: 0 })}
-            className="fixed top-4 right-4 z-[10000] w-12 h-12 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+            className="fixed top-20 right-4 z-[10100] w-12 h-12 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
           >
             <i className="fas fa-times text-xl"></i>
           </button>

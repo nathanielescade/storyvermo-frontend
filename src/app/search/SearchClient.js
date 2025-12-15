@@ -683,7 +683,7 @@ export function SearchClient() {
           {/* Close button */}
           <button 
             onClick={() => setStoryFeedModal({ visible: false, initialIndex: 0 })}
-            className="fixed top-4 right-4 z-[10000] w-12 h-12 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+            className="fixed top-20 right-4 z-[10100] w-12 h-12 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
           >
             <i className="fas fa-times text-xl"></i>
           </button>
