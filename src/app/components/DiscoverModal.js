@@ -71,12 +71,11 @@ const DiscoverModal = ({ isOpen, onClose }) => {
     }
   };
 
-  // 🔥 FIXED: Toggle follow status - No localStorage, proper backend sync
-  const toggleFollowUser = async (username, userIndex) => {
+  // Frontend-only follow toggle - no backend logic
+  const toggleFollowUser = (username, userIndex) => {
     // Prevent double-clicks
     if (followingStates[username]) return;
 
-    const prevUsers = [...users];
     try {
       // Set loading state for this specific user
       setFollowingStates(prev => ({ ...prev, [username]: true }));
@@ -86,42 +85,23 @@ const DiscoverModal = ({ isOpen, onClose }) => {
       const currentStatus = updatedUsers[userIndex].is_following;
       updatedUsers[userIndex] = {
         ...updatedUsers[userIndex],
-        is_following: !currentStatus
+        is_following: !currentStatus,
+        followers_count: currentStatus 
+          ? (updatedUsers[userIndex].followers_count || 0) - 1 
+          : (updatedUsers[userIndex].followers_count || 0) + 1
       };
       setUsers(updatedUsers);
 
       console.log(`🔄 Toggling follow for ${username}. Current: ${currentStatus}, New: ${!currentStatus}`);
 
-      // Call backend API
-      const data = await userApi.followUser(username);
-
-      console.log('✅ Follow API response:', data);
-
-      // Update with actual server response
-      if (data && typeof data.is_following !== 'undefined') {
-        // If we successfully followed the user, remove them from recommendations
-        if (data.is_following) {
+      // If we followed the user, remove them from recommendations after a short delay
+      if (!currentStatus) {
+        setTimeout(() => {
           setUsers(prev => prev.filter(u => u.username !== username));
-        } else {
-          const finalUsers = [...updatedUsers];
-          finalUsers[userIndex] = {
-            ...finalUsers[userIndex],
-            is_following: data.is_following,
-            followers_count: typeof data.follower_count !== 'undefined' ? data.follower_count : finalUsers[userIndex].followers_count
-          };
-          setUsers(finalUsers);
-        }
-
-        // Broadcast so other components can sync
-        try {
-          window.dispatchEvent(new CustomEvent('user:follow:update', { detail: { username, is_following: data.is_following, follower_count: data.follower_count } }));
-        } catch (e) {}
+        }, 500);
       }
     } catch (error) {
       console.error('❌ Error toggling follow:', error);
-      // Revert optimistic update on error
-      setUsers(prevUsers);
-      alert('Failed to update follow status. Please try again.');
     } finally {
       // Clear loading state
       setFollowingStates(prev => {
@@ -235,7 +215,13 @@ const DiscoverModal = ({ isOpen, onClose }) => {
                     </div>
 
                     <div className="w-full mb-4">
-                      <div className="text-white font-bold text-lg mb-1 truncate">{user.display_name || user.username}</div>
+                      <div className="text-white font-bold text-lg mb-1 truncate">
+                        {user.account_type === 'brand' && user.brand_name 
+                          ? user.brand_name 
+                          : user.first_name && user.last_name 
+                            ? `${user.first_name} ${user.last_name}`
+                            : user.first_name || user.last_name || user.username}
+                      </div>
                       <div className="text-slate-400 text-sm mb-3">@{user.username}</div>
                       {user.bio && (
                         <p className="text-slate-300 text-sm mb-4 line-clamp-2">{user.bio}</p>
@@ -244,16 +230,16 @@ const DiscoverModal = ({ isOpen, onClose }) => {
 
                     <div className="flex justify-around gap-2 w-full mb-5 pb-5 border-b border-gray-800/20">
                       <div className="flex-1">
-                        <div className="text-white font-bold text-lg">{user.follower_count || user.followers_count || 0}</div>
+                        <div className="text-white font-bold text-lg">{user.followers_count || 0}</div>
                         <div className="text-slate-400 text-xs uppercase tracking-wide">Followers</div>
                       </div>
                       <div className="flex-1">
-                        <div className="text-white font-bold text-lg">{user.story_count || user.stories_count || 0}</div>
+                        <div className="text-white font-bold text-lg">{user.stories_count || 0}</div>
                         <div className="text-slate-400 text-xs uppercase tracking-wide">Stories</div>
                       </div>
                     </div>
 
-                    {/* 🔥 FIXED: Follow button with loading state, no localStorage */}
+                    {/* Frontend-only follow button with loading state */}
                     <button 
                       className={`w-full py-3 px-4 rounded-2xl font-semibold transition-all duration-300 ${
                         user.is_following 

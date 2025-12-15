@@ -332,6 +332,18 @@ const NotificationBell = ({ isOpen = false, onOpen, onClose }) => {
           <div className="notification-footer" style={{ padding: '10px', borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(0,0,0,0.16)', flex: 'none' }}>
             <button
               onClick={() => {
+                // If the user is authenticated, go to the notifications page.
+                // Otherwise, open the auth modal (fallback to /login route).
+                if (isAuthenticated) {
+                  onClose?.();
+                  try {
+                    router.push('/notifications');
+                  } catch (err) {
+                    // ignore
+                  }
+                  return;
+                }
+
                 try {
                   window.dispatchEvent(new CustomEvent('auth:open', { detail: { type: 'login' } }));
                 } catch (e) {

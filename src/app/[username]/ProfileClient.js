@@ -9,10 +9,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useImageCompressionUploader } from '../../../hooks/useImageCompressionUploader';
 import StoryCard from '../components/StoryCard';
 
-// SmartImg: choose native <img> for blob/data URLs (object URLs / previews)
-// and use next/image for regular remote URLs. This avoids next/image errors
-// when previewing local uploads (object URLs) while still using next/image
-// for remote/static images.
+// SmartImg component remains unchanged
 function SmartImg({ src, alt = '', width, height, fill, className, style, onClick }) {
   if (!src) return null;
   const isObjectUrl = typeof src === 'string' && (src.startsWith('blob:') || src.startsWith('data:'));
@@ -78,17 +75,13 @@ function SmartImg({ src, alt = '', width, height, fill, className, style, onClic
 
 export default function ProfileClient({ username, initialProfile = null }) {
   // Use server-provided initialProfile when available to render instantly
-  const [user, setUser] = useState(initialProfile || null);
+  const [user, setUser] = useState(initialProfile ? { ...initialProfile, is_following: initialProfile.is_following || false } : null);
   const [stories, setStories] = useState([]);
   const [verses, setVerses] = useState([]);
   const [savedStories, setSavedStories] = useState([]);
-  const [followers, setFollowers] = useState([]);
-  const [following, setFollowing] = useState([]);
-  const [isFollowing, setIsFollowing] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
   // If we have an initial profile, don't show the loading screen
   const [loading, setLoading] = useState(initialProfile ? false : true);
-  const [followersModal, setFollowersModal] = useState({ visible: false, type: 'followers' });
   const [imageModal, setImageModal] = useState({ visible: false, type: null, url: '' });
   
   // New state for story feed modal
@@ -98,9 +91,12 @@ export default function ProfileClient({ username, initialProfile = null }) {
   // Refs for file inputs
   const profileFileInputRef = useRef(null);
   const coverFileInputRef = useRef(null);
-  
-  // State for current user's following list
-  const [currentUserFollowing, setCurrentUserFollowing] = useState([]);
+
+  // Followers / Following modal state
+  const [peopleModal, setPeopleModal] = useState({ visible: false, type: 'followers' });
+  const [followersList, setFollowersList] = useState([]);
+  const [followingList, setFollowingList] = useState([]);
+  const [loadingPeople, setLoadingPeople] = useState(false);
   
   const { currentUser, isAuthenticated, openAuthModal } = useAuth();
   const router = useRouter();
@@ -127,18 +123,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
     return user.get_full_name || user.full_name || user.username || 'Unknown';
   };
 
-  // Fetch current user's following list
-  const fetchCurrentUserFollowing = useCallback(async () => {
-    if (!isAuthenticated || !currentUser?.username) return;
-    
-    try {
-      const response = await userApi.getFollowing(currentUser.username);
-      setCurrentUserFollowing(response.map(user => user.username));
-    } catch (error) {
-      console.error('Error fetching following list:', error);
-    }
-  }, [isAuthenticated, currentUser?.username]);
-
   // In the fetchProfile function in ProfileClient.js
   const fetchProfile = useCallback(async () => {
     try {
@@ -154,6 +138,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
       const userData = {
         ...response,
         get_full_name: fullName,
+        is_following: response.is_following || false, // Ensure is_following is set
       };
       
       setUser(userData);
@@ -162,12 +147,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
       setStories(response.stories || []);
       setVerses(response.verses || []);
       setSavedStories(response.saved_stories || []);
-      setFollowers(response.followers || []);
-      setFollowing(response.following || []);
       
-      // Always update isFollowing from the API response, regardless of whether it's the current user's profile
-      // This ensures the follow button shows the correct state
-      setIsFollowing(!!response.is_following);
     } catch (error) {
       console.error('Error fetching profile:', error);
     } finally {
@@ -176,36 +156,12 @@ export default function ProfileClient({ username, initialProfile = null }) {
     }
   }, [username, currentUser?.username, initialProfile]);
 
-  // Fetch followers and following data when modal is opened
-  const fetchFollowersData = useCallback(async (type) => {
-    try {
-      let response;
-      if (type === 'followers') {
-        response = await userApi.getFollowers(username);
-        setFollowers(response || []);
-      } else {
-        response = await userApi.getFollowing(username);
-        setFollowing(response || []);
-      }
-    } catch (error) {
-      console.error('Error fetching followers data:', error);
-    }
-  }, [username]);
-
   useEffect(() => {
     // If we have an initialProfile passed from the server, we still run
     // a background fetch to refresh data, but avoid toggling the loading
     // UI so the page appears instant to the user.
     if (username) fetchProfile();
-    if (isAuthenticated) fetchCurrentUserFollowing();
-  }, [username, fetchProfile, isAuthenticated, fetchCurrentUserFollowing]);
-
-  // When followers modal is opened, fetch the data
-  useEffect(() => {
-    if (followersModal.visible) {
-      fetchFollowersData(followersModal.type);
-    }
-  }, [followersModal.visible, followersModal.type, fetchFollowersData]);
+  }, [username, fetchProfile]);
 
   // When feed modal opens, scroll the feed to the requested initial index
   useEffect(() => {
@@ -236,54 +192,76 @@ export default function ProfileClient({ username, initialProfile = null }) {
 
     try {
       const response = await userApi.followUser(username);
-      setIsFollowing(response.is_following);
-      // Update follower list and user follower count
-      setFollowers(prev => response.is_following
-        ? [...prev, currentUser]
-        : prev.filter(f => f.username !== currentUser.username)
-      );
-      setUser(prev => ({ ...prev, followers_count: typeof response.follower_count !== 'undefined' ? response.follower_count : (prev.followers_count || 0) + (response.is_following ? 1 : -1) }));
+      
+      // Update user state with new follow status and follower count
+      setUser(prev => ({ 
+        ...prev, 
+        is_following: response.is_following,
+        followers_count: typeof response.follower_count !== 'undefined' ? response.follower_count : (prev.followers_count || 0) + (response.is_following ? 1 : -1)
+      }));
+      
       // Broadcast event so other components can update
-      try { window.dispatchEvent(new CustomEvent('user:follow:update', { detail: { username, is_following: response.is_following, follower_count: response.follower_count } })); } catch (e) {}
-      // Update current user's following list
-      if (response.is_following) {
-        setCurrentUserFollowing(prev => [...prev, username]);
-      } else {
-        setCurrentUserFollowing(prev => prev.filter(u => u !== username));
-      }
+      try { 
+        window.dispatchEvent(new CustomEvent('user:follow:update', { 
+          detail: { 
+            username, 
+            is_following: response.is_following, 
+            follower_count: response.follower_count 
+          } 
+        })); 
+      } catch (e) {}
     } catch (error) {
       console.error('Error following user:', error);
     }
   };
 
-  // Handle following/unfollowing a user in the modal
-  const handleFollowUser = async (userToFollow) => {
-    if (!isAuthenticated) {
-      openAuthModal();
-      return;
-    }
-
+  // Open followers/following modal and fetch list
+  const openPeopleModal = async (type) => {
+    setPeopleModal({ visible: true, type });
     try {
-      const response = await userApi.followUser(userToFollow.username);
-      
-      // Update the current user's following list
-      if (response.is_following) {
-        setCurrentUserFollowing(prev => [...prev, userToFollow.username]);
+      setLoadingPeople(true);
+      if (type === 'followers') {
+        const res = await userApi.getFollowers(username);
+        setFollowersList(Array.isArray(res) ? res : (res.results || []));
       } else {
-        setCurrentUserFollowing(prev => prev.filter(u => u !== userToFollow.username));
+        const res = await userApi.getFollowing(username);
+        setFollowingList(Array.isArray(res) ? res : (res.results || []));
       }
-      // If the modal lists include this user, update their follower_count and is_following
-      setFollowers(prev => prev.map(f => f.username === userToFollow.username ? ({ ...f, is_following: response.is_following, followers_count: typeof response.follower_count !== 'undefined' ? response.follower_count : f.followers_count }) : f));
-      setFollowing(prev => prev.map(f => f.username === userToFollow.username ? ({ ...f, is_following: response.is_following, followers_count: typeof response.follower_count !== 'undefined' ? response.follower_count : f.followers_count }) : f));
-      // If the user we followed/unfollowed is the profile being viewed, update count too
-      if (userToFollow.username === username) {
-        setUser(prev => ({ ...prev, followers_count: typeof response.follower_count !== 'undefined' ? response.follower_count : prev.followers_count }));
-        setIsFollowing(response.is_following);
+    } catch (e) {
+      console.error('Error fetching people list:', e);
+      if (type === 'followers') setFollowersList([]);
+      else setFollowingList([]);
+    } finally {
+      setLoadingPeople(false);
+    }
+  };
+
+  // Follow/unfollow from modal list, updates local list and broadcasts update
+  const handleFollowFromList = async (targetUsername, index, listType) => {
+    if (!isAuthenticated) { openAuthModal(); return; }
+    try {
+      const res = await userApi.followUser(targetUsername);
+      const isNowFollowing = !!res.is_following;
+
+      // Update the appropriate list
+      if (listType === 'followers') {
+        setFollowersList(prev => prev.map((p, i) => i === index ? { ...p, is_following: isNowFollowing } : p));
+      } else {
+        setFollowingList(prev => prev.map((p, i) => i === index ? { ...p, is_following: isNowFollowing } : p));
       }
-      // Broadcast event
-      try { window.dispatchEvent(new CustomEvent('user:follow:update', { detail: { username: userToFollow.username, is_following: response.is_following, follower_count: response.follower_count } })); } catch (e) {}
-    } catch (error) {
-      console.error('Error following user in modal:', error);
+
+      // If we toggled follow on the profile being viewed, update its counts/state
+      if (targetUsername === username) {
+        setUser(prev => ({
+          ...prev,
+          is_following: isNowFollowing,
+          followers_count: typeof res.follower_count !== 'undefined' ? res.follower_count : prev.followers_count + (isNowFollowing ? 1 : -1)
+        }));
+      }
+
+      try { window.dispatchEvent(new CustomEvent('user:follow:update', { detail: { username: targetUsername, is_following: isNowFollowing, follower_count: res.follower_count } })); } catch (e) {}
+    } catch (e) {
+      console.error('Error toggling follow for', targetUsername, e);
     }
   };
 
@@ -495,6 +473,65 @@ export default function ProfileClient({ username, initialProfile = null }) {
             </div>
           </div>
         )}
+
+        {/* Followers / Following Modal */}
+        {peopleModal.visible && (
+          <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/70 p-4">
+            <div className="max-w-2xl w-full bg-gradient-to-br from-gray-900 to-slate-900 rounded-2xl border border-cyan-500/30 shadow-xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+                <div>
+                  <div className="text-sm text-gray-300 font-semibold">{peopleModal.type === 'followers' ? 'Followers' : 'Following'}</div>
+                  <div className="text-xs text-gray-400">{peopleModal.type === 'followers' ? (followersList.length) : (followingList.length)} users</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setPeopleModal({ visible: false, type: peopleModal.type })} className="text-gray-300 hover:text-white px-3 py-1 rounded-lg">Close</button>
+                </div>
+              </div>
+
+              <div className="max-h-[60vh] overflow-y-auto p-3 space-y-2 custom-scrollbar">
+                {loadingPeople ? (
+                  <div className="p-6 text-center text-gray-400">Loading...</div>
+                ) : (
+                  (peopleModal.type === 'followers' ? followersList : followingList).length === 0 ? (
+                    <div className="p-6 text-center text-gray-400">No users to show.</div>
+                  ) : (
+                    (peopleModal.type === 'followers' ? followersList : followingList).map((p, i) => {
+                      const avatarUrl = p.profile_image_url || p.profile_image || null;
+                      const display = getDisplayName(p) || p.username || p.user || 'Unknown';
+                      const uname = p.username || p.user || '';
+                      const isFollowing = !!p.is_following;
+                      return (
+                        <div key={uname || i} className="flex items-center justify-between bg-slate-900/40 p-3 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-white text-sm overflow-hidden">
+                              {avatarUrl ? (
+                                <SmartImg src={absoluteUrl(avatarUrl)} alt={uname} width={40} height={40} className="object-cover" />
+                              ) : (
+                                <span className="font-bold">{getInitial(uname || display, 'U')}</span>
+                              )}
+                            </div>
+                            <div className="text-left">
+                              <div className="text-sm font-semibold text-white">{display}</div>
+                              <div className="text-xs text-gray-400">@{uname}</div>
+                            </div>
+                          </div>
+                          <div>
+                            <button
+                              onClick={() => handleFollowFromList(uname, i, peopleModal.type)}
+                              className={`px-3 py-1 rounded-full text-sm font-semibold ${isFollowing ? 'border border-cyan-500 text-cyan-400 bg-transparent' : 'bg-cyan-500 text-white'}`}
+                            >
+                              {isFollowing ? 'Following' : 'Follow'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         {currentUser?.username === username && (
           <button 
             onClick={triggerCoverImageUpload}
@@ -580,12 +617,12 @@ export default function ProfileClient({ username, initialProfile = null }) {
                 <button 
                   onClick={handleFollow}
                   className={`px-4 py-1 rounded-full text-xs font-bold ${
-                    isFollowing 
+                    user.is_following 
                       ? 'border border-cyan-500 text-cyan-500 hover:bg-cyan-500/10'
                       : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:opacity-90'
                   } transition-all`}
                 >
-                  {isFollowing ? 'Following' : 'Follow'}
+                  {user.is_following ? 'Following' : 'Follow'}
                 </button>
               )}
             </div>
@@ -598,20 +635,14 @@ export default function ProfileClient({ username, initialProfile = null }) {
             <div className="text-2xl font-bold text-cyan-500">{stories.length}</div>
             <div className="text-sm text-gray-400">Stories</div>
           </div>
-          <button 
-            onClick={() => setFollowersModal({ visible: true, type: 'followers' })}
-            className="text-center"
-          >
+          <div className="text-center cursor-pointer" onClick={() => openPeopleModal('followers')}>
             <div className="text-2xl font-bold text-cyan-500">{user.followers_count || 0}</div>
             <div className="text-sm text-gray-400">Followers</div>
-          </button>
-          <button 
-            onClick={() => setFollowersModal({ visible: true, type: 'following' })}
-            className="text-center"
-          >
+          </div>
+          <div className="text-center cursor-pointer" onClick={() => openPeopleModal('following')}>
             <div className="text-2xl font-bold text-cyan-500">{user.following_count || 0}</div>
             <div className="text-sm text-gray-400">Following</div>
-          </button>
+          </div>
         </div>
 
         {/* Content Tabs */}
@@ -1043,7 +1074,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
                         viewType="feed"
                         onLikeToggle={handleLikeToggle}
                         onSaveToggle={handleSaveToggle}
-                        onFollowUser={handleFollowUser}
                         onDeleteStory={handleDeleteStory}
                         onTagSelect={handleTagSelect}
                         isAuthenticated={isAuthenticated}
@@ -1052,76 +1082,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
                     ))}
                   </div>
                 </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Followers/Following Modal with Follow/Unfollow Buttons */}
-        {followersModal.visible && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-            <div className="bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 rounded-3xl border border-cyan-500/40 shadow-2xl w-full max-w-md p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 capitalize">
-                  {followersModal.type}
-                </h2>
-                <button 
-                  onClick={() => setFollowersModal({ visible: false, type: 'followers' })}
-                  className="w-10 h-10 rounded-full bg-slate-900/60 flex items-center justify-center text-gray-400 hover:text-white transition-all duration-300 border border-gray-700/50 hover:border-cyan-500/50"
-                >
-                  <i className="fas fa-times"></i>
-                </button>
-              </div>
-              <div className="space-y-4 max-h-80 overflow-y-auto custom-scrollbar">
-                {(followersModal.type === 'followers' ? followers : following).map((user, i) => {
-                  const profileImageUrl = getImageUrl(user.profile_image_url);
-                  const isCurrentUserFollowing = currentUserFollowing.includes(user.username);
-                  const displayName = user.account_type === 'brand' && user.brand_name
-                    ? user.brand_name
-                    : user.first_name && user.last_name 
-                    ? `${user.first_name} ${user.last_name}`
-                    : user.first_name || user.last_name || user.username;
-                  
-                  return (
-                    <div key={i} className="flex items-center justify-between bg-slate-900/60 rounded-2xl p-3 border border-cyan-500/20">
-                      <Link href={`/${user.username}`} className="flex items-center gap-3 min-w-0 flex-1">
-                          {profileImageUrl ? (
-                          <SmartImg
-                            src={absoluteUrl(profileImageUrl)}
-                            alt={user.username}
-                            width={40}
-                            height={40}
-                            className="rounded-full object-cover shrink-0"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-500/30 flex items-center justify-center shrink-0">
-                            <span className="text-cyan-500 font-bold">
-                              {getInitial(user?.username, 'U')}
-                            </span>
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <div className="font-bold text-white truncate">{displayName}</div>
-                          <div className="text-sm text-gray-400 truncate">@{user.username}</div>
-                        </div>
-                      </Link>
-                      
-                      {/* Follow/Unfollow Button */}
-                      {currentUser && currentUser.username !== user.username && (
-                        <button 
-                          onClick={() => handleFollowUser(user)}
-                          className={`px-3 py-1 rounded-xl text-sm font-medium shrink-0 ml-2 ${
-                            isCurrentUserFollowing 
-                              ? 'border border-cyan-500 text-cyan-500 hover:bg-cyan-500/10'
-                              : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:opacity-90'
-                          } transition-all`}
-                        >
-                          {isCurrentUserFollowing ? 'Following' : 'Follow'}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
               </div>
             </div>
           </div>

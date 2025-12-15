@@ -12,7 +12,15 @@ const Sidebar = ({ user, followers, recentStories }) => {
   const router = useRouter();
 
   const handleTagClick = (tag) => {
-    router.push(`/?tag=${tag}`);
+    try {
+      // Navigate and broadcast a tag switch so FeedClient updates the feed (SSR-backed)
+      router.push(`/?tag=${tag}`);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('tag:switch', { detail: { tag, force: true } }));
+      }
+    } catch (e) {
+      // ignore
+    }
   };
 
   const { currentUser, isAuthenticated } = useAuth();
@@ -50,7 +58,13 @@ const Sidebar = ({ user, followers, recentStories }) => {
         <div 
           className={`sidebar-nav-item group ${activeDimension === 'explore' ? 'active' : ''}`} 
           data-dimension="explore"
-          onClick={() => setActiveDimension('explore')}
+          onClick={() => {
+            setActiveDimension('explore');
+            try {
+              router.push('/');
+              if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('tag:switch', { detail: { tag: 'for-you', force: true } }));
+            } catch (e) {}
+          }}
         >
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center group-hover:from-neon-blue/20 group-hover:to-neon-blue/10 transition-all duration-300">
             <i className="fas fa-home text-neon-blue group-active:text-white"></i>
@@ -61,7 +75,10 @@ const Sidebar = ({ user, followers, recentStories }) => {
         <div 
           className={`sidebar-nav-item group ${activeDimension === 'verses_page' ? 'active' : ''}`} 
           data-dimension="verses_page"
-          onClick={() => setActiveDimension('verses_page')}
+          onClick={() => {
+            setActiveDimension('verses_page');
+            try { router.push('/verses'); } catch (e) {}
+          }}
         >
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center group-hover:from-neon-purple/20 group-hover:to-neon-purple/10 transition-all duration-300">
             <i className="fas fa-book-open text-neon-purple group-active:text-white"></i>
@@ -84,7 +101,10 @@ const Sidebar = ({ user, followers, recentStories }) => {
         <div 
           className={`sidebar-nav-item group ${activeDimension === 'saved' ? 'active' : ''}`} 
           data-dimension="saved"
-          onClick={() => setActiveDimension('saved')}
+          onClick={() => {
+            setActiveDimension('saved');
+            try { router.push('/saved'); } catch (e) {}
+          }}
         >
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center group-hover:from-neon-pink/20 group-hover:to-neon-pink/10 transition-all duration-300">
             <i className="fas fa-bookmark text-neon-pink group-active:text-white"></i>
@@ -93,22 +113,29 @@ const Sidebar = ({ user, followers, recentStories }) => {
         </div>
         
         {user ? (
-          <Link 
-            href={`/${user.username}`}
-            className={`sidebar-nav-item group ${activeDimension === 'profile' ? 'active' : ''}`} 
+          <div
+            className={`sidebar-nav-item group ${activeDimension === 'profile' ? 'active' : ''}`}
             data-dimension="profile"
             id="profileNavBtn"
+            onClick={() => {
+              setActiveDimension('profile');
+              try { router.push(`/${user.username}`); } catch (e) {}
+            }}
           >
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center group-hover:from-neon-blue/20 group-hover:to-neon-blue/10 transition-all duration-300">
               <i className="fas fa-user-astronaut text-neon-blue group-active:text-white"></i>
             </div>
             <span className="font-rajdhani font-medium">Profile</span>
-          </Link>
+          </div>
         ) : (
           <div 
             className="sidebar-nav-item group" 
             data-dimension="profile" 
             id="profileNavBtn"
+            onClick={() => {
+              setActiveDimension('profile');
+              if (!isAuthenticated) window.dispatchEvent(new CustomEvent('auth:open', { detail: { type: 'profile' } }));
+            }}
           >
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center group-hover:from-neon-blue/20 group-hover:to-neon-blue/10 transition-all duration-300">
               <i className="fas fa-user-astronaut text-neon-blue group-active:text-white"></i>

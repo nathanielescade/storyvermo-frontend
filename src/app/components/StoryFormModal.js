@@ -1780,20 +1780,17 @@ const StoryFormModal = ({
                 
                 {/* Allow contributions toggle - PROMINENT FEATURE */}
                 {!editingVerse && (
-                  <div className="mb-8 p-6 rounded-3xl bg-gradient-to-br from-blue-950/40 via-transparent to-cyan-950/40 border-2 border-gradient-to-r from-cyan-500/60 to-blue-500/60 shadow-2xl shadow-cyan-500/20 relative overflow-hidden">
-                    {/* Animated background glow */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-600/10 via-blue-600/10 to-cyan-600/10 animate-pulse pointer-events-none"></div>
-                    
+                  <div className="mb-8 p-6 rounded-3xl bg-slate-900/30 border-2 border-blue-500/40 shadow-lg relative overflow-hidden">
                     <div className="relative z-10">
-                      <label className="block text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-blue-300 to-cyan-300 mb-4 flex items-center gap-3">
-                        <span className="fas fa-users text-2xl text-cyan-400 animate-bounce"></span>
-                        <span className="text-lg">✨ COLLABORATIVE FEATURE ✨</span>
+                      <label className="block text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 mb-4 flex items-center gap-3">
+                        <span className="fas fa-users text-2xl text-blue-400"></span>
+                        <span className="text-lg">Use Collaborations</span>
                       </label>
-                      
+
                       <p className="text-gray-300 text-sm mb-5 flex items-center gap-2">
-                        <span className="text-cyan-400">→</span> Let other users add verses and contribute their creativity to your story. Build amazing collaborative works together!
+                        <span className="text-blue-400">→</span> Allow other users to contribute verses to your story. Keep creative control or invite collaborators.
                       </p>
-                      
+
                       <label className="inline-flex items-center cursor-pointer group">
                         <div className="relative">
                           <input 
@@ -1802,18 +1799,18 @@ const StoryFormModal = ({
                             checked={allowContributions}
                             onChange={(e) => setAllowContributions(e.target.checked)}
                           />
-                          <div className={`block w-16 h-9 rounded-full transition-all duration-300 ease-in-out ${allowContributions ? 'bg-gradient-to-r from-cyan-500 via-blue-500 to-cyan-500 shadow-lg shadow-cyan-500/50' : 'bg-gray-700/50'}`}></div>
-                          <div className={`absolute left-1 top-1 bg-white w-7 h-7 rounded-full transition-all duration-300 ease-in-out shadow-lg ${allowContributions ? 'transform translate-x-7 shadow-cyan-500/50' : ''}`}></div>
+                          <div className={`block w-16 h-9 rounded-full transition-all duration-300 ease-in-out ${allowContributions ? 'bg-gradient-to-r from-blue-500 to-blue-600 border-2 border-blue-500 shadow-lg' : 'bg-blue-50/40 border-2 border-blue-400/70 hover:border-blue-500'}`}></div>
+                          <div className={`absolute left-1 top-1 bg-blue-100 w-7 h-7 rounded-full transition-all duration-300 ease-in-out ${allowContributions ? 'transform translate-x-7 shadow-[0_6px_18px_rgba(59,130,246,0.18)] border border-blue-300' : 'border border-blue-400 shadow-sm'}`}></div>
                         </div>
-                        <span className={`ml-4 font-bold text-lg transition-colors duration-300 ${allowContributions ? 'text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 to-blue-300' : 'text-gray-400'}`}>
-                          {allowContributions ? '🎉 Collaborations Enabled!' : 'Enable Collaborations'}
+                        <span className={`ml-4 font-semibold text-lg transition-colors duration-300 ${allowContributions ? 'text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500' : 'text-gray-400'}`}>
+                          {allowContributions ? 'Collaborations enabled' : 'Enable collaborations'}
                         </span>
                       </label>
-                      
+
                       {allowContributions && (
-                        <div className="mt-4 p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/40 flex items-center gap-2">
-                          <span className="text-cyan-400 text-lg">✓</span>
-                          <span className="text-cyan-300 text-sm font-medium">Your story is now open for collaboration - other users can contribute!</span>
+                        <div className="mt-4 p-3 rounded-xl bg-blue-950/10 border border-blue-500/30 flex items-center gap-2">
+                          <span className="text-blue-400 text-lg">✓</span>
+                          <span className="text-green-400 text-sm italic font-medium">Your story is open for collaboration — other users may contribute.</span>
                         </div>
                       )}
                     </div>

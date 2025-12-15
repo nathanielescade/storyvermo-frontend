@@ -10,7 +10,7 @@ import { userApi } from '../../../../lib/api';
 
 export default function ProfileSettingsClient() {
   const router = useRouter();
-  const { currentUser, refreshAuth } = useAuth();
+  const { currentUser, refreshAuth, setCurrentUser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -321,8 +321,19 @@ export default function ProfileSettingsClient() {
         username: currentUser.username // Include username for the API endpoint
       };
       
-      await userApi.updateCurrentUserProfile(dataToSend);
-      await refreshAuth(); // Refresh auth context with new user data
+      // Try to update the profile on the server and refresh auth state.
+      const updateResp = await userApi.updateCurrentUserProfile(dataToSend);
+      const refreshed = await refreshAuth(); // Try to refresh auth context with new user data
+
+      // If the auth check failed but the profile update returned user data,
+      // update the in-memory auth state directly as a safe fallback so the
+      // user isn't logged out in the UI.
+      if (!refreshed && updateResp) {
+        const maybeUser = updateResp.user || updateResp;
+        if (maybeUser && setCurrentUser) {
+          setCurrentUser(maybeUser);
+        }
+      }
       
       // Show success toast notification
       setToast({ type: 'success', message: 'Profile updated successfully!' });

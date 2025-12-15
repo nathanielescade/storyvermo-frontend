@@ -199,6 +199,14 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Expose a safe setter so components can update the in-memory auth
+  // state directly (useful after profile updates where server-side
+  // auth-check may briefly fail). This only updates client state and
+  // does not perform any network actions.
+  const setCurrentUserSafely = (user) => {
+    updateAuthState(user || null);
+  };
+
   // Login function
   const login = async (credentials) => {
     try {
@@ -380,7 +388,9 @@ export function AuthProvider({ children }) {
     login,
     register,
     logout,
-    refreshAuth
+    refreshAuth,
+    // Allow components to set auth state directly when appropriate
+    setCurrentUser: setCurrentUserSafely
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
