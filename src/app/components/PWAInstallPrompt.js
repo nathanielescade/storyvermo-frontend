@@ -76,7 +76,7 @@ export default function PWAInstallPrompt() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 max-w-md w-full shadow-lg rounded-lg overflow-hidden" role="dialog" aria-live="polite">
+    <div className="fixed top-4 right-4 z-[110001] max-w-md w-full shadow-lg rounded-lg overflow-hidden pointer-events-auto" role="dialog" aria-live="polite">
       <div className="flex items-center justify-between bg-[#0a0e27] text-white px-4 py-3">
         <div className="flex items-center gap-3">
           <Image src="/storyvermo_logo.png" alt="StoryVermo" width={40} height={40} className="rounded" />
