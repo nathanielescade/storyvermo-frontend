@@ -21,7 +21,7 @@ const DiscoverModal = ({ isOpen, onClose }) => {
     }
   }, [isOpen]);
 
-  // Handle escape key and overlay click
+  // Handle escape key and overlayclick
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape' && isOpen) {

@@ -146,7 +146,10 @@ export function AuthProvider({ children }) {
         clearTimeout(timeoutId);
         
         if (!response.ok) {
-          if (mounted) {
+          // Only clear auth state for explicit authentication failures.
+          // Network errors or 5xx responses may be transient — keep current
+          // in-memory auth state instead of logging the user out.
+          if (mounted && (response.status === 401 || response.status === 403)) {
             setCurrentUser(null);
             setIsAuthenticated(false);
           }
@@ -205,6 +208,18 @@ export function AuthProvider({ children }) {
   // does not perform any network actions.
   const setCurrentUserSafely = (user) => {
     updateAuthState(user || null);
+  };
+
+  // Allow components to open the global auth modal by dispatching the
+  // same `auth:open` event that `GlobalShell` listens for. Some
+  // components expect `openAuthModal` to come from `useAuth()`.
+  const openAuthModal = (type = null, data = null) => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.dispatchEvent(new CustomEvent('auth:open', { detail: { type, data } }));
+    } catch (e) {
+      // ignore
+    }
   };
 
   // Login function
@@ -365,18 +380,41 @@ export function AuthProvider({ children }) {
   // Refresh auth status
   const refreshAuth = async () => {
     try {
-      const response = await authApi.checkAuth();
-      const user = authUtils.normalizeUserFromResponse(response);
-      
-      if (user) {
-        updateAuthState(user);
-        return true;
+      // Perform a direct check so we can inspect HTTP status codes and
+      // avoid treating transient/network errors as an explicit logout.
+      const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.storyvermo.com'}/auth/check/`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: { 'Accept': 'application/json' },
+      });
+
+      if (resp.ok) {
+        const data = await resp.json();
+        const user = authUtils.normalizeUserFromResponse(data);
+        if (user) {
+          updateAuthState(user);
+          return true;
+        }
+        // No user in successful response => clear auth
+        updateAuthState(null);
+        return false;
       }
-      
-      updateAuthState(null);
+
+      // Explicit unauthenticated responses should clear auth; other
+      // statuses (5xx, etc.) are treated as transient — keep current state.
+      if (resp.status === 401 || resp.status === 403) {
+        updateAuthState(null);
+        return false;
+      }
+
+      // For other non-ok responses (network/server errors), do not clear
+      // in-memory auth — return false but preserve the current state.
+      console.warn('refreshAuth: non-auth failure', resp.status, await resp.text().catch(() => 'no-body'));
       return false;
     } catch (error) {
-      updateAuthState(null);
+      // Network or unexpected error. Don't clear the current in-memory
+      // auth state — calling code can retry or surface an error.
+      console.warn('refreshAuth: network/error', error);
       return false;
     }
   };
@@ -391,6 +429,11 @@ export function AuthProvider({ children }) {
     refreshAuth,
     // Allow components to set auth state directly when appropriate
     setCurrentUser: setCurrentUserSafely
+    ,
+    // Convenience: expose openAuthModal so callers of useAuth() can
+    // trigger the global auth modal without needing a prop from
+    // `GlobalShell`.
+    openAuthModal
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
