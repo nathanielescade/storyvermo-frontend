@@ -759,7 +759,27 @@ const StoryFormModal = ({
           return;
         }
 
-        // Compress all images in parallel
+        // Immediately show previews using object URLs so UI updates instantly
+        const immediateItems = validFiles.map((f) => ({
+          file: f.file,
+          preview: URL.createObjectURL(f.file),
+          name: f.name,
+          tempId: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        }));
+
+        // Append immediate items to verse so the user sees previews at once
+        setVerses(prevVerses => 
+          prevVerses.map(verse => 
+            verse.id === verseId 
+              ? { ...verse, imageIds: [...verse.imageIds, ...immediateItems] } 
+              : verse
+          )
+        );
+
+        // Reset input while background compression runs
+        inputElement.value = '';
+
+        // Compress in background and replace the temporary items when done
         (async () => {
           try {
             const compressedFiles = await Promise.all(
@@ -775,11 +795,10 @@ const StoryFormModal = ({
                   };
                 } catch (error) {
                   console.error(`Failed to compress ${f.name}:`, error);
-                  // Return original file if compression fails
-                  const preview = await generatePreview(f.file);
+                  // Fallback to keep original file but keep the immediate preview
                   return {
                     file: f.file,
-                    preview,
+                    preview: null,
                     name: f.name,
                     tempId: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
                   };
@@ -787,24 +806,32 @@ const StoryFormModal = ({
               })
             );
 
+            // We need to merge compressed results back into the verse by matching names/order.
+            // For simplicity, replace items that don't have public_id by matching by insertion order.
             setVerses(prevVerses => 
-              prevVerses.map(verse => 
-                verse.id === verseId 
-                  ? { 
-                      ...verse, 
-                      imageIds: [...verse.imageIds, ...compressedFiles]
-                    } 
-                  : verse
-              )
+              prevVerses.map(verse => {
+                if (verse.id !== verseId) return verse;
+
+                // Create a copy and replace the most recent N items (where N = compressedFiles.length)
+                const existing = [...(verse.imageIds || [])];
+                const startIndex = Math.max(0, existing.length - compressedFiles.length);
+                for (let i = 0; i < compressedFiles.length; i++) {
+                  const targetIndex = startIndex + i;
+                  const comp = compressedFiles[i];
+                  if (existing[targetIndex] && existing[targetIndex].tempId) {
+                    // revoke old preview URL
+                    try { URL.revokeObjectURL(existing[targetIndex].preview); } catch (e) {}
+                    existing[targetIndex] = comp;
+                  } else {
+                    existing.push(comp);
+                  }
+                }
+
+                return { ...verse, imageIds: existing };
+              })
             );
-            setError(null);
-            
-            // Reset input value after successful upload
-            inputElement.value = '';
           } catch (err) {
-            setError(`Failed to process images: ${err.message}`);
-            // Reset the input value on error too
-            inputElement.value = '';
+            console.error(`Failed to process images: ${err.message}`);
           }
         })();
       }
@@ -1329,33 +1356,75 @@ const StoryFormModal = ({
         return;
       }
 
-      // Compress all files and generate previews
+      // Immediately add previews using object URLs so user sees selected images at once
       try {
-        const imagePreviews = await Promise.all(
-          validFiles.map(async (file) => {
-            try {
-              const compressed = await compressImageFile(file);
-              console.log(`Verse preview image compressed: ${compressed.originalSize}KB → ${compressed.compressedSize}KB (${compressed.ratio}% reduction)`);
-              return {
-                file: compressed.file,
-                preview: compressed.preview,
-                name: file.name
-              };
-            } catch (error) {
-              console.error(`Compression failed for ${file.name}, using original:`, error);
-              // Fallback to original file with preview
-              const preview = await generatePreview(file);
-              return {
-                file: file,
-                preview: preview,
-                name: file.name
-              };
-            }
-          })
-        );
+        const immediateItems = validFiles.map((file) => ({
+          file,
+          preview: URL.createObjectURL(file),
+          name: file.name,
+          tempId: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        }));
 
-        // Pass compressed files and previews to the handler
-        handleVerseImageUpload(verseId, imagePreviews);
+        // Insert immediate items into verses so previews show instantly
+        handleVerseImageUpload(verseId, immediateItems);
+
+        // Compress all files in background and update the items when ready
+        (async () => {
+          try {
+            const compressedResults = await Promise.all(
+              validFiles.map(async (file) => {
+                try {
+                  const compressed = await compressImageFile(file);
+                  return { success: true, compressed };
+                } catch (error) {
+                  console.error('Compression failed for', file.name, error);
+                  return { success: false, original: file };
+                }
+              })
+            );
+
+            // Map compressed results back to the immediate items by order
+            const updatedItems = immediateItems.map((item, idx) => {
+              const res = compressedResults[idx];
+              if (res && res.success && res.compressed) {
+                // Revoke old object URL after we'll replace it
+                try { URL.revokeObjectURL(item.preview); } catch (e) {}
+                return {
+                  file: res.compressed.file,
+                  preview: res.compressed.preview || item.preview,
+                  name: item.name,
+                  tempId: item.tempId
+                };
+              } else {
+                // Compression failed - keep original file and preview
+                return item;
+              }
+            });
+
+            // Replace the temp items in verses with the updated compressed items
+            setVerses(prevVerses => 
+              prevVerses.map(v => {
+                if (v.id !== verseId) return v;
+                // Replace items by matching tempId
+                const newImageIds = (v.imageIds || []).map(img => {
+                  const match = updatedItems.find(u => u.tempId === img.tempId);
+                  return match ? match : img;
+                });
+
+                // If for some reason original imageIds didn't include them (race), append any missing updated items
+                updatedItems.forEach(u => {
+                  if (!newImageIds.find(n => n.tempId === u.tempId)) {
+                    newImageIds.push(u);
+                  }
+                });
+
+                return { ...v, imageIds: newImageIds };
+              })
+            );
+          } catch (err) {
+            console.error('Failed to compress verse images in background:', err);
+          }
+        })();
       } catch (error) {
         setError(`Failed to process images: ${error.message}`);
       }
@@ -1443,14 +1512,34 @@ const StoryFormModal = ({
         
         try {
           setError(null);
-          // Compress the image
-          const compressed = await compressImageFile(file);
-          setImageFile(compressed.file);
-          setImagePreview(compressed.preview);
-          console.log(`Cover image compressed: ${compressed.originalSize}KB → ${compressed.compressedSize}KB (${compressed.ratio}% reduction)`);
-          
-          // Reset input after successful upload
-          inputElement.value = '';
+
+          // Show an immediate preview using an object URL so the user sees the image instantly
+          const immediatePreview = URL.createObjectURL(file);
+          setImagePreview(immediatePreview);
+          // Keep the original file for now; we'll replace with compressed result when ready
+          setImageFile(file);
+
+          // Compress the image in the background and update preview/file when done
+          compressImageFile(file)
+            .then((compressed) => {
+              try {
+                // Replace with compressed file and preview (usually a dataURL)
+                setImageFile(compressed.file);
+                setImagePreview(compressed.preview || immediatePreview);
+                console.log(`Cover image compressed: ${compressed.originalSize}KB → ${compressed.compressedSize}KB (${compressed.ratio}% reduction)`);
+              } finally {
+                // Revoke the temporary object URL to avoid memory leaks
+                try { URL.revokeObjectURL(immediatePreview); } catch (e) {}
+              }
+            })
+            .catch((err) => {
+              console.error('Background compression failed for cover image:', err);
+              // Keep the immediate preview if compression fails; user still sees image
+            })
+            .finally(() => {
+              // Reset input after kicking off background work
+              inputElement.value = '';
+            });
         } catch (err) {
           setError(`Failed to process image: ${err.message}`);
           // Reset input on error too
@@ -1561,7 +1650,13 @@ const StoryFormModal = ({
                   prevVerses.map(v => {
                     if (v.id === verseId) {
                       const newImageIds = [...v.imageIds];
-                      newImageIds.splice(imgIndex, 1);
+                      const removed = newImageIds.splice(imgIndex, 1);
+                      // Revoke object URL preview if present to avoid memory leaks
+                      try {
+                        if (removed && removed[0] && removed[0].preview && typeof removed[0].preview === 'string' && removed[0].preview.startsWith('blob:')) {
+                          URL.revokeObjectURL(removed[0].preview);
+                        }
+                      } catch (e) {}
                       return { ...v, imageIds: newImageIds };
                     }
                     return v;
