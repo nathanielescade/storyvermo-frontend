@@ -135,10 +135,24 @@ export default function ProfileClient({ username, initialProfile = null }) {
       const combined = `${first} ${last}`.trim();
       const fullName = (explicitFull && explicitFull.trim()) || (combined && combined) || response.username || '';
 
+      // Normalize follow-related fields coming from the API so the UI
+      // always reads `followers_count`, `following_count` and `is_following`.
+      const followersCount = typeof response.followers_count !== 'undefined'
+        ? response.followers_count
+        : (typeof response.follower_count !== 'undefined' ? response.follower_count : (response.followers || 0));
+      const followingCount = typeof response.following_count !== 'undefined'
+        ? response.following_count
+        : (typeof response.following !== 'undefined' ? response.following : 0);
+      const isFollowingFlag = typeof response.is_following !== 'undefined'
+        ? response.is_following
+        : (typeof response.is_following_user !== 'undefined' ? response.is_following_user : false);
+
       const userData = {
         ...response,
         get_full_name: fullName,
-        is_following: response.is_following || false, // Ensure is_following is set
+        is_following: !!isFollowingFlag,
+        followers_count: Number(followersCount || 0),
+        following_count: Number(followingCount || 0),
       };
       
       setUser(userData);
@@ -189,26 +203,31 @@ export default function ProfileClient({ username, initialProfile = null }) {
       openAuthModal();
       return;
     }
-
+  
     try {
       const response = await userApi.followUser(username);
-      
-      // Update user state with new follow status and follower count
-      setUser(prev => ({ 
-        ...prev, 
-        is_following: response.is_following,
-        followers_count: typeof response.follower_count !== 'undefined' ? response.follower_count : (prev.followers_count || 0) + (response.is_following ? 1 : -1)
+
+      // Normalize response values (API may return `follower_count` or `followers_count`)
+      const respFollowers = typeof response.followers_count !== 'undefined' ? response.followers_count : (typeof response.follower_count !== 'undefined' ? response.follower_count : undefined);
+      const respFollowing = typeof response.following_count !== 'undefined' ? response.following_count : (typeof response.following !== 'undefined' ? response.following : undefined);
+      const respIsFollowing = typeof response.is_following !== 'undefined' ? response.is_following : !!response.is_following_user;
+
+      setUser(prev => ({
+        ...prev,
+        is_following: !!respIsFollowing,
+        followers_count: typeof respFollowers !== 'undefined' ? respFollowers : (prev.followers_count + (respIsFollowing ? 1 : -1)),
+        following_count: typeof respFollowing !== 'undefined' ? respFollowing : prev.following_count
       }));
-      
+
       // Broadcast event so other components can update
-      try { 
-        window.dispatchEvent(new CustomEvent('user:follow:update', { 
-          detail: { 
-            username, 
-            is_following: response.is_following, 
-            follower_count: response.follower_count 
-          } 
-        })); 
+      try {
+        window.dispatchEvent(new CustomEvent('user:follow:update', {
+          detail: {
+            username,
+            is_following: !!respIsFollowing,
+            followers_count: typeof respFollowers !== 'undefined' ? respFollowers : undefined
+          }
+        }));
       } catch (e) {}
     } catch (error) {
       console.error('Error following user:', error);
@@ -252,14 +271,18 @@ export default function ProfileClient({ username, initialProfile = null }) {
 
       // If we toggled follow on the profile being viewed, update its counts/state
       if (targetUsername === username) {
+        const respFollowers = typeof res.followers_count !== 'undefined' ? res.followers_count : (typeof res.follower_count !== 'undefined' ? res.follower_count : undefined);
         setUser(prev => ({
           ...prev,
           is_following: isNowFollowing,
-          followers_count: typeof res.follower_count !== 'undefined' ? res.follower_count : prev.followers_count + (isNowFollowing ? 1 : -1)
+          followers_count: typeof respFollowers !== 'undefined' ? respFollowers : prev.followers_count + (isNowFollowing ? 1 : -1)
         }));
       }
 
-      try { window.dispatchEvent(new CustomEvent('user:follow:update', { detail: { username: targetUsername, is_following: isNowFollowing, follower_count: res.follower_count } })); } catch (e) {}
+      try {
+        const respFollowersEvent = typeof res.followers_count !== 'undefined' ? res.followers_count : (typeof res.follower_count !== 'undefined' ? res.follower_count : undefined);
+        window.dispatchEvent(new CustomEvent('user:follow:update', { detail: { username: targetUsername, is_following: isNowFollowing, followers_count: respFollowersEvent } }));
+      } catch (e) {}
     } catch (e) {
       console.error('Error toggling follow for', targetUsername, e);
     }
