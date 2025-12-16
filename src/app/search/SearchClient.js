@@ -149,11 +149,27 @@ export function SearchClient() {
       const verses = versesRes.status === 'fulfilled' && versesRes.value ? versesRes.value : [];
       const creators = creatorsRes.status === 'fulfilled' && creatorsRes.value ? creatorsRes.value : [];
 
+      // Normalizer for creator objects so we always have predictable fields
+      const normalizeCreator = (c) => {
+        const followers_count = Number(
+          c?.followers_count ??
+          c?.follower_count ??
+          (Array.isArray(c?.followers) ? c.followers.length : undefined) ??
+          0
+        ) || 0;
+
+        return {
+          ...c,
+          followers_count,
+          is_following: followingSet.has(c?.username),
+        };
+      };
+
       // Paginate the results
       const paginatedResults = {
         stories: stories.slice(start, start + pageSize),
         verses: verses.slice(start, start + pageSize),
-        creators: creators.slice(start, start + pageSize).map(c => ({ ...c, is_following: followingSet.has(c.username) })),
+        creators: creators.slice(start, start + pageSize).map(normalizeCreator),
         loading: false
       };
 
@@ -215,10 +231,16 @@ export function SearchClient() {
         if (!mounted) return;
         setFollowingSet(usernames);
 
-        // Update existing creators in results to mark followed ones
+        // Update existing creators in results to mark followed ones and normalize follower counts
         setResults(prev => ({
           ...prev,
-          creators: prev.creators.map(c => ({ ...c, is_following: usernames.has(c.username) }))
+          creators: prev.creators.map(c => ({
+            ...c,
+            is_following: usernames.has(c.username),
+            followers_count: Number(
+              c?.followers_count ?? c?.follower_count ?? (Array.isArray(c?.followers) ? c.followers.length : undefined) ?? 0
+            ) || 0
+          }))
         }));
       } catch (e) {
         // ignore
@@ -299,101 +321,97 @@ export function SearchClient() {
     }
   };
 
-  const handleFollowUser = async (userId) => {
-    // Prevent unauthenticated users from sending follow requests
+  const handleFollowUser = async (username) => {
     if (!isAuthenticated) {
       openAuthModal();
       return;
     }
 
+    // Add optimistic pending marker
+    setPendingFollows(prev => new Set(prev).add(username));
+
+    // Optimistic UI: flip is_following and update follower count locally
+    setResults(prev => ({
+      ...prev,
+      creators: prev.creators.map(creator =>
+        creator.username === username
+          ? {
+              ...creator,
+              is_following: !creator.is_following,
+              followers_count: (creator.followers_count || 0) + (creator.is_following ? -1 : 1)
+            }
+          : creator
+      )
+    }));
+
+    // Also update followingSet optimistically for local checks
+    setFollowingSet(prev => {
+      const copy = new Set(prev);
+      if (copy.has(username)) copy.delete(username);
+      else copy.add(username);
+      return copy;
+    });
+
     try {
-      // Optimistic update
-      setPendingFollows(prev => new Set(prev).add(userId));
+      const data = await userApi.followUser(username);
+
+      // Determine whether server reports follow state
+      const serverFollowing = data?.following ?? data?.is_following ?? data?.followed;
+      const serverFollowersCount = data?.followers_count ?? data?.follower_count ?? (Array.isArray(data?.followers) ? data.followers.length : undefined);
+
+      setResults(prev => ({
+        ...prev,
+        creators: prev.creators.map(creator => {
+          if (creator.username !== username) return creator;
+
+          // Prefer authoritative server follower count if provided
+          const finalFollowersCount = (typeof serverFollowersCount === 'number')
+            ? serverFollowersCount
+            : // otherwise keep current count (already optimistically adjusted)
+              creator.followers_count;
+
+          return {
+            ...creator,
+            is_following: typeof serverFollowing === 'undefined' ? creator.is_following : Boolean(serverFollowing),
+            followers_count: finalFollowersCount
+          };
+        })
+      }));
+
+      // Update followingSet from serverFollowing if present
+      if (typeof serverFollowing !== 'undefined') {
+        setFollowingSet(prev => {
+          const copy = new Set(prev);
+          if (serverFollowing) copy.add(username);
+          else copy.delete(username);
+          return copy;
+        });
+      }
+    } catch (err) {
+      // Roll back optimistic changes on error
       setResults(prev => ({
         ...prev,
         creators: prev.creators.map(creator =>
-          creator.username === userId
-            ? ({ ...creator, is_following: !creator.is_following, followers_count: creator.is_following ? Math.max(0, (creator.followers_count || 0) - 1) : ((creator.followers_count || 0) + 1) })
+          creator.username === username
+            ? { ...creator, is_following: !creator.is_following }
             : creator
         )
       }));
-
-      const data = await userApi.followUser(userId);
-
-      // Reconcile with server response or reload following list
-      let serverFollowing;
-      if (data) serverFollowing = data.following ?? data.is_following ?? data.followed;
-
-      if (typeof serverFollowing !== 'undefined' || data) {
-        // If server returned a following flag or possibly follower counts, use them
-        const followerCountFromResp = data?.followers_count ?? data?.follower_count ?? data?.followers ?? null;
-
-        if (typeof serverFollowing !== 'undefined' || followerCountFromResp !== null) {
-          setResults(prev => ({
-            ...prev,
-            creators: prev.creators.map(creator => (
-              creator.username === userId
-                ? ({
-                    ...creator,
-                    is_following: typeof serverFollowing !== 'undefined' ? Boolean(serverFollowing) : !creator.is_following,
-                    followers_count: typeof followerCountFromResp === 'number' ? followerCountFromResp : creator.followers_count
-                  })
-                : creator
-            ))
-          }));
-        } else {
-          // If response didn't include counts, fetch the target user's profile to get authoritative follower count
-          try {
-            const profile = await userApi.getProfile(userId);
-            const newCount = profile?.followers_count ?? profile?.follower_count ?? (Array.isArray(profile?.followers) ? profile.followers.length : undefined);
-            setResults(prev => ({
-              ...prev,
-              creators: prev.creators.map(creator => (
-                creator.username === userId
-                  ? ({ ...creator, is_following: typeof serverFollowing !== 'undefined' ? Boolean(serverFollowing) : !creator.is_following, followers_count: typeof newCount === 'number' ? newCount : creator.followers_count })
-                  : creator
-              ))
-            }));
-          } catch (reloadErr) {
-            // fallback: set following flag if available
-            setResults(prev => ({
-              ...prev,
-              creators: prev.creators.map(creator => (
-                creator.username === userId ? ({ ...creator, is_following: typeof serverFollowing !== 'undefined' ? Boolean(serverFollowing) : !creator.is_following }) : creator
-              ))
-            }));
-          }
-        }
-      }
-
-      // clear pending
-      setPendingFollows(prev => {
+      setFollowingSet(prev => {
         const copy = new Set(prev);
-        copy.delete(userId);
+        // flip membership back
+        if (copy.has(username)) copy.delete(username);
+        else copy.add(username);
         return copy;
       });
-    } catch (error) {
-      try {
-      } catch (e) {
-        // ignore
-      }
 
-      // If the API indicated the user is unauthorized, open the auth modal
-      if (error && (error.status === 401 || /Unauthorized/i.test(String(error.message || '')))) {
+      if (err && (err.status === 401 || /Unauthorized/i.test(String(err.message || '')))) {
         openAuthModal();
       }
-      // rollback optimistic update on error
-      setResults(prev => ({
-        ...prev,
-        creators: prev.creators.map(creator =>
-          creator.username === userId
-            ? ({ ...creator, is_following: !creator.is_following })
-            : creator
-        )
-      }));
+    } finally {
       setPendingFollows(prev => {
         const copy = new Set(prev);
-        copy.delete(userId);
+        copy.delete(username);
         return copy;
       });
     }

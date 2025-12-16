@@ -126,24 +126,44 @@ export default function ProfileClient({ username, initialProfile = null }) {
       const f = normalize(followersRes.status === 'fulfilled' ? followersRes.value : null);
       const g = normalize(followingRes.status === 'fulfilled' ? followingRes.value : null);
 
-      setFollowersList(f.list);
+      // Normalize list items to objects so downstream UI can access fields like
+      // `brand_name`, `first_name`, `last_name`, and `profile_image_url`.
+      const normalizeUserItem = (item) => {
+        if (!item) return null;
+        // plain username string
+        if (typeof item === 'string') return { username: item };
+        // wrappers like { user: 'username' } or { user: { username, ... } }
+        if (item.user) {
+          if (typeof item.user === 'string') return { username: item.user };
+          if (typeof item.user === 'object') return item.user;
+        }
+        // some APIs return { username } directly or richer objects
+        if (typeof item === 'object') return item;
+        return null;
+      };
+
+      const normalizedFollowers = f.list.map(normalizeUserItem).filter(Boolean);
+      const normalizedFollowing = g.list.map(normalizeUserItem).filter(Boolean);
+
+      setFollowersList(normalizedFollowers);
       setFollowersCount(f.count);
-      setFollowingList(g.list);
+      setFollowingList(normalizedFollowing);
       setFollowingCount(g.count);
 
       // Determine whether current user follows this profile
       if (isAuthenticated && myFollowingRes.status === 'fulfilled' && Array.isArray(myFollowingRes.value)) {
         const myFollowing = myFollowingRes.value;
-        const found = myFollowing.some(u => (u.username || u.user || u) === username);
+        const myFollowingUsernames = myFollowing.map(u => (u && (u.username || u.user || u)));
+        const found = myFollowingUsernames.some(un => un === username);
         // store current user's following set for modal follow buttons
         try {
-          const setUsernames = new Set(myFollowing.map(u => (u.username || u.user || u)));
+          const setUsernames = new Set(myFollowingUsernames.filter(Boolean));
           setMyFollowingSet(setUsernames);
         } catch (e) {}
         setIsFollowing(Boolean(found));
       } else if (currentUser?.username) {
-        // As a fallback, check followers list for current user presence
-        const found = f.list.some(u => (u.username || u.user || u) === currentUser.username);
+        // As a fallback, check normalized followers list for current user presence
+        const found = normalizedFollowers.some(u => (u && (u.username || u.user || u)) === currentUser.username);
         setIsFollowing(Boolean(found));
       }
     } catch (error) {
@@ -162,19 +182,20 @@ export default function ProfileClient({ username, initialProfile = null }) {
     }
   };
 
-  // Helper function to get display name based on account type
   const getDisplayName = (user) => {
     if (!user) return 'Unknown';
+    
     // Check if account is brand type and has brand_name
     if (user.account_type === 'brand' && user.brand_name) {
       return user.brand_name;
     }
-
+  
     // Prefer explicit full-name fields, then assemble from first/last, then fallback to username
     const first = user.first_name || user.creator_first_name || user.given_name || '';
     const last = user.last_name || user.creator_last_name || user.family_name || '';
     const explicitFull = user.get_full_name || user.full_name || user.name || user.display_name || '';
     const combined = `${first} ${last}`.trim();
+    
     return (explicitFull && explicitFull.trim()) || (combined && combined) || user.username || 'Unknown';
   };
 
