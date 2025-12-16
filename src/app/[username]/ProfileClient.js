@@ -75,7 +75,7 @@ function SmartImg({ src, alt = '', width, height, fill, className, style, onClic
 
 export default function ProfileClient({ username, initialProfile = null }) {
   // Use server-provided initialProfile when available to render instantly
-  const [user, setUser] = useState(initialProfile ? { ...initialProfile, is_following: initialProfile.is_following || false } : null);
+  const [user, setUser] = useState(initialProfile ? { ...initialProfile } : null);
   const [stories, setStories] = useState([]);
   const [verses, setVerses] = useState([]);
   const [savedStories, setSavedStories] = useState([]);
@@ -83,6 +83,15 @@ export default function ProfileClient({ username, initialProfile = null }) {
   // If we have an initial profile, don't show the loading screen
   const [loading, setLoading] = useState(initialProfile ? false : true);
   const [imageModal, setImageModal] = useState({ visible: false, type: null, url: '' });
+  // Follow-related state
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [followersList, setFollowersList] = useState([]);
+  const [followingList, setFollowingList] = useState([]);
+  const [myFollowingSet, setMyFollowingSet] = useState(new Set());
+  const [pendingModalFollows, setPendingModalFollows] = useState(new Set());
+  const [followModal, setFollowModal] = useState({ visible: false, tab: 'followers' });
   
   // New state for story feed modal
   const [storyFeedModal, setStoryFeedModal] = useState({ visible: false, initialIndex: 0 });
@@ -92,14 +101,55 @@ export default function ProfileClient({ username, initialProfile = null }) {
   const profileFileInputRef = useRef(null);
   const coverFileInputRef = useRef(null);
 
-  // Followers / Following modal state
-  const [peopleModal, setPeopleModal] = useState({ visible: false, type: 'followers' });
-  const [followersList, setFollowersList] = useState([]);
-  const [followingList, setFollowingList] = useState([]);
-  const [loadingPeople, setLoadingPeople] = useState(false);
-  
   const { currentUser, isAuthenticated, openAuthModal } = useAuth();
   const router = useRouter();
+
+  // Load followers/following data for this profile (counts + lists)
+  const loadFollowData = useCallback(async () => {
+    try {
+      // Fetch followers and following for the profile user in parallel.
+      // Also fetch current user's following to determine isFollowing status.
+      const [followersRes, followingRes, myFollowingRes] = await Promise.allSettled([
+        userApi.getFollowers(username),
+        userApi.getFollowing(username),
+        isAuthenticated ? userApi.getFollowing() : Promise.resolve(null)
+      ]);
+
+      const normalize = (res) => {
+        if (!res) return { list: [], count: 0 };
+        if (Array.isArray(res)) return { list: res, count: res.length };
+        if (res.results && Array.isArray(res.results)) return { list: res.results, count: res.count || res.results.length };
+        if (typeof res.count === 'number' && Array.isArray(res.items)) return { list: res.items, count: res.count };
+        return { list: Array.isArray(res) ? res : [], count: res.count || 0 };
+      };
+
+      const f = normalize(followersRes.status === 'fulfilled' ? followersRes.value : null);
+      const g = normalize(followingRes.status === 'fulfilled' ? followingRes.value : null);
+
+      setFollowersList(f.list);
+      setFollowersCount(f.count);
+      setFollowingList(g.list);
+      setFollowingCount(g.count);
+
+      // Determine whether current user follows this profile
+      if (isAuthenticated && myFollowingRes.status === 'fulfilled' && Array.isArray(myFollowingRes.value)) {
+        const myFollowing = myFollowingRes.value;
+        const found = myFollowing.some(u => (u.username || u.user || u) === username);
+        // store current user's following set for modal follow buttons
+        try {
+          const setUsernames = new Set(myFollowing.map(u => (u.username || u.user || u)));
+          setMyFollowingSet(setUsernames);
+        } catch (e) {}
+        setIsFollowing(Boolean(found));
+      } else if (currentUser?.username) {
+        // As a fallback, check followers list for current user presence
+        const found = f.list.some(u => (u.username || u.user || u) === currentUser.username);
+        setIsFollowing(Boolean(found));
+      }
+    } catch (error) {
+      // ignore silently; non-critical
+    }
+  }, [username, isAuthenticated, currentUser?.username]);
 
   // Helper to safely get the first character of a username (defensive)
   const getInitial = (name, fallback = '') => {
@@ -119,8 +169,13 @@ export default function ProfileClient({ username, initialProfile = null }) {
     if (user.account_type === 'brand' && user.brand_name) {
       return user.brand_name;
     }
-    // Fallback to full name or username
-    return user.get_full_name || user.full_name || user.username || 'Unknown';
+
+    // Prefer explicit full-name fields, then assemble from first/last, then fallback to username
+    const first = user.first_name || user.creator_first_name || user.given_name || '';
+    const last = user.last_name || user.creator_last_name || user.family_name || '';
+    const explicitFull = user.get_full_name || user.full_name || user.name || user.display_name || '';
+    const combined = `${first} ${last}`.trim();
+    return (explicitFull && explicitFull.trim()) || (combined && combined) || user.username || 'Unknown';
   };
 
   // In the fetchProfile function in ProfileClient.js
@@ -135,24 +190,9 @@ export default function ProfileClient({ username, initialProfile = null }) {
       const combined = `${first} ${last}`.trim();
       const fullName = (explicitFull && explicitFull.trim()) || (combined && combined) || response.username || '';
 
-      // Normalize follow-related fields coming from the API so the UI
-      // always reads `followers_count`, `following_count` and `is_following`.
-      const followersCount = typeof response.followers_count !== 'undefined'
-        ? response.followers_count
-        : (typeof response.follower_count !== 'undefined' ? response.follower_count : (response.followers || 0));
-      const followingCount = typeof response.following_count !== 'undefined'
-        ? response.following_count
-        : (typeof response.following !== 'undefined' ? response.following : 0);
-      const isFollowingFlag = typeof response.is_following !== 'undefined'
-        ? response.is_following
-        : (typeof response.is_following_user !== 'undefined' ? response.is_following_user : false);
-
       const userData = {
         ...response,
         get_full_name: fullName,
-        is_following: !!isFollowingFlag,
-        followers_count: Number(followersCount || 0),
-        following_count: Number(followingCount || 0),
       };
       
       setUser(userData);
@@ -177,6 +217,17 @@ export default function ProfileClient({ username, initialProfile = null }) {
     if (username) fetchProfile();
   }, [username, fetchProfile]);
 
+  // Load follow counts/lists when username changes
+  useEffect(() => {
+    if (username) {
+      try {
+        loadFollowData();
+      } catch (e) {
+        // ignore
+      }
+    }
+  }, [username, loadFollowData]);
+
   // When feed modal opens, scroll the feed to the requested initial index
   useEffect(() => {
     if (storyFeedModal.visible && feedContainerRef.current) {
@@ -197,96 +248,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
       return () => clearTimeout(t);
     }
   }, [storyFeedModal.visible, storyFeedModal.initialIndex]);
-
-  const handleFollow = async () => {
-    if (!isAuthenticated) {
-      openAuthModal();
-      return;
-    }
-  
-    try {
-      const response = await userApi.followUser(username);
-
-      // Normalize response values (API may return `follower_count` or `followers_count`)
-      const respFollowers = typeof response.followers_count !== 'undefined' ? response.followers_count : (typeof response.follower_count !== 'undefined' ? response.follower_count : undefined);
-      const respFollowing = typeof response.following_count !== 'undefined' ? response.following_count : (typeof response.following !== 'undefined' ? response.following : undefined);
-      const respIsFollowing = typeof response.is_following !== 'undefined' ? response.is_following : !!response.is_following_user;
-
-      setUser(prev => ({
-        ...prev,
-        is_following: !!respIsFollowing,
-        followers_count: typeof respFollowers !== 'undefined' ? respFollowers : (prev.followers_count + (respIsFollowing ? 1 : -1)),
-        following_count: typeof respFollowing !== 'undefined' ? respFollowing : prev.following_count
-      }));
-
-      // Broadcast event so other components can update
-      try {
-        window.dispatchEvent(new CustomEvent('user:follow:update', {
-          detail: {
-            username,
-            is_following: !!respIsFollowing,
-            followers_count: typeof respFollowers !== 'undefined' ? respFollowers : undefined
-          }
-        }));
-      } catch (e) {}
-    } catch (error) {
-      console.error('Error following user:', error);
-    }
-  };
-
-  // Open followers/following modal and fetch list
-  const openPeopleModal = async (type) => {
-    setPeopleModal({ visible: true, type });
-    try {
-      setLoadingPeople(true);
-      if (type === 'followers') {
-        const res = await userApi.getFollowers(username);
-        setFollowersList(Array.isArray(res) ? res : (res.results || []));
-      } else {
-        const res = await userApi.getFollowing(username);
-        setFollowingList(Array.isArray(res) ? res : (res.results || []));
-      }
-    } catch (e) {
-      console.error('Error fetching people list:', e);
-      if (type === 'followers') setFollowersList([]);
-      else setFollowingList([]);
-    } finally {
-      setLoadingPeople(false);
-    }
-  };
-
-  // Follow/unfollow from modal list, updates local list and broadcasts update
-  const handleFollowFromList = async (targetUsername, index, listType) => {
-    if (!isAuthenticated) { openAuthModal(); return; }
-    try {
-      const res = await userApi.followUser(targetUsername);
-      const isNowFollowing = !!res.is_following;
-
-      // Update the appropriate list
-      if (listType === 'followers') {
-        setFollowersList(prev => prev.map((p, i) => i === index ? { ...p, is_following: isNowFollowing } : p));
-      } else {
-        setFollowingList(prev => prev.map((p, i) => i === index ? { ...p, is_following: isNowFollowing } : p));
-      }
-
-      // If we toggled follow on the profile being viewed, update its counts/state
-      if (targetUsername === username) {
-        const respFollowers = typeof res.followers_count !== 'undefined' ? res.followers_count : (typeof res.follower_count !== 'undefined' ? res.follower_count : undefined);
-        setUser(prev => ({
-          ...prev,
-          is_following: isNowFollowing,
-          followers_count: typeof respFollowers !== 'undefined' ? respFollowers : prev.followers_count + (isNowFollowing ? 1 : -1)
-        }));
-      }
-
-      try {
-        const respFollowersEvent = typeof res.followers_count !== 'undefined' ? res.followers_count : (typeof res.follower_count !== 'undefined' ? res.follower_count : undefined);
-        window.dispatchEvent(new CustomEvent('user:follow:update', { detail: { username: targetUsername, is_following: isNowFollowing, followers_count: respFollowersEvent } }));
-      } catch (e) {}
-    } catch (e) {
-      console.error('Error toggling follow for', targetUsername, e);
-    }
-  };
 
   // Fixed image upload function with compression
   const { compressImageFile } = useImageCompressionUploader();
@@ -431,6 +392,161 @@ export default function ProfileClient({ username, initialProfile = null }) {
     }
   };
 
+  // Toggle follow/unfollow for this profile
+  const handleToggleFollow = async () => {
+    if (!isAuthenticated) {
+      try { window.dispatchEvent(new CustomEvent('auth:open', { detail: { type: 'follow', data: null } })); } catch (e) {}
+      openAuthModal?.();
+      return;
+    }
+
+    // Optimistic UI update
+    const optimistic = !isFollowing;
+    setIsFollowing(optimistic);
+    setFollowersCount(prev => optimistic ? prev + 1 : Math.max(0, prev - 1));
+
+    try {
+      const res = await userApi.followUser(username);
+
+      // reconcile with server response when possible
+      const serverFollowing = res && (res.following ?? res.is_following ?? res.followed);
+      if (typeof serverFollowing !== 'undefined') {
+        setIsFollowing(Boolean(serverFollowing));
+      }
+
+      // if server returns fresh counts, use them
+      if (res && typeof res.followers_count === 'number') {
+        setFollowersCount(res.followers_count);
+      } else {
+        // reload lists to be safe
+        await loadFollowData();
+      }
+    } catch (error) {
+      console.error('Error toggling follow:', error);
+      // rollback optimistic update on error
+      setIsFollowing(prev => !prev);
+      setFollowersCount(prev => optimistic ? Math.max(0, prev - 1) : prev + 1);
+    }
+  };
+
+  // Toggle follow/unfollow for an arbitrary user from the followers/following modal
+  const handleToggleUserFollow = async (e, targetUsername) => {
+    try { e.stopPropagation(); } catch (err) {}
+    if (!isAuthenticated) {
+      try { window.dispatchEvent(new CustomEvent('auth:open', { detail: { type: 'follow', data: null } })); } catch (e) {}
+      openAuthModal?.();
+      return;
+    }
+
+    if (!targetUsername) return;
+
+    // optimistic update: add to pending, toggle myFollowingSet and update lists' follower counts
+    setPendingModalFollows(prev => new Set(prev).add(targetUsername));
+
+    // Determine current relation and compute optimistic new state
+    const wasFollowing = myFollowingSet.has(targetUsername);
+    const nowFollowing = !wasFollowing;
+
+    // Update myFollowingSet optimistically
+    setMyFollowingSet(prev => {
+      const copy = new Set(prev);
+      if (nowFollowing) copy.add(targetUsername); else copy.delete(targetUsername);
+      return copy;
+    });
+
+    // Update follower counts in the lists based on optimistic nowFollowing
+    setFollowersList(prev => prev.map(u => {
+      const uname = (u && (u.username || u.user || u)) || String(u || '');
+      if (uname === targetUsername) {
+        const newCount = nowFollowing ? (Number(u.followers_count || 0) + 1) : Math.max(0, Number(u.followers_count || 0) - 1);
+        return { ...u, followers_count: newCount };
+      }
+      return u;
+    }));
+
+    setFollowingList(prev => prev.map(u => {
+      const uname = (u && (u.username || u.user || u)) || String(u || '');
+      if (uname === targetUsername) {
+        const newCount = nowFollowing ? (Number(u.followers_count || 0) + 1) : Math.max(0, Number(u.followers_count || 0) - 1);
+        return { ...u, followers_count: newCount };
+      }
+      return u;
+    }));
+
+    try {
+      const res = await userApi.followUser(targetUsername);
+      const serverFollowing = res && (res.following ?? res.is_following ?? res.followed);
+
+      if (typeof serverFollowing !== 'undefined') {
+        setMyFollowingSet(prev => {
+          const copy = new Set(prev);
+          if (serverFollowing) copy.add(targetUsername); else copy.delete(targetUsername);
+          return copy;
+        });
+      } else {
+        // reload full following list to be safe
+        try {
+          const meFollowing = await userApi.getFollowing();
+          let list = [];
+          if (!meFollowing) list = [];
+          else if (Array.isArray(meFollowing)) list = meFollowing;
+          else if (meFollowing.results && Array.isArray(meFollowing.results)) list = meFollowing.results;
+          else list = Array.isArray(meFollowing.items) ? meFollowing.items : [];
+          const setUsernames = new Set(list.map(u => (u.username || u.user || u)));
+          setMyFollowingSet(setUsernames);
+        } catch (e) {
+          // ignore
+        }
+      }
+
+      // update follower count if provided or fetch target profile
+      const followerCountFromResp = res?.followers_count ?? res?.follower_count ?? (typeof res?.followers === 'number' ? res.followers : null);
+      if (typeof followerCountFromResp === 'number') {
+        setFollowersList(prev => prev.map(u => {
+          const uname = (u && (u.username || u.user || u)) || String(u || '');
+          return uname === targetUsername ? { ...u, followers_count: followerCountFromResp } : u;
+        }));
+        setFollowingList(prev => prev.map(u => {
+          const uname = (u && (u.username || u.user || u)) || String(u || '');
+          return uname === targetUsername ? { ...u, followers_count: followerCountFromResp } : u;
+        }));
+      } else {
+        try {
+          const profile = await userApi.getProfile(targetUsername);
+          const newCount = profile?.followers_count ?? profile?.follower_count ?? (Array.isArray(profile?.followers) ? profile.followers.length : undefined);
+          if (typeof newCount === 'number') {
+            setFollowersList(prev => prev.map(u => {
+              const uname = (u && (u.username || u.user || u)) || String(u || '');
+              return uname === targetUsername ? { ...u, followers_count: newCount } : u;
+            }));
+            setFollowingList(prev => prev.map(u => {
+              const uname = (u && (u.username || u.user || u)) || String(u || '');
+              return uname === targetUsername ? { ...u, followers_count: newCount } : u;
+            }));
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    } catch (error) {
+      console.error('Error toggling user follow in modal:', error);
+      // rollback optimistic changes using the inverse of nowFollowing
+      setMyFollowingSet(prev => {
+        const copy = new Set(prev);
+        if (nowFollowing) copy.delete(targetUsername); else copy.add(targetUsername);
+        return copy;
+      });
+      // optionally reload lists
+      try { await loadFollowData(); } catch (e) {}
+    } finally {
+      setPendingModalFollows(prev => {
+        const copy = new Set(prev);
+        copy.delete(targetUsername);
+        return copy;
+      });
+    }
+  };
+
   // Helper function to get a valid image URL or null
   const getImageUrl = (imageObj) => {
     if (!imageObj) return null;
@@ -493,65 +609,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-6xl text-cyan-500/20">
               <i className="fas fa-image"></i>
-            </div>
-          </div>
-        )}
-
-        {/* Followers / Following Modal */}
-        {peopleModal.visible && (
-          <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/70 p-4">
-            <div className="max-w-2xl w-full bg-gradient-to-br from-gray-900 to-slate-900 rounded-2xl border border-cyan-500/30 shadow-xl overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
-                <div>
-                  <div className="text-sm text-gray-300 font-semibold">{peopleModal.type === 'followers' ? 'Followers' : 'Following'}</div>
-                  <div className="text-xs text-gray-400">{peopleModal.type === 'followers' ? (followersList.length) : (followingList.length)} users</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setPeopleModal({ visible: false, type: peopleModal.type })} className="text-gray-300 hover:text-white px-3 py-1 rounded-lg">Close</button>
-                </div>
-              </div>
-
-              <div className="max-h-[60vh] overflow-y-auto p-3 space-y-2 custom-scrollbar">
-                {loadingPeople ? (
-                  <div className="p-6 text-center text-gray-400">Loading...</div>
-                ) : (
-                  (peopleModal.type === 'followers' ? followersList : followingList).length === 0 ? (
-                    <div className="p-6 text-center text-gray-400">No users to show.</div>
-                  ) : (
-                    (peopleModal.type === 'followers' ? followersList : followingList).map((p, i) => {
-                      const avatarUrl = p.profile_image_url || p.profile_image || null;
-                      const display = getDisplayName(p) || p.username || p.user || 'Unknown';
-                      const uname = p.username || p.user || '';
-                      const isFollowing = !!p.is_following;
-                      return (
-                        <div key={uname || i} className="flex items-center justify-between bg-slate-900/40 p-3 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-white text-sm overflow-hidden">
-                              {avatarUrl ? (
-                                <SmartImg src={absoluteUrl(avatarUrl)} alt={uname} width={40} height={40} className="object-cover" />
-                              ) : (
-                                <span className="font-bold">{getInitial(uname || display, 'U')}</span>
-                              )}
-                            </div>
-                            <div className="text-left">
-                              <div className="text-sm font-semibold text-white">{display}</div>
-                              <div className="text-xs text-gray-400">@{uname}</div>
-                            </div>
-                          </div>
-                          <div>
-                            <button
-                              onClick={() => handleFollowFromList(uname, i, peopleModal.type)}
-                              className={`px-3 py-1 rounded-full text-sm font-semibold ${isFollowing ? 'border border-cyan-500 text-cyan-400 bg-transparent' : 'bg-cyan-500 text-white'}`}
-                            >
-                              {isFollowing ? 'Following' : 'Follow'}
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )
-                )}
-              </div>
             </div>
           </div>
         )}
@@ -636,16 +693,16 @@ export default function ProfileClient({ username, initialProfile = null }) {
                   <i className="fas fa-pencil-alt text-xs"></i>
                   Edit Profile
                 </Link>
-              ) : currentUser && (
-                <button 
-                  onClick={handleFollow}
-                  className={`px-4 py-1 rounded-full text-xs font-bold ${
-                    user.is_following 
-                      ? 'border border-cyan-500 text-cyan-500 hover:bg-cyan-500/10'
-                      : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:opacity-90'
-                  } transition-all`}
+              ) : null}
+
+              {/* Follow / Unfollow button when viewing someone else's profile */}
+              {currentUser && currentUser.username !== username && (
+                <button
+                  onClick={handleToggleFollow}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${isFollowing ? 'bg-cyan-500 text-slate-900 hover:opacity-90' : 'bg-transparent border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10'}`}
                 >
-                  {user.is_following ? 'Following' : 'Follow'}
+                  <i className={`fas ${isFollowing ? 'fa-check' : 'fa-user-plus'} text-sm`} />
+                  {isFollowing ? 'Following' : 'Follow'}
                 </button>
               )}
             </div>
@@ -658,14 +715,22 @@ export default function ProfileClient({ username, initialProfile = null }) {
             <div className="text-2xl font-bold text-cyan-500">{stories.length}</div>
             <div className="text-sm text-gray-400">Stories</div>
           </div>
-          <div className="text-center cursor-pointer" onClick={() => openPeopleModal('followers')}>
-            <div className="text-2xl font-bold text-cyan-500">{user.followers_count || 0}</div>
+
+          <button
+            onClick={() => setFollowModal({ visible: true, tab: 'followers' })}
+            className="text-center"
+          >
+            <div className="text-2xl font-bold text-cyan-500">{followersCount}</div>
             <div className="text-sm text-gray-400">Followers</div>
-          </div>
-          <div className="text-center cursor-pointer" onClick={() => openPeopleModal('following')}>
-            <div className="text-2xl font-bold text-cyan-500">{user.following_count || 0}</div>
+          </button>
+
+          <button
+            onClick={() => setFollowModal({ visible: true, tab: 'following' })}
+            className="text-center"
+          >
+            <div className="text-2xl font-bold text-cyan-500">{followingCount}</div>
             <div className="text-sm text-gray-400">Following</div>
-          </div>
+          </button>
         </div>
 
         {/* Content Tabs */}
@@ -1105,6 +1170,76 @@ export default function ProfileClient({ username, initialProfile = null }) {
                     ))}
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Followers / Following Modal */}
+        {followModal.visible && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+            <div className="bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 rounded-3xl border border-cyan-500/40 shadow-2xl p-6 w-full max-w-2xl">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-4">
+                  <h3 className="text-xl font-semibold text-white">{followModal.tab === 'followers' ? 'Followers' : 'Following'}</h3>
+                  <div className="text-sm text-gray-400">{followModal.tab === 'followers' ? `${followersCount} people` : `${followingCount} people`}</div>
+                </div>
+                <div>
+                  <button
+                    onClick={() => setFollowModal({ visible: false, tab: 'followers' })}
+                    className="px-3 py-1 rounded-md bg-cyan-500 text-slate-900 font-semibold"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+
+              <div className="max-h-[60vh] overflow-y-auto">
+                {(followModal.tab === 'followers' ? followersList : followingList).length > 0 ? (
+                  (followModal.tab === 'followers' ? followersList : followingList).map((u, i) => {
+                    const uname = (u && (u.username || u.user || u)) || String(u || '').toString();
+                    const avatar = u && (u.profile_image_url || u.profile_image || u.avatar || u.image) || null;
+                    const isSelfEntry = currentUser?.username && currentUser.username === uname;
+                    return (
+                      <div key={uname + i} className="flex items-center gap-4 p-3 hover:bg-slate-900/40 rounded-md">
+                        <Link href={`/${encodeURIComponent(uname)}`} className="flex items-center gap-4 flex-1">
+                          <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-white text-sm overflow-hidden">
+                            {avatar ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={avatar} alt={uname} className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="font-bold">{(uname && uname[0]?.toUpperCase()) || 'U'}</span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            {(() => {
+                              const displayName = (typeof u === 'string') ? uname : getDisplayName(u);
+                              return (
+                                <>
+                                  <div className="text-sm font-semibold text-white truncate">{displayName}</div>
+                                  <div className="text-xs text-gray-400 truncate">@{uname}</div>
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </Link>
+                        <div>
+                          {!isSelfEntry && (
+                            <button
+                              onClick={(e) => handleToggleUserFollow(e, uname)}
+                              disabled={pendingModalFollows.has(uname)}
+                              className={`px-3 py-1 rounded-md font-semibold ${myFollowingSet.has(uname) ? 'bg-transparent border border-cyan-500 text-cyan-400 hover:bg-cyan-500/10' : 'bg-cyan-500 text-slate-900 hover:opacity-95'}`}
+                            >
+                              {pendingModalFollows.has(uname) ? '...' : (myFollowingSet.has(uname) ? 'Following' : 'Follow')}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center text-gray-400 py-12">No users yet</div>
+                )}
               </div>
             </div>
           </div>

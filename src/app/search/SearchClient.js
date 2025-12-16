@@ -63,6 +63,8 @@ export function SearchClient() {
     creators: [],
     loading: false
   });
+  const [followingSet, setFollowingSet] = useState(new Set());
+  const [pendingFollows, setPendingFollows] = useState(new Set());
   const [error, setError] = useState(null);
   const [isMounted, setIsMounted] = useState(false);
   const [page, setPage] = useState(1);
@@ -151,7 +153,7 @@ export function SearchClient() {
       const paginatedResults = {
         stories: stories.slice(start, start + pageSize),
         verses: verses.slice(start, start + pageSize),
-        creators: creators.slice(start, start + pageSize),
+        creators: creators.slice(start, start + pageSize).map(c => ({ ...c, is_following: followingSet.has(c.username) })),
         loading: false
       };
 
@@ -195,6 +197,37 @@ export function SearchClient() {
       }
     }
   }, [isMounted, searchParams]);
+
+  // Load current user's following so creators list reflects persistent follows
+  useEffect(() => {
+    let mounted = true;
+    const loadFollowing = async () => {
+      if (!isAuthenticated) return;
+      try {
+        const res = await userApi.getFollowing();
+        let list = [];
+        if (!res) list = [];
+        else if (Array.isArray(res)) list = res;
+        else if (res.results && Array.isArray(res.results)) list = res.results;
+        else list = Array.isArray(res.items) ? res.items : [];
+
+        const usernames = new Set(list.map(u => (u.username || u.user || u)));
+        if (!mounted) return;
+        setFollowingSet(usernames);
+
+        // Update existing creators in results to mark followed ones
+        setResults(prev => ({
+          ...prev,
+          creators: prev.creators.map(c => ({ ...c, is_following: usernames.has(c.username) }))
+        }));
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    loadFollowing();
+    return () => { mounted = false; };
+  }, [isAuthenticated]);
 
   // Effect for loading more when page changes
   useEffect(() => {
@@ -274,20 +307,71 @@ export function SearchClient() {
     }
 
     try {
-      const data = await userApi.followUser(userId);
-      // Update creators state with both is_following and follower_count
+      // Optimistic update
+      setPendingFollows(prev => new Set(prev).add(userId));
       setResults(prev => ({
         ...prev,
-        creators: prev.creators.map(creator => 
-          creator.username === userId 
-            ? { 
-                ...creator, 
-                is_following: typeof data?.is_following !== 'undefined' ? data.is_following : !creator.is_following,
-                followers_count: typeof data?.follower_count !== 'undefined' ? data.follower_count : creator.followers_count
-              }
+        creators: prev.creators.map(creator =>
+          creator.username === userId
+            ? ({ ...creator, is_following: !creator.is_following, followers_count: creator.is_following ? Math.max(0, (creator.followers_count || 0) - 1) : ((creator.followers_count || 0) + 1) })
             : creator
         )
       }));
+
+      const data = await userApi.followUser(userId);
+
+      // Reconcile with server response or reload following list
+      let serverFollowing;
+      if (data) serverFollowing = data.following ?? data.is_following ?? data.followed;
+
+      if (typeof serverFollowing !== 'undefined' || data) {
+        // If server returned a following flag or possibly follower counts, use them
+        const followerCountFromResp = data?.followers_count ?? data?.follower_count ?? data?.followers ?? null;
+
+        if (typeof serverFollowing !== 'undefined' || followerCountFromResp !== null) {
+          setResults(prev => ({
+            ...prev,
+            creators: prev.creators.map(creator => (
+              creator.username === userId
+                ? ({
+                    ...creator,
+                    is_following: typeof serverFollowing !== 'undefined' ? Boolean(serverFollowing) : !creator.is_following,
+                    followers_count: typeof followerCountFromResp === 'number' ? followerCountFromResp : creator.followers_count
+                  })
+                : creator
+            ))
+          }));
+        } else {
+          // If response didn't include counts, fetch the target user's profile to get authoritative follower count
+          try {
+            const profile = await userApi.getProfile(userId);
+            const newCount = profile?.followers_count ?? profile?.follower_count ?? (Array.isArray(profile?.followers) ? profile.followers.length : undefined);
+            setResults(prev => ({
+              ...prev,
+              creators: prev.creators.map(creator => (
+                creator.username === userId
+                  ? ({ ...creator, is_following: typeof serverFollowing !== 'undefined' ? Boolean(serverFollowing) : !creator.is_following, followers_count: typeof newCount === 'number' ? newCount : creator.followers_count })
+                  : creator
+              ))
+            }));
+          } catch (reloadErr) {
+            // fallback: set following flag if available
+            setResults(prev => ({
+              ...prev,
+              creators: prev.creators.map(creator => (
+                creator.username === userId ? ({ ...creator, is_following: typeof serverFollowing !== 'undefined' ? Boolean(serverFollowing) : !creator.is_following }) : creator
+              ))
+            }));
+          }
+        }
+      }
+
+      // clear pending
+      setPendingFollows(prev => {
+        const copy = new Set(prev);
+        copy.delete(userId);
+        return copy;
+      });
     } catch (error) {
       try {
       } catch (e) {
@@ -298,6 +382,20 @@ export function SearchClient() {
       if (error && (error.status === 401 || /Unauthorized/i.test(String(error.message || '')))) {
         openAuthModal();
       }
+      // rollback optimistic update on error
+      setResults(prev => ({
+        ...prev,
+        creators: prev.creators.map(creator =>
+          creator.username === userId
+            ? ({ ...creator, is_following: !creator.is_following })
+            : creator
+        )
+      }));
+      setPendingFollows(prev => {
+        const copy = new Set(prev);
+        copy.delete(userId);
+        return copy;
+      });
     }
   };
 
@@ -647,13 +745,14 @@ export function SearchClient() {
                 e.stopPropagation();
                 handleFollowUser(creator.username);
               }}
+              disabled={Boolean(pendingFollows.has(creator.username))}
               className={`mt-2 px-4 py-1 rounded-full text-sm ${
                 creator.is_following
                   ? 'bg-transparent border border-cyan-500 text-cyan-500 hover:bg-cyan-500/10'
                   : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:opacity-90'
-              } transition-all`}
+              } transition-all ${pendingFollows.has(creator.username) ? 'opacity-60 cursor-not-allowed' : ''}`}
             >
-              {creator.is_following ? 'Following' : 'Follow'}
+              {pendingFollows.has(creator.username) ? '...' : (creator.is_following ? 'Following' : 'Follow')}
             </button>
           </div>
         </div>

@@ -1,18 +1,21 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { absoluteUrl } from '../../../lib/api';
 import { searchApi, userApi } from '../../../lib/api';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const DiscoverModal = ({ isOpen, onClose }) => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [followingStates, setFollowingStates] = useState({}); // Track loading per user
+  const [followingSet, setFollowingSet] = useState(new Set());
+  const [pending, setPending] = useState(new Set());
   const modalRef = useRef(null);
   const router = useRouter();
+  const { currentUser, isAuthenticated, openAuthModal } = useAuth();
 
   // Fetch recommended users when modal opens
   useEffect(() => {
@@ -55,12 +58,22 @@ const DiscoverModal = ({ isOpen, onClose }) => {
     try {
       const data = await searchApi.getRecommendedCreators();
 
+      let list = [];
       if (Array.isArray(data)) {
-        setUsers(data);
+        list = data;
       } else if (data && typeof data === 'object' && Array.isArray(data.results)) {
-        setUsers(data.results);
+        list = data.results;
       } else {
-        setUsers([]);
+        list = [];
+      }
+
+      // Ensure each user has boolean isFollowing and numeric followers_count
+      const normalized = (list || []).map(u => ({ ...u, isFollowing: false, followers_count: u.followers_count || 0 }));
+      setUsers(normalized);
+
+      // If authenticated, load my following and mark users
+      if (isAuthenticated) {
+        loadMyFollowing(normalized);
       }
     } catch (error) {
       console.error('Error fetching recommended users:', error);
@@ -71,46 +84,29 @@ const DiscoverModal = ({ isOpen, onClose }) => {
     }
   };
 
-  // Frontend-only follow toggle - no backend logic
-  const toggleFollowUser = (username, userIndex) => {
-    // Prevent double-clicks
-    if (followingStates[username]) return;
-
+  // Load the current user's following list and mark recommended users accordingly
+  const loadMyFollowing = useCallback(async (currentList = null) => {
     try {
-      // Set loading state for this specific user
-      setFollowingStates(prev => ({ ...prev, [username]: true }));
+      const res = await userApi.getFollowing();
+      let list = [];
+      if (!res) list = [];
+      else if (Array.isArray(res)) list = res;
+      else if (res.results && Array.isArray(res.results)) list = res.results;
+      else list = Array.isArray(res.items) ? res.items : [];
 
-      // Optimistic UI update
-      const updatedUsers = [...users];
-      const currentStatus = updatedUsers[userIndex].is_following;
-      updatedUsers[userIndex] = {
-        ...updatedUsers[userIndex],
-        is_following: !currentStatus,
-        followers_count: currentStatus 
-          ? (updatedUsers[userIndex].followers_count || 0) - 1 
-          : (updatedUsers[userIndex].followers_count || 0) + 1
-      };
-      setUsers(updatedUsers);
+      const usernames = new Set(list.map(u => (u.username || u.user || u)));
+      setFollowingSet(usernames);
 
-      console.log(`🔄 Toggling follow for ${username}. Current: ${currentStatus}, New: ${!currentStatus}`);
-
-      // If we followed the user, remove them from recommendations after a short delay
-      if (!currentStatus) {
-        setTimeout(() => {
-          setUsers(prev => prev.filter(u => u.username !== username));
-        }, 500);
+      // If we were passed a freshly fetched recommended list, update it
+      if (Array.isArray(currentList)) {
+        setUsers(currentList.map(u => ({ ...u, isFollowing: usernames.has(u.username) })));
+      } else {
+        setUsers(prev => prev.map(u => ({ ...u, isFollowing: usernames.has(u.username) })));
       }
-    } catch (error) {
-      console.error('❌ Error toggling follow:', error);
-    } finally {
-      // Clear loading state
-      setFollowingStates(prev => {
-        const newState = { ...prev };
-        delete newState[username];
-        return newState;
-      });
+    } catch (e) {
+      // ignore
     }
-  };
+  }, []);
 
   // Navigate to user profile
   const navigateToProfile = (username) => {
@@ -119,6 +115,69 @@ const DiscoverModal = ({ isOpen, onClose }) => {
       onClose();
     } catch (e) {
       console.error('Navigation error:', e);
+    }
+  };
+
+  // Toggle follow/unfollow a user from the Discover modal
+  const handleToggleFollow = async (e, user) => {
+    try { e.stopPropagation(); } catch (err) {}
+    console.debug('DiscoverModal: follow click', user?.username);
+    if (!isAuthenticated) {
+      try { window.dispatchEvent(new CustomEvent('auth:open', { detail: { type: 'follow', data: null } })); } catch (err) {}
+      openAuthModal?.();
+      return;
+    }
+
+    const username = user.username;
+    if (!username) return;
+
+    // optimistic update
+    setPending(prev => new Set(prev).add(username));
+    setUsers(prev => prev.map(u => {
+      if ((u.username || u.user) === username) {
+        const nowFollowing = !Boolean(u.isFollowing);
+        return { ...u, isFollowing: nowFollowing, followers_count: nowFollowing ? (Number(u.followers_count || 0) + 1) : Math.max(0, Number(u.followers_count || 0) - 1) };
+      }
+      return u;
+    }));
+
+    try {
+      console.debug('DiscoverModal: calling follow API for', username);
+      const res = await userApi.followUser(username);
+      console.debug('DiscoverModal: follow API response', res);
+      // reconcile
+      const serverFollowing = res && (res.following ?? res.is_following ?? res.followed);
+      if (typeof serverFollowing !== 'undefined') {
+        setUsers(prev => prev.map(u => ((u.username || u.user) === username ? { ...u, isFollowing: Boolean(serverFollowing) } : u)));
+      } else {
+        // reload my following to be safe
+        await loadMyFollowing();
+      }
+      // Update follower count for this user: try to use response or fetch profile
+      const followerCountFromResp = res?.followers_count ?? res?.follower_count ?? (typeof res?.followers === 'number' ? res.followers : null);
+      if (typeof followerCountFromResp === 'number') {
+        setUsers(prev => prev.map(u => ((u.username || u.user) === username ? { ...u, followers_count: followerCountFromResp } : u)));
+      } else {
+        try {
+          const profile = await userApi.getProfile(username);
+          const newCount = profile?.followers_count ?? profile?.follower_count ?? (Array.isArray(profile?.followers) ? profile.followers.length : undefined);
+          if (typeof newCount === 'number') {
+            setUsers(prev => prev.map(u => ((u.username || u.user) === username ? { ...u, followers_count: newCount } : u)));
+          }
+        } catch (e) {
+          // ignore
+        }
+      }
+    } catch (err) {
+      console.error('Follow toggle failed', err);
+      // rollback on error
+      setUsers(prev => prev.map(u => ((u.username || u.user) === username ? { ...u, isFollowing: !u.isFollowing } : u)));
+    } finally {
+      setPending(prev => {
+        const copy = new Set(prev);
+        copy.delete(username);
+        return copy;
+      });
     }
   };
 
@@ -186,49 +245,47 @@ const DiscoverModal = ({ isOpen, onClose }) => {
             </div>
           ) : users.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-6">
-              {users.map((user, index) => {
-                const isFollowLoading = followingStates[user.username];
-                
-                return (
-                  <div 
-                    key={user.id || user.username}
-                    className="group relative rounded-xl p-6 border border-gray-700/30 hover:border-purple-500/40 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/10 hover:-translate-y-1 flex flex-col items-center text-center cursor-pointer bg-gradient-to-br from-slate-800/40 to-slate-900/40"
-                    onClick={() => navigateToProfile(user.username)}
-                  >
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 rounded-t-xl transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+              {users.map((user) => (
+                <div 
+                  key={user.id || user.username}
+                  className="group relative rounded-xl p-6 border border-gray-700/30 hover:border-purple-500/40 transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/10 hover:-translate-y-1 flex flex-col items-center text-center cursor-pointer bg-gradient-to-br from-slate-800/40 to-slate-900/40"
+                  onClick={() => navigateToProfile(user.username)}
+                >
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 rounded-t-xl transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
 
-                    <div className="relative mb-5">
-                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center font-bold text-2xl text-white ring-2 ring-gray-800 group-hover:ring-cyan-400 transition-all duration-300 shadow-lg overflow-hidden relative">
-                        {user.profile_image_url ? (
-                          <Image
-                            src={absoluteUrl(user.profile_image_url)}
-                            alt={user.username}
-                            fill
-                            className="object-cover"
-                            quality={75}
-                          />
-                        ) : (
-                          <span>{user.username.charAt(0).toUpperCase()}</span>
-                        )}
-                      </div>
-                      <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-emerald-500 border-2 border-gray-900 shadow-lg"></div>
-                    </div>
-
-                    <div className="w-full mb-4">
-                      <div className="text-white font-bold text-lg mb-1 truncate">
-                        {user.account_type === 'brand' && user.brand_name 
-                          ? user.brand_name 
-                          : user.first_name && user.last_name 
-                            ? `${user.first_name} ${user.last_name}`
-                            : user.first_name || user.last_name || user.username}
-                      </div>
-                      <div className="text-slate-400 text-sm mb-3">@{user.username}</div>
-                      {user.bio && (
-                        <p className="text-slate-300 text-sm mb-4 line-clamp-2">{user.bio}</p>
+                  <div className="relative mb-5">
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center font-bold text-2xl text-white ring-2 ring-gray-800 group-hover:ring-cyan-400 transition-all duration-300 shadow-lg overflow-hidden relative">
+                      {user.profile_image_url ? (
+                        <Image
+                          src={absoluteUrl(user.profile_image_url)}
+                          alt={user.username}
+                          fill
+                          className="object-cover"
+                          quality={75}
+                        />
+                      ) : (
+                        <span>{user.username.charAt(0).toUpperCase()}</span>
                       )}
                     </div>
+                    <div className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-emerald-500 border-2 border-gray-900 shadow-lg"></div>
+                  </div>
 
-                    <div className="flex justify-around gap-2 w-full mb-5 pb-5 border-b border-gray-800/20">
+                  <div className="w-full mb-4">
+                    <div className="text-white font-bold text-lg mb-1 truncate">
+                      {user.account_type === 'brand' && user.brand_name 
+                        ? user.brand_name 
+                        : user.first_name && user.last_name 
+                          ? `${user.first_name} ${user.last_name}`
+                          : user.first_name || user.last_name || user.username}
+                    </div>
+                    <div className="text-slate-400 text-sm mb-3">@{user.username}</div>
+                    {user.bio && (
+                      <p className="text-slate-300 text-sm mb-4 line-clamp-2">{user.bio}</p>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-3 w-full mb-5 pb-5 border-b border-gray-800/20">
+                    <div className="flex justify-around">
                       <div className="flex-1">
                         <div className="text-white font-bold text-lg">{user.followers_count || 0}</div>
                         <div className="text-slate-400 text-xs uppercase tracking-wide">Followers</div>
@@ -239,37 +296,20 @@ const DiscoverModal = ({ isOpen, onClose }) => {
                       </div>
                     </div>
 
-                    {/* Frontend-only follow button with loading state */}
-                    <button 
-                      className={`w-full py-3 px-4 rounded-2xl font-semibold transition-all duration-300 ${
-                        user.is_following 
-                          ? 'bg-gray-800/60 text-slate-200 hover:bg-gray-700 border border-gray-700/50' 
-                          : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-400 hover:to-blue-400 shadow-lg shadow-cyan-500/30 hover:scale-105 border border-cyan-500/30'
-                      } ${isFollowLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFollowUser(user.username, index);
-                      }}
-                      disabled={isFollowLoading}
-                      aria-label={isFollowLoading ? 'Loading...' : (user.is_following ? 'Unfollow' : 'Follow')}
-                    >
-                      {isFollowLoading ? (
-                        <>
-                          <i className="fas fa-spinner fa-spin mr-2"></i>Loading...
-                        </>
-                      ) : user.is_following ? (
-                        <>
-                          <i className="fas fa-check mr-2"></i>Following
-                        </>
-                      ) : (
-                        <>
-                          <i className="fas fa-plus mr-2"></i>Follow
-                        </>
-                      )}
-                    </button>
+                    {/* Follow button */}
+                    <div className="w-full flex justify-center">
+                      <button
+                        onClick={(e) => handleToggleFollow(e, user)}
+                        disabled={Boolean(pending.has(user.username))}
+                        className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 ${user.isFollowing ? 'bg-cyan-500 text-slate-900 hover:opacity-95' : 'bg-transparent border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10'}`}
+                      >
+                        <i className={`fas ${user.isFollowing ? 'fa-check' : 'fa-user-plus'} text-sm`} />
+                        {user.isFollowing ? 'Following' : (pending.has(user.username) ? '...' : 'Follow')}
+                      </button>
+                    </div>
                   </div>
-                );
-              })}
+                </div>
+              ))}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-16">

@@ -1,4 +1,4 @@
-// CreatorChip.js - FIXED: No localStorage, proper backend integration
+// CreatorChip.js - FIXED: Proper follow functionality like DiscoverModal
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -17,7 +17,7 @@ const CreatorChip = ({
     getCreatorProfileImageUrl, 
     getCreatorInitial 
 }) => {
-    const { currentUser } = useAuth();
+    const { currentUser, isAuthenticated, openAuthModal } = useAuth();
     const [showTooltip, setShowTooltip] = useState(false);
     const [isFollowing, setIsFollowing] = useState(initialIsFollowing || false);
     const [isFollowLoading, setIsFollowLoading] = useState(false);
@@ -29,6 +29,10 @@ const CreatorChip = ({
     useEffect(() => {
         setIsFollowing(initialIsFollowing || false);
     }, [initialIsFollowing]);
+
+    // Follow state is provided by parent via `initialIsFollowing` and
+    // follow actions should be delegated to the parent `handleFollow`.
+    // This component avoids calling the API directly.
     
     // Tooltip logic - using sessionStorage instead of localStorage
     useEffect(() => {
@@ -49,25 +53,33 @@ const CreatorChip = ({
     }, []);
     
     const handleFollowClick = async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        if (isFollowLoading) return;
-        
         try {
-            setIsFollowLoading(true);
-            
-            // Optimistic UI update
-            setIsFollowing(prev => !prev);
-            
-            // Call parent handler which calls the API
-            await handleFollow(e, creatorUsername);
-            
-            // Parent will update story.is_following, which will trigger our useEffect
-        } catch (error) {
-            // Revert on error
-            setIsFollowing(prev => !prev);
-            console.error('Follow error:', error);
+            e.preventDefault();
+            e.stopPropagation();
+        } catch (err) {
+            // ignore
+        }
+
+        if (isFollowLoading) return;
+
+        if (!isAuthenticated) {
+            openAuthModal();
+            return;
+        }
+
+        if (typeof handleFollow !== 'function') {
+            console.warn('CreatorChip: no handleFollow provided; not performing follow action.');
+            return;
+        }
+
+        setIsFollowLoading(true);
+        try {
+            const result = handleFollow(e, creatorUsername);
+            if (result && typeof result.then === 'function') {
+                await result;
+            }
+        } catch (err) {
+            console.error('CreatorChip: follow handler error', err);
         } finally {
             setIsFollowLoading(false);
         }
@@ -333,8 +345,8 @@ const CreatorChip = ({
                     {/* 🔥 FIXED: Show button based on state, not localStorage */}
                     {!isOwner && !isFollowing && !isSelf && creatorUsername !== 'anonymous' && (
                         <button 
-                            className={`follow-button absolute bottom-0 right-0 bg-transparent border-2 rounded-full w-6 h-6 flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors ${isFollowLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            onClick={handleFollowClick}
+                            className={`follow-button absolute bottom-0 right-0 z-30 bg-transparent border-2 rounded-full w-6 h-6 flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors ${isFollowLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            onClick={(e) => { try { e.preventDefault(); e.stopPropagation(); if (e.nativeEvent && e.nativeEvent.stopImmediatePropagation) e.nativeEvent.stopImmediatePropagation(); } catch (err) {} ; handleFollowClick(e); }}
                             disabled={isFollowLoading}
                             aria-label={isFollowLoading ? 'Following...' : 'Follow'}
                         >
