@@ -1,4 +1,4 @@
-// CreatorChip.js - FIXED: Proper follow functionality like DiscoverModal
+// CreatorChip.js - Removed hover and click animations from verses button
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -18,39 +18,56 @@ const CreatorChip = ({
     getCreatorInitial 
 }) => {
     const { currentUser, isAuthenticated, openAuthModal } = useAuth();
-    const [showTooltip, setShowTooltip] = useState(false);
     const [isFollowing, setIsFollowing] = useState(initialIsFollowing || false);
     const [isFollowLoading, setIsFollowLoading] = useState(false);
+    const [showVerseTooltip, setShowVerseTooltip] = useState(false);
+    const tooltipTimerRef = React.useRef(null);
     
     const creatorUsername = getCreatorUsername();
     const isSelf = !!(currentUser && currentUser.username && currentUser.username === creatorUsername);
+    
+    // Show tooltip on first visit
+    useEffect(() => {
+        const tooltipShown = sessionStorage.getItem('verseTooltipShown');
+        if (!tooltipShown) {
+            setShowVerseTooltip(true);
+            sessionStorage.setItem('verseTooltipShown', 'true');
+            
+            // Clear any existing timer
+            if (tooltipTimerRef.current) {
+                clearTimeout(tooltipTimerRef.current);
+            }
+            
+            // Hide tooltip after 5 seconds
+            tooltipTimerRef.current = setTimeout(() => {
+                setShowVerseTooltip(false);
+                tooltipTimerRef.current = null;
+            }, 5000);
+        }
+        
+        return () => {
+            if (tooltipTimerRef.current) {
+                clearTimeout(tooltipTimerRef.current);
+            }
+        };
+    }, []);
     
     // Update local state when prop changes (after parent refetches)
     useEffect(() => {
         setIsFollowing(initialIsFollowing || false);
     }, [initialIsFollowing]);
 
+    // Clear timer when tooltip is manually closed
+    useEffect(() => {
+        if (!showVerseTooltip && tooltipTimerRef.current) {
+            clearTimeout(tooltipTimerRef.current);
+            tooltipTimerRef.current = null;
+        }
+    }, [showVerseTooltip]);
+
     // Follow state is provided by parent via `initialIsFollowing` and
     // follow actions should be delegated to the parent `handleFollow`.
     // This component avoids calling the API directly.
-    
-    // Tooltip logic - using localStorage to persist across sessions (show on first visit ever)
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-        
-        const hasSeenTooltip = localStorage.getItem('hasSeenVersesButtonTooltip');
-        if (!hasSeenTooltip) {
-            const timer = setTimeout(() => {
-                setShowTooltip(true);
-                const hideTimer = setTimeout(() => {
-                    setShowTooltip(false);
-                    localStorage.setItem('hasSeenVersesButtonTooltip', 'true');
-                }, 5000);
-                return () => clearTimeout(hideTimer);
-            }, 800);
-            return () => clearTimeout(timer);
-        }
-    }, []);
     
     const handleFollowClick = async (e) => {
         try {
@@ -85,23 +102,9 @@ const CreatorChip = ({
         }
     };
     
-    const handleVersesClick = () => {
-        if (showTooltip) {
-            setShowTooltip(false);
-            if (typeof window !== 'undefined') {
-                localStorage.setItem('hasSeenVersesButtonTooltip', 'true');
-            }
-        }
-        handleOpenVerses();
-    };
-    
     return (
         <>
             <style>{`
-                @keyframes rotate {
-                    to { transform: rotate(360deg); }
-                }
-                
                 @keyframes gradientSwirl {
                     0% { 
                         background: linear-gradient(135deg, #3b82f6, #ec4899, #fbbf24);
@@ -135,84 +138,42 @@ const CreatorChip = ({
                     }
                 }
                 
-                @keyframes pulse {
-                    0%, 100% { transform: scale(1); }
-                    50% { transform: scale(1.05); }
-                }
-                
                 @keyframes shimmer {
                     0% { transform: translateX(-100%); }
                     100% { transform: translateX(100%); }
                 }
-                
-                @keyframes loadingPulse {
-                    0%, 100% { 
-                        transform: scale(1);
-                        filter: brightness(1);
-                    }
-                    50% { 
-                        transform: scale(1.1);
-                        filter: brightness(1.3);
-                    }
-                }
-                
-                @keyframes borderSpin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-                
-                @keyframes fastGradientSwirl {
-                    0% { 
-                        background: linear-gradient(135deg, #3b82f6, #ec4899, #fbbf24);
-                        background-size: 400% 400%;
-                        background-position: 0% 50%;
-                    }
-                    25% { 
-                        background: linear-gradient(135deg, #ec4899, #fbbf24, #8b5cf6);
-                        background-size: 400% 400%;
-                        background-position: 100% 50%;
-                    }
-                    50% { 
-                        background: linear-gradient(135deg, #fbbf24, #8b5cf6, #f97316);
-                        background-size: 400% 400%;
-                        background-position: 100% 100%;
-                    }
-                    75% { 
-                        background: linear-gradient(135deg, #8b5cf6, #f97316, #ec4899);
-                        background-size: 400% 400%;
-                        background-position: 0% 100%;
-                    }
-                    100% { 
-                        background: linear-gradient(135deg, #f97316, #ec4899, #3b82f6);
-                        background-size: 400% 400%;
-                        background-position: 0% 50%;
-                    }
-                }
-                
+
                 @keyframes tooltipFadeIn {
-                    from {
+                    0% {
                         opacity: 0;
-                        transform: translateY(-5px);
+                        transform: translateY(10px);
                     }
-                    to {
+                    100% {
                         opacity: 1;
                         transform: translateY(0);
                     }
                 }
-                
+
                 @keyframes tooltipBounce {
-                    0%, 100% { transform: translateY(0); }
-                    50% { transform: translateY(-3px); }
+                    0%, 100% {
+                        transform: translateY(0);
+                    }
+                    50% {
+                        transform: translateY(-12px);
+                    }
                 }
-                
-                .animate-rotate { 
-                    animation: rotate 1.2s linear infinite; 
-                    transform-origin: 50% 50%; 
+
+                @keyframes fadeOutTooltip {
+                    0% {
+                        opacity: 1;
+                    }
+                    100% {
+                        opacity: 0;
+                    }
                 }
                 
                 .verses-btn-container {
                     position: relative;
-                    animation: pulse 2s ease-in-out infinite;
                     padding: 4px;
                     border-radius: 9999px;
                     background: linear-gradient(
@@ -226,29 +187,6 @@ const CreatorChip = ({
                     );
                 }
                 
-                .verses-btn-container.loading {
-                    animation: loadingPulse 0.8s ease-in-out infinite;
-                }
-                
-                .verses-btn-container.loading::before {
-                    content: '';
-                    position: absolute;
-                    inset: -6px;
-                    border-radius: 9999px;
-                    background: conic-gradient(
-                        from 0deg,
-                        #3b82f6,
-                        #8b5cf6,
-                        #fbbf24,
-                        #f97316,
-                        #ec4899,
-                        #3b82f6
-                    );
-                    animation: borderSpin 1s linear infinite;
-                    z-index: -1;
-                    opacity: 0.8;
-                }
-                
                 .verses-btn {
                     position: relative;
                     background: #1a1a2e;
@@ -260,10 +198,6 @@ const CreatorChip = ({
                     animation: gradientSwirl 8s ease-in-out infinite;
                 }
                 
-                .verses-bg.loading {
-                    animation: fastGradientSwirl 1.5s ease-in-out infinite !important;
-                }
-                
                 .shimmer-effect {
                     position: absolute;
                     top: 0;
@@ -273,56 +207,40 @@ const CreatorChip = ({
                     background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
                     animation: shimmer 2s infinite;
                 }
-                
-                .shimmer-effect.loading {
-                    animation: shimmer 0.8s infinite;
-                }
-                
-                .verses-btn-container:hover {
-                    animation: pulse 1s ease-in-out infinite;
-                }
-                
-                .verses-btn-container:hover .verses-bg {
-                    animation: gradientSwirl 5s ease-in-out infinite;
-                }
-                
-                .verses-tooltip {
+
+                .verse-tooltip {
                     position: absolute;
-                    bottom: calc(100% + 8px);
-                    left: 50%;
-                    transform: translateX(-50%);
-                    background: rgba(0, 0, 0, 0.9);
-                    color: white;
-                    padding: 6px 12px;
-                    border-radius: 8px;
-                    font-size: 11px;
+                    bottom: 100%;
+                    right: 0;
+                    background: #000000;
+                    color: #ffffff;
+                    padding: 8px 12px;
+                    border-radius: 6px;
+                    font-size: 12px;
+                    font-weight: 600;
                     white-space: nowrap;
+                    margin-bottom: 8px;
+                    border: 1px solid #3b82f6;
+                    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+                    animation: tooltipFadeIn 0.3s ease-out;
+                    z-index: 50;
                     pointer-events: none;
-                    z-index: 1000;
-                    animation: tooltipFadeIn 0.3s ease-out, tooltipBounce 2s ease-in-out infinite 0.5s;
-                    backdrop-filter: blur(10px);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
                 }
-                
-                .verses-tooltip::after {
+
+                .verse-tooltip::after {
                     content: '';
                     position: absolute;
                     top: 100%;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    border: 5px solid transparent;
-                    border-top-color: rgba(0, 0, 0, 0.9);
-                }
-                
-                .verses-tooltip-icon {
-                    display: inline-block;
-                    margin-right: 4px;
-                    font-size: 12px;
+                    right: 10px;
+                    width: 0;
+                    height: 0;
+                    border-left: 5px solid transparent;
+                    border-right: 5px solid transparent;
+                    border-top: 5px solid #000000;
                 }
             `}</style>
             
-            <div className="creator-chip flex items-center gap-3 bg-white/10 py-1 px-1 rounded-full border border-white/20 max-w-full overflow-hidden">
+            <div className="creator-chip flex items-center gap-3 bg-white/10 py-1 px-1 rounded-full border border-white/20 max-w-full overflow-visible">
                 <div className="relative flex-shrink-0" style={{ width: '3.25rem', height: '3.25rem' }}>
                     <Link 
                         href={`/${encodeURIComponent(creatorUsername)}`} 
@@ -381,47 +299,40 @@ const CreatorChip = ({
                 </div>
 
                 <div className="flex items-center gap-2 pl-2 pr-1">
-                    <div className="relative" style={{ display: 'inline-block' }}>
-                        {showTooltip && (
-                            <div className="verses-tooltip">
-                                <span className="verses-tooltip-icon">👆</span>
-                                Click to view verses
-                            </div>
+                    <div className="relative" style={{ display: 'inline-block', position: 'relative' }}>
+                        {showVerseTooltip && (
+                            <div style={{
+                                position: 'absolute',
+                                width: '0',
+                                height: '0',
+                                borderLeft: '12px solid transparent',
+                                borderRight: '12px solid transparent',
+                                borderTop: '12px solid #ef4444',
+                                bottom: '100%',
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                                marginBottom: '4px',
+                                zIndex: 9999,
+                                pointerEvents: 'none',
+                                animation: 'tooltipBounce 0.8s ease-in-out 3, fadeOutTooltip 0.5s ease-in 4.95s forwards'
+                            }} />
                         )}
-                        
-                        <div className={`verses-btn-container ${isViewerOpening ? 'loading' : ''}`}>
+                        <div className="verses-btn-container">
                             <button 
-                                className="verses-btn relative py-4 px-3 rounded-full font-bold text-base cursor-pointer transition-all hover:scale-105 uppercase tracking-widest flex items-center gap-2 flex-shrink-0 overflow-hidden shadow-lg hover:shadow-2xl"
-                                onClick={handleVersesClick}
-                                aria-busy={isViewerOpening}
-                                disabled={isViewerOpening}
+                                className="verses-btn relative py-4 px-3 rounded-full font-bold text-base cursor-pointer uppercase tracking-widest flex items-center gap-2 flex-shrink-0 overflow-hidden shadow-lg"
+                                onClick={handleOpenVerses}
                             >
-                                <div className={`verses-bg absolute inset-0 rounded-full ${isViewerOpening ? 'loading' : ''}`}></div>
-                                <div className={`shimmer-effect rounded-full ${isViewerOpening ? 'loading' : ''}`}></div>
+                                <div className="verses-bg absolute inset-0 rounded-full"></div>
+                                <div className="shimmer-effect rounded-full"></div>
                                 
                                 <span className="verses-text relative z-10 font-extrabold text-sm text-white drop-shadow-lg">
-                                    {isViewerOpening ? 'Loading...' : 'Verses'}
+                                    Verses
                                 </span>
                                 <span className="verse-count bg-black/30 backdrop-blur-sm text-white text-xs font-bold py-0.5 px-1.5 rounded-full ml-1 relative z-10 shadow-md">
                                     {Array.isArray(story.verses) ? story.verses.length : 0}
                                 </span>
                             </button>
                         </div>
-
-                        {isViewerOpening && (
-                            <div className="absolute -inset-1 z-20 pointer-events-none flex items-center justify-center">
-                                <svg className="w-full h-full animate-rotate" viewBox="0 0 48 48" preserveAspectRatio="none" style={{ overflow: 'visible' }}>
-                                    <defs>
-                                        <linearGradient id="g1" x1="0%" y1="0%" x2="100%" y2="100%">
-                                            <stop offset="0%" stopColor="#f97316" />
-                                            <stop offset="50%" stopColor="#ec4899" />
-                                            <stop offset="100%" stopColor="#3b82f6" />
-                                        </linearGradient>
-                                    </defs>
-                                    <circle cx="24" cy="24" r="20" fill="none" stroke="url(#g1)" strokeWidth="3" strokeLinecap="round" strokeDasharray="30 20" />
-                                </svg>
-                            </div>
-                        )}
                     </div>
                 </div>
             </div>

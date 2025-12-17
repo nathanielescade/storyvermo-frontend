@@ -183,7 +183,7 @@ const ActionButtons = ({
                 aria-busy={isLikeLoading}
                 onKeyPress={(e) => e.key === 'Enter' && handleLikeClick(e)}
             >
-                <i className={`${getIconClass('fa-heart', isLiked)} ${isLiked ? 'animate-pulse' : ''}`}></i>
+                <i className={`${getIconClass('fa-heart', isLiked)}`}></i>
                 <div className="absolute -bottom-1 -right-1 bg-[#ff6b35] text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[18px] text-center z-10 transition-all duration-200">
                     {formatNumber(likesCount)}
                 </div>
@@ -238,7 +238,7 @@ const ActionButtons = ({
                 aria-busy={isSaveLoading}
                 onKeyPress={(e) => e.key === 'Enter' && handleSaveClick(e)}
             >
-                <i className={`${getIconClass('fa-bookmark', isSaved)} ${isSaved ? 'animate-pulse' : ''}`}></i>
+                <i className={`${getIconClass('fa-bookmark', isSaved)}`}></i>
                 {/* Debug indicator - remove in production */}
                 {isSaved && (
                     <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full" 
