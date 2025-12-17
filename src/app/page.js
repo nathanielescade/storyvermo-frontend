@@ -89,17 +89,7 @@ export default async function Home({ initialTag = 'for-you' }) {
   // Images will be lazy-loaded when user opens VerseViewer
   stories = stripVerseImages(stories);
   
-  const nextCursor = initial?.next_cursor || null;
-  // hasMore should be true if next_cursor exists, otherwise check the has_more flag
-  const hasMore = !!(initial?.next_cursor) || initial?.has_more === true;
-
-  const initialState = {
-    stories,
-    nextCursor,
-    hasMore,
-    currentTag: initialTag,
-    totalCount: initial?.count || 0
-  };
-
-  return <FeedClient initialState={initialState} />;
+  // Don't pass initialState for homepage - let client fetch fresh "For You" data
+  // This ensures users always see current content, not stale cached data
+  return <FeedClient />;
 }

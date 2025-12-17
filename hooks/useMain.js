@@ -5,19 +5,32 @@ import { useAuth } from '../contexts/AuthContext';
 import { stripVerseImages } from '../lib/utils';
 
 export default function useMain(initialState = null) {
+    // Load saved feed state from sessionStorage to restore position when returning
+    const getSavedFeedState = () => {
+        if (typeof window === 'undefined') return null;
+        try {
+            const saved = sessionStorage.getItem('feedState');
+            return saved ? JSON.parse(saved) : null;
+        } catch (e) {
+            return null;
+        }
+    };
+
+    const savedState = getSavedFeedState();
+
     // Always use initialState for hydration, never overwrite with client fetch
-    const [stories, setStories] = useState(initialState?.stories || []);
+    const [stories, setStories] = useState(savedState?.stories || initialState?.stories || []);
     const [loading, setLoading] = useState(false);
     const [isFetching, setIsFetching] = useState(false);
-    const [currentTag, setCurrentTag] = useState(initialState?.currentTag || 'for-you');
+    const [currentTag, setCurrentTag] = useState(savedState?.currentTag || initialState?.currentTag || 'for-you');
     const [currentDimension, setCurrentDimension] = useState('feed');
     const [followingUsers, setFollowingUsers] = useState([]);
     const [error, setError] = useState(null);
     
     // CURSOR-BASED PAGINATION STATE
-    const [nextCursor, setNextCursor] = useState(initialState?.nextCursor || null);
-    const [hasMore, setHasMore] = useState(initialState?.hasMore !== false);
-    const [totalCount, setTotalCount] = useState(initialState?.totalCount || 0);
+    const [nextCursor, setNextCursor] = useState(savedState?.nextCursor || initialState?.nextCursor || null);
+    const [hasMore, setHasMore] = useState(savedState?.hasMore !== false && initialState?.hasMore !== false);
+    const [totalCount, setTotalCount] = useState(savedState?.totalCount || initialState?.totalCount || 0);
     
     // Prefetch management
     const [prefetchedStories, setPrefetchedStories] = useState(null);
@@ -227,6 +240,32 @@ export default function useMain(initialState = null) {
             setLoading(false);
         }
     }, [currentTag, prefetchNextPageInner]);
+
+    // 🚀 Initialize feed with data when no initialState is provided (e.g., homepage without SSR)
+    useEffect(() => {
+        if (initialState === null && stories.length === 0 && !loading) {
+            // Trigger initial fetch for the current tag
+            handleTagSwitch(currentTag, { force: true });
+        }
+    }, []); // Only run once on mount
+
+    // 💾 Save feed state to sessionStorage for restoration when returning
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        try {
+            const feedState = {
+                stories,
+                currentTag,
+                nextCursor,
+                hasMore,
+                totalCount
+            };
+            sessionStorage.setItem('feedState', JSON.stringify(feedState));
+        } catch (e) {
+            // Silently fail if sessionStorage is unavailable
+        }
+    }, [stories, currentTag, nextCursor, hasMore, totalCount]);
+
     // Prefetch next page in background
     const prefetchNextPage = useCallback(async (cursor, tag) => {
         if (isPrefetchingRef.current || !cursor) return;

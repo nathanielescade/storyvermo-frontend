@@ -477,6 +477,11 @@ const StoryFormModal = ({
   const [verseToDelete, setVerseToDelete] = useState(null);
   
   const verseRefs = useRef([]);
+  const versesRef = useRef(verses);
+
+  useEffect(() => {
+    versesRef.current = verses;
+  }, [verses]);
   
   // Fetch popular tags from API
   const fetchPopularTags = useCallback(async () => {
@@ -839,19 +844,26 @@ const StoryFormModal = ({
   }, [compressImageFile, generatePreview]);
   
   // Handle verse field changes
+  // Use a ref to the latest `verses` so this callback doesn't change identity
+  // on every keystroke (which could trigger re-mounts and cause focus loss).
   const handleVerseChange = useCallback((verseId, field, value) => {
-    setVerses(prevVerses => 
-      prevVerses.map(verse => 
-        verse.id === verseId ? { ...verse, [field]: value } : verse
-      )
-    );
-    
-    const verseIndex = verses.findIndex(v => v.id === verseId);
+    setVerses(prevVerses => prevVerses.map(verse => verse.id === verseId ? { ...verse, [field]: value } : verse));
+
+    // Compute index from the latest verses snapshot stored in the ref
+    const verseIndex = (versesRef.current || []).findIndex(v => v.id === verseId);
     const errorKey = `verse_${verseIndex}_${field}`;
-    if (validationErrors[errorKey]) {
-      setValidationErrors(prev => ({...prev, [errorKey]: null}));
-    }
-  }, [verses, validationErrors]);
+
+    // Clear validation error for this specific field if present
+    setValidationErrors(prev => {
+      if (!prev) return prev;
+      if (prev[errorKey]) {
+        const copy = { ...prev };
+        delete copy[errorKey];
+        return copy;
+      }
+      return prev;
+    });
+  }, []);
   
   // Handle tag input
   const handleTagInputChange = useCallback((e) => {

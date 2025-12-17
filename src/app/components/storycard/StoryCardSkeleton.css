@@ -5,9 +5,9 @@
   flex-direction: column;
   gap: 1rem;
   padding: 1rem;
-  background: #1a1a1a;
+  background: #000000;
   border-radius: 12px;
-  border: 1px solid #333333;
+  border: 1px solid #1a1a1a;
   margin-bottom: 1.5rem;
   animation: fadeIn 0.3s ease-in-out;
 }
@@ -37,9 +37,9 @@
   border-radius: 50%;
   background: linear-gradient(
     90deg,
-    #2a2a2a 0%,
-    #3a3a3a 50%,
-    #2a2a2a 100%
+    #000000 0%,
+    #1a1a1a 50%,
+    #000000 100%
   );
   background-size: 200% 100%;
   animation: shimmer 2s infinite;
@@ -58,9 +58,9 @@
   border-radius: 4px;
   background: linear-gradient(
     90deg,
-    #2a2a2a 0%,
-    #3a3a3a 50%,
-    #2a2a2a 100%
+    #000000 0%,
+    #1a1a1a 50%,
+    #000000 100%
   );
   background-size: 200% 100%;
   animation: shimmer 2s infinite;
@@ -72,9 +72,9 @@
   border-radius: 4px;
   background: linear-gradient(
     90deg,
-    #1f1f1f 0%,
-    #2f2f2f 50%,
-    #1f1f1f 100%
+    #000000 0%,
+    #0d0d0d 50%,
+    #000000 100%
   );
   background-size: 200% 100%;
   animation: shimmer 2.2s infinite 0.1s;
@@ -87,9 +87,9 @@
   border-radius: 8px;
   background: linear-gradient(
     90deg,
-    #2a2a2a 0%,
-    #3a3a3a 50%,
-    #2a2a2a 100%
+    #000000 0%,
+    #1a1a1a 50%,
+    #000000 100%
   );
   background-size: 200% 100%;
   animation: shimmer 2.3s infinite 0.2s;
@@ -108,9 +108,9 @@
   border-radius: 4px;
   background: linear-gradient(
     90deg,
-    #2a2a2a 0%,
-    #3a3a3a 50%,
-    #2a2a2a 100%
+    #000000 0%,
+    #1a1a1a 50%,
+    #000000 100%
   );
   background-size: 200% 100%;
   animation: shimmer 2.4s infinite 0.15s;
@@ -141,9 +141,9 @@
   border-radius: 4px;
   background: linear-gradient(
     90deg,
-    #1f1f1f 0%,
-    #2f2f2f 50%,
-    #1f1f1f 100%
+    #000000 0%,
+    #0d0d0d 50%,
+    #000000 100%
   );
   background-size: 200% 100%;
   animation: shimmer 2.5s infinite 0.2s;
@@ -163,9 +163,9 @@
   border-radius: 12px;
   background: linear-gradient(
     90deg,
-    #2a2a2a 0%,
-    #3a3a3a 50%,
-    #2a2a2a 100%
+    #000000 0%,
+    #1a1a1a 50%,
+    #000000 100%
   );
   background-size: 200% 100%;
   animation: shimmer 2.6s infinite 0.25s;
@@ -188,9 +188,9 @@
   border-radius: 8px;
   background: linear-gradient(
     90deg,
-    #1f1f1f 0%,
-    #2f2f2f 50%,
-    #1f1f1f 100%
+    #000000 0%,
+    #0d0d0d 50%,
+    #000000 100%
   );
   background-size: 200% 100%;
   animation: shimmer 2.7s infinite 0.3s;

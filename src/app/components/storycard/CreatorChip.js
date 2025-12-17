@@ -34,20 +34,20 @@ const CreatorChip = ({
     // follow actions should be delegated to the parent `handleFollow`.
     // This component avoids calling the API directly.
     
-    // Tooltip logic - using sessionStorage instead of localStorage
+    // Tooltip logic - using localStorage to persist across sessions (show on first visit ever)
     useEffect(() => {
         if (typeof window === 'undefined') return;
         
-        const hasSeenTooltip = sessionStorage.getItem('hasSeenVersesButtonTooltip');
+        const hasSeenTooltip = localStorage.getItem('hasSeenVersesButtonTooltip');
         if (!hasSeenTooltip) {
             const timer = setTimeout(() => {
                 setShowTooltip(true);
                 const hideTimer = setTimeout(() => {
                     setShowTooltip(false);
-                    sessionStorage.setItem('hasSeenVersesButtonTooltip', 'true');
-                }, 4000);
+                    localStorage.setItem('hasSeenVersesButtonTooltip', 'true');
+                }, 5000);
                 return () => clearTimeout(hideTimer);
-            }, 500);
+            }, 800);
             return () => clearTimeout(timer);
         }
     }, []);
@@ -89,7 +89,7 @@ const CreatorChip = ({
         if (showTooltip) {
             setShowTooltip(false);
             if (typeof window !== 'undefined') {
-                sessionStorage.setItem('hasSeenVersesButtonTooltip', 'true');
+                localStorage.setItem('hasSeenVersesButtonTooltip', 'true');
             }
         }
         handleOpenVerses();

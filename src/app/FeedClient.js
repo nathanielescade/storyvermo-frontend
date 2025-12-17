@@ -34,6 +34,65 @@ export default function FeedClient({ initialState }) {
   // Use stories as-is - moment images are already stripped on the API side
   const feedStories = useMemo(() => stories, [stories]);
 
+  // 💾 Restore scroll position when returning to feed
+  useEffect(() => {
+    if (typeof window === 'undefined' || !feedRef.current) return;
+    
+    // Small delay to ensure DOM is fully rendered
+    const timer = setTimeout(() => {
+      try {
+        const scrollPos = sessionStorage.getItem('feedScrollPos');
+        if (scrollPos && feedRef.current) {
+          feedRef.current.scrollTop = parseInt(scrollPos, 10);
+          sessionStorage.removeItem('feedScrollPos'); // Clear after restoring
+        }
+      } catch (e) {
+        // Silently fail if sessionStorage is unavailable
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [feedStories.length]); // Restore when stories load
+
+  // 💾 Save scroll position before navigation
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleBeforeUnload = () => {
+      if (feedRef.current) {
+        try {
+          sessionStorage.setItem('feedScrollPos', String(feedRef.current.scrollTop));
+        } catch (e) {
+          // Silently fail
+        }
+      }
+    };
+
+    // Save scroll position when user navigates away
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    
+    // Also intercept link clicks (for client-side navigation)
+    const handleLinkClick = (e) => {
+      const target = e.target.closest('a');
+      if (target && target.href && !target.target) {
+        if (feedRef.current) {
+          try {
+            sessionStorage.setItem('feedScrollPos', String(feedRef.current.scrollTop));
+          } catch (e) {
+            // Silently fail
+          }
+        }
+      }
+    };
+
+    document.addEventListener('click', handleLinkClick, true);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('click', handleLinkClick, true);
+    };
+  }, []);
+
   // 🚀 INTERSECTION OBSERVER for automatic infinite scroll trigger
   useEffect(() => {
     if (!hasMore || isFetching) return;
@@ -189,6 +248,9 @@ export default function FeedClient({ initialState }) {
     return () => window.removeEventListener('tag:switch', onTagSwitchEvent);
   }, [handleTagSwitch, isAuthenticated]);
 
+
+
+  
   // Create unique key for story cards
   const getStoryKey = useCallback((story, index) => {
     if (story.id && story.slug) {
@@ -219,21 +281,20 @@ export default function FeedClient({ initialState }) {
           }
         `}</style>
 
-        {/* Initial loading state */}
-        {loading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent-orange"></div>
-          </div>
-        ) : feedStories.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64">
-            <p className="text-gray-500 text-lg mb-4">No stories yet</p>
-            <button
-              onClick={() => handleTagSwitch('for-you', { force: true })}
-              className="px-4 py-2 bg-accent-orange text-white rounded-lg hover:bg-accent-orange/90 transition-colors"
-            >
-              Refresh
-            </button>
-          </div>
+        {/* Initial loading state - show skeleton loaders instead of "no stories" */}
+        {loading || feedStories.length === 0 ? (
+          loading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent-orange"></div>
+            </div>
+          ) : (
+            // Show skeleton loaders while waiting for data on first load
+            <div className="space-y-4 px-4">
+              {[1, 2, 3].map((i) => (
+                <StoryCardSkeleton key={`skeleton-${i}`} />
+              ))}
+            </div>
+          )
         ) : (
           <>
             {/* Rendered story cards */}
