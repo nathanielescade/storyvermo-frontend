@@ -16,6 +16,7 @@ const Logo = () => {
           priority
           quality={90}
           loading="eager"
+          fetchPriority="high"
         />
       </picture>
     </Link>
