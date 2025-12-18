@@ -1,7 +1,7 @@
 // FeedClient.js - 🚀 CURSOR-BASED INFINITE SCROLL with skeleton loaders
 'use client';
 
-import React, { useEffect, useRef, useCallback, useState, useMemo, useTransition } from 'react';
+import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import StoryCard from './components/StoryCard';
 import StoryCardSkeleton from './components/StoryCardSkeleton';
 import useMain from '../../hooks/useMain';

@@ -35,9 +35,6 @@
     background-color: var(--color-dark-blue);
     width: 100%;
     height: 100%;
-    /* 🔥 OPTIMIZED: Prevent layout shifts */
-    overflow-x: hidden;
-    overflow-y: auto;
   }
 }
         
@@ -48,8 +45,7 @@
             overflow: hidden;
             scroll-snap-align: start;
             scroll-snap-stop: always;
-            /* 🔥 OPTIMIZED: Tell browser this won't affect layout outside bounds */
-            contain: layout style paint;
+
         }
         
         .image-feed {
@@ -70,8 +66,6 @@
             width: 100%;
             height: 100vh;
             overflow: hidden;
-            /* 🔥 OPTIMIZED: Contain layout, style, and paint to reduce recalculation scope */
-            contain: layout style paint;
         }
         
         .scene-bg {
@@ -275,9 +269,6 @@
         
         .verse-like.liked i {
             animation: heartBeat 0.8s ease-in-out;
-            /* 🔥 OPTIMIZED: GPU acceleration for transform-based animation */
-            will-change: transform;
-            transform-origin: center center;
         }
         
         @keyframes heartBeat {
@@ -293,9 +284,6 @@
             pointer-events: none;
             animation: floatHeart 1.5s ease-out forwards;
             z-index: 100;
-            /* 🔥 OPTIMIZED: GPU acceleration for transform and opacity animations */
-            will-change: transform, opacity;
-            transform-origin: center center;
         }
         
         @keyframes floatHeart {
@@ -643,8 +631,7 @@
         
         .main-content {
             transition: margin-left 0.3s ease;
-            /* 🔥 OPTIMIZED: Isolate layout from parent */
-            contain: layout style paint;
+           
         }
         
         .sidebar-toggle {
