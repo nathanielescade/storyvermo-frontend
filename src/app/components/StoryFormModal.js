@@ -202,7 +202,7 @@ const VerseItem = memo(({
                 {verse.imageIds && verse.imageIds.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {verse.imageIds.map((image, imgIndex) => (
-              <div key={imgIndex} className="relative group">
+              <div key={typeof image === 'string' ? image : (image.public_id || image.preview || image.url || imgIndex)} className="relative group">
                 {typeof image === 'string' ? (
                   <div className="relative w-full h-36">
                     <Image

@@ -136,33 +136,24 @@ const VerseViewer = ({
     return storyRef.current.verses[currentVerseIndex];
   }, [currentVerseIndex, storyRef.current?.verses]);
 
-  // Get metadata for current verse from our metadata cache
-  const getCurrentVerseMetadata = useCallback(() => {
-    if (!currentVerse?.id) return null;
-    return verseMetadataRef.current[currentVerse.id];
-  }, [currentVerse?.id]);
-
-  // Initialize metadata state from cache or verse data
-  const [isLiked, setIsLiked] = useState(() => {
-    const metadata = getCurrentVerseMetadata();
-    if (metadata) return metadata.is_liked_by_user;
-    return currentVerse?.user_has_liked || currentVerse?.is_liked_by_user || false;
-  });
-  const [isSaved, setIsSaved] = useState(() => {
-    const metadata = getCurrentVerseMetadata();
-    if (metadata) return metadata.is_saved_by_user;
-    return currentVerse?.user_has_saved || currentVerse?.is_saved_by_user || false;
-  });
-  const [likeCount, setLikeCount] = useState(() => {
-    const metadata = getCurrentVerseMetadata();
-    if (metadata) return metadata.likes_count;
-    return currentVerse?.likes_count || 0;
-  });
-  const [saveCount, setSaveCount] = useState(() => {
-    const metadata = getCurrentVerseMetadata();
-    if (metadata) return metadata.saves_count;
-    return currentVerse?.saves_count || 0;
-  });
+  // Helper to extract like/save status from verse data
+  const getVerseInitialState = (verse) => {
+    if (!verse) return { isLiked: false, isSaved: false, likeCount: 0, saveCount: 0 };
+    
+    const isLikedStatus = verse.user_has_liked || verse.is_liked_by_user || false;
+    const isSavedStatus = verse.user_has_saved || verse.is_saved_by_user || false;
+    const likeCountVal = verse.likes_count || 0;
+    const saveCountVal = verse.saves_count || 0;
+    
+    return { isLiked: isLikedStatus, isSaved: isSavedStatus, likeCount: likeCountVal, saveCount: saveCountVal };
+  };
+  
+  // Initialize metadata state from verse data
+  const initial = getVerseInitialState(currentVerse);
+  const [isLiked, setIsLiked] = useState(initial.isLiked);
+  const [isSaved, setIsSaved] = useState(initial.isSaved);
+  const [likeCount, setLikeCount] = useState(initial.likeCount);
+  const [saveCount, setSaveCount] = useState(initial.saveCount);
   const [currentMomentIndex, setCurrentMomentIndex] = useState(0);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
@@ -170,6 +161,10 @@ const VerseViewer = ({
   const [isTextVisible, setIsTextVisible] = useState(true);
   const [showScrollHint, setShowScrollHint] = useState(false);
   const [pullDownProgress, setPullDownProgress] = useState(0); // Track pull-down animation
+  
+  // Loading states to prevent double-clicks and enable instant visual feedback
+  const [isLikeLoading, setIsLikeLoading] = useState(false);
+  const [isSaveLoading, setIsSaveLoading] = useState(false);
   
   const verseRefs = useRef([]);
   const containerRef = useRef(null);
@@ -279,124 +274,33 @@ const VerseViewer = ({
     return currentVerse.author_name || currentVerse.author_username || null;
   };
   
-  // FIXED: Update metadata when current verse changes - this is the key fix
+  // FIXED: Update state when current verse changes - pull fresh data from story
   useEffect(() => {
     if (currentVerse) {
-      // First check if we have cached metadata for this verse
-      const cachedMetadata = verseMetadataRef.current[currentVerse.id];
-      
-      if (cachedMetadata) {
-        // Use cached metadata
-        setIsLiked(cachedMetadata.is_liked_by_user);
-        setIsSaved(cachedMetadata.is_saved_by_user);
-        setLikeCount(cachedMetadata.likes_count);
-        setSaveCount(cachedMetadata.saves_count);
-      } else {
-        // Fall back to verse data properties
-        setIsLiked(currentVerse.user_has_liked || currentVerse.is_liked_by_user || false);
-        setIsSaved(currentVerse.user_has_saved || currentVerse.is_saved_by_user || false);
-        setLikeCount(currentVerse.likes_count || 0);
-        setSaveCount(currentVerse.saves_count || 0);
-        
-        // Cache this metadata for future use
-        verseMetadataRef.current[currentVerse.id] = {
-          is_liked_by_user: currentVerse.user_has_liked || currentVerse.is_liked_by_user || false,
-          is_saved_by_user: currentVerse.user_has_saved || currentVerse.is_saved_by_user || false,
-          likes_count: currentVerse.likes_count || 0,
-          saves_count: currentVerse.saves_count || 0
-        };
-      }
+      const initial = getVerseInitialState(currentVerse);
+      setIsLiked(initial.isLiked);
+      setIsSaved(initial.isSaved);
+      setLikeCount(initial.likeCount);
+      setSaveCount(initial.saveCount);
       setCurrentMomentIndex(0);
       setIsContentExpanded(false);
       setIsTextVisible(true);
     }
-  }, [currentVerse]); // Now depends on the entire currentVerse object, not just ID
+  }, [currentVerse?.id]); // Only depend on verse ID to avoid infinite loops
   
-  // Sync metadata with story updates
+  // Sync state when story data is updated from parent
   useEffect(() => {
     if (currentVerse && storyRef.current?.verses) {
       const latestVerse = storyRef.current.verses.find(v => v.id === currentVerse.id);
       if (latestVerse) {
-        setIsLiked(latestVerse.user_has_liked || latestVerse.is_liked_by_user || false);
-        setIsSaved(latestVerse.user_has_saved || latestVerse.is_saved_by_user || false);
-        setLikeCount(latestVerse.likes_count || 0);
-        setSaveCount(latestVerse.saves_count || 0);
-        
-        // Update cache
-        verseMetadataRef.current[currentVerse.id] = {
-          is_liked_by_user: latestVerse.user_has_liked || latestVerse.is_liked_by_user || false,
-          is_saved_by_user: latestVerse.user_has_saved || latestVerse.is_saved_by_user || false,
-          likes_count: latestVerse.likes_count || 0,
-          saves_count: latestVerse.saves_count || 0
-        };
+        const initial = getVerseInitialState(latestVerse);
+        setIsLiked(initial.isLiked);
+        setIsSaved(initial.isSaved);
+        setLikeCount(initial.likeCount);
+        setSaveCount(initial.saveCount);
       }
     }
-  }, [storyRef.current?.verses, currentVerse]);
-  
-  // Function to update verse metadata in our cache and state
-  const updateVerseMetadata = useCallback((verseId, metadata) => {
-    if (!verseId || !metadata) return;
-
-    // Update metadata cache
-    verseMetadataRef.current[verseId] = metadata;
-
-    // Update local state if this is the current verse
-    if (currentVerse?.id === verseId) {
-      setIsLiked(metadata.is_liked_by_user);
-      setLikeCount(metadata.likes_count);
-      setIsSaved(metadata.is_saved_by_user);
-      setSaveCount(metadata.saves_count);
-    }
-
-    // Update story ref with both property formats for compatibility
-    if (storyRef.current?.verses) {
-      const updatedVerses = storyRef.current.verses.map(verse => 
-        verse.id === verseId 
-          ? { 
-              ...verse, 
-              ...metadata,
-              // Also set alternative property names for compatibility
-              user_has_liked: metadata.is_liked_by_user,
-              user_has_saved: metadata.is_saved_by_user
-            }
-          : verse
-      );
-      
-      const updatedStory = {
-        ...storyRef.current,
-        verses: updatedVerses
-      };
-      
-      // Update story ref
-      storyRef.current = updatedStory;
-      
-      // Call parent update if available
-      if (typeof onStoryUpdate === 'function') {
-        onStoryUpdate(updatedStory);
-      }
-    }
-  }, [currentVerse?.id, onStoryUpdate]);
-
-  // Function to fetch fresh verse metadata
-  const fetchVerseMetadata = async (verse) => {
-    if (!verse?.slug || !isAuthenticated) return null;
-    try {
-      const response = await versesApi.getVerseBySlug(verse.slug);
-      const metadata = {
-        is_liked_by_user: response.is_liked_by_user || response.user_has_liked || false,
-        likes_count: response.likes_count || 0,
-        is_saved_by_user: response.is_saved_by_user || response.user_has_saved || false,
-        saves_count: response.saves_count || 0
-      };
-      
-      // Update our metadata cache and state
-      updateVerseMetadata(verse.id, metadata);
-      return metadata;
-    } catch (error) {
-      console.error('Error fetching verse metadata:', error);
-      return null;
-    }
-  };
+  }, [storyRef.current?.verses, currentVerse?.id]);
 
   // Show scroll hint after 1 second if there are more verses below current verse, then hide after 3 seconds of showing
   useEffect(() => {
@@ -548,57 +452,15 @@ const VerseViewer = ({
       setFocusMode(false);
       setIsTextVisible(true);
       
-      // Pre-fetch metadata for all verses to ensure we have the data
-      if (story?.verses) {
-        // Only fetch if we don't already have metadata for these verses
-        const versesNeedingMetadata = story.verses.filter(verse => !verseMetadataRef.current[verse.id]);
-        
-        if (versesNeedingMetadata.length > 0) {
-          Promise.all(versesNeedingMetadata.map(verse => fetchVerseMetadata(verse))).then(metadataArray => {
-            const updatedVerses = story.verses.map((verse) => {
-              const cachedMetadata = verseMetadataRef.current[verse.id];
-              if (cachedMetadata) {
-                return {
-                  ...verse,
-                  ...cachedMetadata,
-                  user_has_liked: cachedMetadata.is_liked_by_user,
-                  user_has_saved: cachedMetadata.is_saved_by_user
-                };
-              }
-              return verse;
-            });
-
-            const updatedStory = {
-              ...storyRef.current,
-              verses: updatedVerses
-            };
-
-            // Update story ref
-            storyRef.current = updatedStory;
-
-            // Call parent update if available (only once with updated data)
-            if (typeof onStoryUpdate === 'function') {
-              onStoryUpdate(updatedStory);
-            }
-
-            // Set initial verse state
-            const initialVerse = updatedVerses[initialVerseIndex];
-            if (initialVerse) {
-              setIsLiked(initialVerse.is_liked_by_user || initialVerse.user_has_liked || false);
-              setLikeCount(initialVerse.likes_count || 0);
-              setIsSaved(initialVerse.is_saved_by_user || initialVerse.user_has_saved || false);
-              setSaveCount(initialVerse.saves_count || 0);
-            }
-          });
-        } else {
-          // Metadata already cached, just set state
-          const initialVerse = story.verses[initialVerseIndex];
-          if (initialVerse) {
-            setIsLiked(initialVerse.is_liked_by_user || initialVerse.user_has_liked || false);
-            setLikeCount(initialVerse.likes_count || 0);
-            setIsSaved(initialVerse.is_saved_by_user || initialVerse.user_has_saved || false);
-            setSaveCount(initialVerse.saves_count || 0);
-          }
+      // Set initial verse state from current story data
+      if (story?.verses && story.verses.length > 0) {
+        const initialVerse = story.verses[initialVerseIndex] || story.verses[0];
+        if (initialVerse) {
+          const initial = getVerseInitialState(initialVerse);
+          setIsLiked(initial.isLiked);
+          setLikeCount(initial.likeCount);
+          setIsSaved(initial.isSaved);
+          setSaveCount(initial.saveCount);
         }
       }
     }
@@ -608,18 +470,16 @@ const VerseViewer = ({
     };
   }, [isOpen, initialVerseIndex, story?.id, story?.verses?.length]);
 
-  // Auto-show pull-down animation when viewer opens on first verse
+  // Auto-scroll to initial verse when viewer opens
   useEffect(() => {
-    if (isOpen && currentVerseIndex === 0 && story?.verses?.length > 1) {
-      // Show pull-down animation for 3 seconds then fade out
-      setPullDownProgress(1); // Set to full progress
+    if (isOpen && initialVerseIndex > 0 && verseBlockRefs.current && verseBlockRefs.current.length > 0) {
+      // Wait for DOM to be ready, then scroll
       const timer = setTimeout(() => {
-        setPullDownProgress(0);
-      }, 3000); // Show for 3 seconds
-      
+        scrollToVerseIndex(initialVerseIndex);
+      }, 100);
       return () => clearTimeout(timer);
     }
-  }, [isOpen, currentVerseIndex, story?.verses?.length]);
+  }, [isOpen, initialVerseIndex]);
 
   // Notify parent that the viewer has rendered and is ready (used to stop button loading states)
   useEffect(() => {
@@ -730,73 +590,151 @@ const VerseViewer = ({
     };
   }, [currentVerseIndex, storyRef.current?.verses]);
 
-  // Handle like action with optimistic UI and proper story state update
+  // Handle like action with optimistic UI and proper state synchronization
   const handleLike = async () => {
-    if (!currentVerse || !currentVerse.slug) return;
+    if (!currentVerse) return;
+    
+    // If verse doesn't have slug, we can't complete the action
+    let verseSlug = currentVerse.slug;
+    if (!verseSlug && currentVerse.id) {
+      // Try to find the verse in story data to get its slug
+      const verseInStory = storyRef.current?.verses?.find(v => v.id === currentVerse.id);
+      verseSlug = verseInStory?.slug;
+    }
+    
+    if (!verseSlug) {
+      console.warn('Cannot like verse: missing slug', currentVerse);
+      return;
+    }
+    
     if (!isAuthenticated) {
       if (typeof openAuthModal === 'function') openAuthModal('like', { slug: story.slug, verseId: currentVerse.id });
       return;
     }
-    // Optimistic UI update
-    const newLikedState = !isLiked;
-    const newLikeCount = newLikedState ? likeCount + 1 : Math.max(0, likeCount - 1);
-    // Update local state
-    setIsLiked(newLikedState);
-    setLikeCount(newLikeCount);
+
+    // Prevent double-clicks
+    if (isLikeLoading) return;
+
+    // Capture previous state for potential revert
+    const wasLiked = isLiked;
+    const prevLikeCount = likeCount;
+
     try {
-      const response = await versesApi.toggleLikeBySlug(currentVerse.slug);
-      // Update metadata cache and state
-      const metadata = {
-        is_liked_by_user: response.is_liked_by_user,
-        likes_count: response.likes_count,
-        is_saved_by_user: isSaved, // Preserve current save state
-        saves_count: saveCount // Preserve current save count
-      };
-      // Update metadata cache and trigger all necessary updates
-      updateVerseMetadata(currentVerse.id, metadata);
+      setIsLikeLoading(true);
+      
+      // Optimistic UI update - instant visual change
+      setIsLiked(!wasLiked);
+      setLikeCount(prev => wasLiked ? prev - 1 : prev + 1);
+
+      // Call backend API
+      const response = await versesApi.toggleLikeBySlug(verseSlug);
+
+      // Update state with actual server response (trust the server)
+      setIsLiked(response.is_liked_by_user || response.user_has_liked || !wasLiked);
+      setLikeCount(response.likes_count || likeCount);
+
+      // Update story ref and parent with new data
+      if (storyRef.current?.verses) {
+        const updatedVerses = storyRef.current.verses.map(v =>
+          v.id === currentVerse.id
+            ? {
+                ...v,
+                is_liked_by_user: response.is_liked_by_user || response.user_has_liked,
+                user_has_liked: response.is_liked_by_user || response.user_has_liked,
+                likes_count: response.likes_count
+              }
+            : v
+        );
+
+        const updatedStory = { ...storyRef.current, verses: updatedVerses };
+        storyRef.current = updatedStory;
+
+        // Notify parent to update
+        if (typeof onStoryUpdate === 'function') {
+          onStoryUpdate(updatedStory);
+        }
+      }
     } catch (error) {
-      // Revert on error
-      setIsLiked(!newLikedState);
-      setLikeCount(likeCount);
       console.error('Error toggling verse like:', error);
+      // Revert optimistic update on error
+      setIsLiked(wasLiked);
+      setLikeCount(prevLikeCount);
+    } finally {
+      setIsLikeLoading(false);
     }
   };
 
-  // Handle save action with optimistic UI and proper story state update
+  // Handle save action with optimistic UI and proper state synchronization
   const handleSave = async () => {
-    if (!currentVerse || !currentVerse.slug) return;
+    if (!currentVerse) return;
+    
+    // If verse doesn't have slug, we can't complete the action
+    let verseSlug = currentVerse.slug;
+    if (!verseSlug && currentVerse.id) {
+      // Try to find the verse in story data to get its slug
+      const verseInStory = storyRef.current?.verses?.find(v => v.id === currentVerse.id);
+      verseSlug = verseInStory?.slug;
+    }
+    
+    if (!verseSlug) {
+      console.warn('Cannot save verse: missing slug', currentVerse);
+      return;
+    }
+    
     if (!isAuthenticated) {
       if (typeof openAuthModal === 'function') openAuthModal('save', { slug: story.slug, verseId: currentVerse.id });
       return;
     }
-    
-    // Optimistic UI update
-    const newSavedState = !isSaved;
-    const newSaveCount = newSavedState ? saveCount + 1 : Math.max(0, saveCount - 1);
-    
-    // Update local state
-    setIsSaved(newSavedState);
-    setSaveCount(newSaveCount);
-    
+
+    // Prevent double-clicks
+    if (isSaveLoading) return;
+
+    // Capture previous state for potential revert
+    const wasSaved = isSaved;
+    const prevSaveCount = saveCount;
+
     try {
-      const response = await versesApi.toggleSaveBySlug(currentVerse.slug);
+      setIsSaveLoading(true);
       
-      // Update metadata cache and state
-      const metadata = {
-        is_saved_by_user: response.is_saved_by_user,
-        saves_count: response.saves_count,
-        is_liked_by_user: isLiked, // Preserve current like state
-        likes_count: likeCount // Preserve current like count
-      };
-      
-      // Update metadata cache and trigger all necessary updates
-      updateVerseMetadata(currentVerse.id, metadata);
-      
+      // Optimistic UI update - instant visual change
+      setIsSaved(!wasSaved);
+      setSaveCount(prev => wasSaved ? prev - 1 : prev + 1);
+
+      // Call backend API
+      const response = await versesApi.toggleSaveBySlug(verseSlug);
+
+      // Update state with actual server response (trust the server)
+      setIsSaved(response.is_saved_by_user || response.user_has_saved || !wasSaved);
+      setSaveCount(response.saves_count || saveCount);
+
+      // Update story ref and parent with new data
+      if (storyRef.current?.verses) {
+        const updatedVerses = storyRef.current.verses.map(v =>
+          v.id === currentVerse.id
+            ? {
+                ...v,
+                is_saved_by_user: response.is_saved_by_user || response.user_has_saved,
+                user_has_saved: response.is_saved_by_user || response.user_has_saved,
+                saves_count: response.saves_count
+              }
+            : v
+        );
+
+        const updatedStory = { ...storyRef.current, verses: updatedVerses };
+        storyRef.current = updatedStory;
+
+        // Notify parent to update
+        if (typeof onStoryUpdate === 'function') {
+          onStoryUpdate(updatedStory);
+        }
+      }
     } catch (error) {
-      // Revert on error
-      setIsSaved(!newSavedState);
-      setSaveCount(saveCount);
       console.error('Error toggling verse save:', error);
+      // Revert optimistic update on error
+      setIsSaved(wasSaved);
+      setSaveCount(prevSaveCount);
+    } finally {
+      setIsSaveLoading(false);
     }
   };
 
@@ -1385,7 +1323,12 @@ const VerseViewer = ({
             {/* Vertical buttons container */}
             <div className="absolute bottom-4 right-4 flex flex-col items-center gap-6 z-50">
               {/* Ellipsis Menu Button (at very top) - for verse creators and contributors */}
-              {isAuthenticated && currentUser && (String(currentUser?.public_id || currentUser?.id) === String(getUserId(currentVerse?.author)) || String(currentUser?.public_id || currentUser?.id) === String(getUserId(story?.creator))) && (
+              {isAuthenticated && currentUser && (() => {
+                const currentUserId = String(currentUser?.public_id || currentUser?.id);
+                const verseAuthorId = String(getUserId(currentVerse?.author) || '');
+                const storyCreatorId = String(getUserId(story?.creator) || '');
+                return currentUserId && (currentUserId === verseAuthorId || currentUserId === storyCreatorId);
+              })() && (
                 <div className="relative">
                   <button
                     onClick={(e) => {
@@ -1445,8 +1388,9 @@ const VerseViewer = ({
               {/* Like Button (below ellipsis) */}
               <div className="flex flex-col items-center">
                 <button 
-                  className={`w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer transition-all duration-200 ease-in-out relative ${isLiked ? 'bg-accent-orange/10 border-2 border-accent-orange' : 'border border-white/20'} hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110`}
+                  className={`w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer relative ${isLiked ? 'bg-accent-orange/10 border-2 border-accent-orange' : 'border border-white/20'} hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110 ${isLikeLoading ? 'transition-none' : 'transition-all duration-200 ease-in-out'}`}
                   onClick={handleLike}
+                  disabled={isLikeLoading}
                 >
                   <div className="relative">
                     <i className={`${isLiked ? 'fas' : 'far'} fa-heart text-[18px] ${isLiked ? 'text-accent-orange' : 'text-white'}`}></i>
@@ -1469,8 +1413,9 @@ const VerseViewer = ({
               {/* Save Button (below share) */}
               <div className="flex flex-col items-center">
                 <button 
-                  className={`w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer transition-all duration-200 ease-in-out relative ${isSaved ? 'bg-accent-orange/10 border-2 border-accent-orange' : 'border border-white/20'} hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110`}
+                  className={`w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer relative ${isSaved ? 'bg-accent-orange/10 border-2 border-accent-orange' : 'border border-white/20'} hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110 ${isSaveLoading ? 'transition-none' : 'transition-all duration-200 ease-in-out'}`}
                   onClick={handleSave}
+                  disabled={isSaveLoading}
                 >
                   <div className="relative">
                     <i className={`${isSaved ? 'fas' : 'far'} fa-bookmark text-[18px] ${isSaved ? 'text-accent-orange' : 'text-white'}`}></i>

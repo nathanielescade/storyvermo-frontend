@@ -274,23 +274,20 @@ export default function StoryCard({
 
     const handleOpenVerses = useCallback(async () => {
         try {
-            // Always log for debug
-            // debug('[StoryCard] open verses clicked (optimistic open)', {
-            //     slug: story?.slug,
-            //     versesCount: Array.isArray(story?.verses) ? story.verses.length : 0,
-            //     sampleVerses: Array.isArray(story?.verses) ? story.verses.slice(0,3) : story?.verses
-            // });
-
             setIsViewerOpening(true);
-            setShowVerseViewer(true);
-
-            // Fetch latest story data asynchronously (do not block UI)
+            
+            // IMPORTANT: Fetch fresh story data BEFORE opening the viewer
+            // This prevents showing stale/wrong verses from previous stories
             const fullStory = await storiesApi.getStoryBySlug(story.slug);
             setCurrentStory(fullStory);
             if (typeof window !== 'undefined') {
                 window.__fullStoryForViewer = fullStory;
             }
+            
+            // Only open the viewer AFTER data is ready
+            setShowVerseViewer(true);
         } catch (e) {
+            console.error('Error fetching story verses:', e);
             setIsViewerOpening(false);
         }
     }, [story.slug]);

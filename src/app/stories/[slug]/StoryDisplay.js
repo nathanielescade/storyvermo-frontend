@@ -95,23 +95,47 @@ export default function StoryDisplay({ initialStory, slug }) {
     }
   }, [slug, isAuthenticated, refetchStory]);
 
-  // Handle verse query param
+  // Handle verse query param - ensure story data is fresh with verse slugs
   useEffect(() => {
     if (!story) return;
 
     const verseParam = searchParams?.get ? searchParams.get('verse') : null;
     if (verseParam) {
-      // Find index of verse by id/public_id/slug
-      const idx = (story.verses || []).findIndex(v => 
+      // First try to find the verse in the current story
+      let idx = (story.verses || []).findIndex(v => 
         String(v.id) === String(verseParam) || 
         String(v.public_id) === String(verseParam) || 
         String(v.slug) === String(verseParam)
       );
+      
+      // If verse found but doesn't have slug, we should refetch to get complete data
+      if (idx >= 0 && !story.verses[idx].slug) {
+        // Fetch fresh story data to ensure verses have slug property
+        const fetchStoryWithSlug = async () => {
+          try {
+            const freshStory = await storiesApi.getStoryBySlug(slug);
+            if (freshStory && freshStory.verses && freshStory.verses.length > 0) {
+              setStory(freshStory);
+              // Find verse again in fresh story
+              const freshIdx = freshStory.verses.findIndex(v =>
+                String(v.id) === String(verseParam) ||
+                String(v.public_id) === String(verseParam) ||
+                String(v.slug) === String(verseParam)
+              );
+              setInitialVerseIndex(freshIdx >= 0 ? freshIdx : 0);
+            }
+          } catch (err) {
+            console.error('Error fetching fresh story for verse:', err);
+          }
+        };
+        fetchStoryWithSlug();
+      }
+      
       const indexToOpen = idx >= 0 ? idx : 0;
       setInitialVerseIndex(indexToOpen);
       setShowVerseViewer(true);
     }
-  }, [story, searchParams]);
+  }, [story, searchParams, slug]);
 
   // Overscroll/stretch effect removed to avoid interfering with modals and native scrolling.
 
@@ -149,6 +173,8 @@ export default function StoryDisplay({ initialStory, slug }) {
             story={story}
             initialVerseIndex={initialVerseIndex}
             onStoryUpdate={refetchStory}
+            isAuthenticated={isAuthenticated}
+            openAuthModal={openAuthModal}
           />
         )}
       </div>

@@ -1,5 +1,5 @@
 // ContributeModal.js
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Modal, Box, TextField, Button, CircularProgress, IconButton } from '@mui/material';
 import { useDropzone } from 'react-dropzone';
 import { X as CloseIcon } from 'lucide-react';
@@ -15,16 +15,19 @@ const ContributeModal = ({
     onStoryUpdated
 }) => {
     const [verseContent, setVerseContent] = useState('');
+    const [localVerseContent, setLocalVerseContent] = useState('');
     const [verseImages, setVerseImages] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [deletedMoments, setDeletedMoments] = useState([]);
     const fileInputRef = useRef(null);
+    const textareaRef = useRef(null);
     const { compressImageFile } = useImageCompressionUploader();
 
     // Initialize form when editingVerse changes
     useEffect(() => {
         if (editingVerse) {
             setVerseContent(editingVerse.content || '');
+            setLocalVerseContent(editingVerse.content || '');
             
             // Load existing images if any
             const images = [];
@@ -50,6 +53,7 @@ const ContributeModal = ({
         } else {
             // Reset form when not editing
             setVerseContent('');
+            setLocalVerseContent('');
             setVerseImages([]);
         }
     }, [editingVerse]);
@@ -62,6 +66,23 @@ const ContributeModal = ({
         if (parts.length === 2) return parts.pop().split(';').shift();
         return '';
     };
+
+    // Memoized textarea change handler - updates local state immediately
+    const handleVerseContentChange = useCallback((e) => {
+        const newValue = e.target.value;
+        // Update local state immediately (prevents keyboard from closing)
+        setLocalVerseContent(newValue);
+        // Call parent state update async
+        setVerseContent(newValue);
+        
+        // Auto-expand textarea
+        if (textareaRef.current) {
+            const textarea = textareaRef.current;
+            textarea.style.height = 'auto';
+            const newHeight = Math.min(textarea.scrollHeight, 200); // 200px ≈ 5 lines
+            textarea.style.height = newHeight + 'px';
+        }
+    }, []);
 
     const handleImageUpload = async (e) => {
         const inputElement = e.target;
@@ -349,18 +370,16 @@ const ContributeModal = ({
                             <p className="text-xs text-gray-500 mb-2">You can add images/moments without text — the verse text is optional.</p>
                             <div className="relative">
                                 <textarea 
+                                    ref={textareaRef}
                                     placeholder="Describe your verse..."
-                                    value={verseContent}
-                                    onChange={(e) => {
-                                        setVerseContent(e.target.value);
-                                        // Auto-expand textarea
-                                        const textarea = e.target;
-                                        textarea.style.height = 'auto';
-                                        const newHeight = Math.min(textarea.scrollHeight, 200); // 200px ≈ 5 lines
-                                        textarea.style.height = newHeight + 'px';
-                                    }}
+                                    value={localVerseContent}
+                                    onChange={handleVerseContentChange}
                                     rows={2}
                                     className="w-full px-5 py-4 bg-slate-900/60 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition-all duration-300 resize-none text-lg overflow-hidden"
+                                    autoComplete="off"
+                                    autoCorrect="off"
+                                    autoCapitalize="off"
+                                    spellCheck="false"
                                 ></textarea>
                                 <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-purple-500/5 to-indigo-500/5 opacity-0 pointer-events-none transition-opacity duration-300"></div>
                             </div>
@@ -374,7 +393,7 @@ const ContributeModal = ({
                             {verseImages.length > 0 ? (
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     {verseImages.map((image, index) => (
-                                        <div key={index} className="relative group">
+                                        <div key={image.moment_id || image.public_id || image.preview || index} className="relative group">
                                             {/* FIXED: Replaced Next.js Image with regular img tag */}
                                             <img 
                                                 src={image.preview} 
