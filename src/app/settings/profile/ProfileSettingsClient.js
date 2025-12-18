@@ -4,9 +4,17 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Select from 'react-select';
 import ReactCountryFlag from 'react-country-flag';
-import { Country, City } from 'country-state-city';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { userApi } from '../../../../lib/api';
+
+// 🔥 OPTIMIZED: Lazy load country-state-city only when settings page loads
+let CountryStateCityModule = null;
+const loadCountriesAndCities = async () => {
+  if (!CountryStateCityModule) {
+    CountryStateCityModule = await import('country-state-city');
+  }
+  return CountryStateCityModule;
+};
 
 export default function ProfileSettingsClient() {
   const router = useRouter();
@@ -17,6 +25,8 @@ export default function ProfileSettingsClient() {
   const [success, setSuccess] = useState(false);
   const [toast, setToast] = useState(null); // Toast notification state
   const formRef = useRef(null);
+  const [countries, setCountries] = useState([]); // Lazy loaded countries
+  const [countriesLoaded, setCountriesLoaded] = useState(false);
 
   const [formData, setFormData] = useState({
     account_type: 'personal',
@@ -95,13 +105,30 @@ export default function ProfileSettingsClient() {
     { value: 'events', label: 'Local Events', icon: '🎪', group: 'Community' }
   ], []);
 
-  const countryOptions = useMemo(() => (
-    Country.getAllCountries().map(country => ({
-      value: country.isoCode,
-      label: country.name,
-      flag: country.isoCode
-    }))
-  ), []);
+  // 🔥 OPTIMIZED: Lazy load countries only when component mounts
+  useEffect(() => {
+    if (countriesLoaded) return;
+
+    const loadCountries = async () => {
+      try {
+        const module = await loadCountriesAndCities();
+        const countryList = module.Country.getAllCountries();
+        const options = countryList.map(country => ({
+          value: country.isoCode,
+          label: country.name,
+          flag: country.isoCode
+        }));
+        setCountries(options);
+        setCountriesLoaded(true);
+      } catch (err) {
+        console.error('Failed to load countries:', err);
+      }
+    };
+
+    loadCountries();
+  }, [countriesLoaded]);
+
+  const countryOptions = countries;
 
   // Custom styles for react-select
   const customSelectStyles = {
@@ -238,7 +265,7 @@ export default function ProfileSettingsClient() {
   };
 
   // Handle country change
-  const handleCountryChange = (selectedOption) => {
+  const handleCountryChange = async (selectedOption) => {
     setSelectedCountry(selectedOption);
     setSelectedCity(null);
     setFormData(prev => ({
@@ -248,11 +275,16 @@ export default function ProfileSettingsClient() {
     }));
     
     if (selectedOption) {
-      const cities = City.getCitiesOfCountry(selectedOption.value) || [];
-      setAvailableCities(cities.map(city => ({
-        value: city.name,
-        label: city.name
-      })));
+      try {
+        const module = await loadCountriesAndCities();
+        const cities = module.City.getCitiesOfCountry(selectedOption.value) || [];
+        setAvailableCities(cities.map(city => ({
+          value: city.name,
+          label: city.name
+        })));
+      } catch (err) {
+        console.error('Failed to load cities:', err);
+      }
     } else {
       setAvailableCities([]);
     }

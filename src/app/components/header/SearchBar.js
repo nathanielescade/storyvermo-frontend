@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { searchApi, searchHistoryApi } from '../../../../lib/api';
-import debounce from 'lodash-es/debounce';
+import { debounce } from '../../../../lib/debounce'; // 🔥 OPTIMIZED: Lightweight custom debounce
 import { useAuth } from '../../../../contexts/AuthContext';
 
 const SearchBar = ({ 

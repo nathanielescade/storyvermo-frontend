@@ -3,13 +3,16 @@
 import { useEffect, useState } from 'react';
 import Header from './Header';
 import DimensionNav from './DimensionNav';
-import AuthModal from './AuthModal';
 import dynamic from 'next/dynamic';
-const StoryFormModal = dynamic(() => import('./StoryFormModal'), { ssr: false });
-import DiscoverModal from './DiscoverModal';
-import FollowSuggestionsModal from './FollowSuggestionsModal';
-import OnboardingModal from './OnboardingModal';
-import PWAInstallPrompt from './PWAInstallPrompt';
+
+// 🔥 OPTIMIZED: Defer all heavy modals using dynamic imports
+const AuthModal = dynamic(() => import('./AuthModal'), { ssr: false, loading: () => null });
+const StoryFormModal = dynamic(() => import('./StoryFormModal'), { ssr: false, loading: () => null });
+const DiscoverModal = dynamic(() => import('./DiscoverModal'), { ssr: false, loading: () => null });
+const FollowSuggestionsModal = dynamic(() => import('./FollowSuggestionsModal'), { ssr: false, loading: () => null });
+const OnboardingModal = dynamic(() => import('./OnboardingModal'), { ssr: false, loading: () => null });
+const PWAInstallPrompt = dynamic(() => import('./PWAInstallPrompt'), { ssr: false, loading: () => null });
+
 import { useAuth } from '../../../contexts/AuthContext';
 
 export default function GlobalShell() {

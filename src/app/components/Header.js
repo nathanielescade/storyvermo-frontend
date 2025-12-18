@@ -2,13 +2,16 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
 // import { useAuth } from '../../../../contexts/AuthContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import Logo from './header/Logo';
 import SearchBar from './header/SearchBar';
 import NotificationBell from './header/NotificationBell';
 import UserMenu from './header/UserMenu';
-import TrendingTagsModal from './storycard/TrendingTagsModal';
+
+// 🔥 OPTIMIZED: Defer TrendingTagsModal until user opens it
+const TrendingTagsModal = dynamic(() => import('./storycard/TrendingTagsModal'), { ssr: false, loading: () => null });
 
 const Header = ({ openAuthModal }) => {
   const { isAuthenticated } = useAuth();

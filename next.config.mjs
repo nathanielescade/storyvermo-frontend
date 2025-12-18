@@ -68,6 +68,13 @@ const nextConfig = {
     optimizeCss: true,
   },
 
+  // 🔥 OPTIMIZED: Enable Turbopack (default in Next.js 16) with optimized config
+  turbopack: {
+    resolveAlias: {
+      '@': './src',
+    },
+  },
+
   // Development UI indicators (show small build/reload indicator in dev)
   devIndicators: {
     buildActivity: true,

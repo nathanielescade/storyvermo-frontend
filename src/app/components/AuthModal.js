@@ -1,11 +1,19 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
 import Select from 'react-select';
 import ReactCountryFlag from 'react-country-flag';
-import { Country, City } from 'country-state-city';
+
+// 🔥 OPTIMIZED: Lazy load country-state-city only when needed (on modal open)
+let CountryStateCityModule = null;
+const loadCountriesAndCities = async () => {
+  if (!CountryStateCityModule) {
+    CountryStateCityModule = await import('country-state-city');
+  }
+  return CountryStateCityModule;
+};
 
 const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) => {
   const { login, register: registerUser } = useAuth();
@@ -32,6 +40,8 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
   const [selectedGender, setSelectedGender] = useState(null);
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [availableCities, setAvailableCities] = useState([]);
+  const [countries, setCountries] = useState([]); // Lazy load
+  const countriesLoadedRef = useRef(false);
 
   // Content creation categories grouped by type
   // 22 COMPREHENSIVE CATEGORIES (Added Photography & Automotive)
@@ -140,12 +150,8 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
     })
   };
 
-  // Format country options
-  const countryOptions = Country.getAllCountries().map(country => ({
-    value: country.isoCode,
-    label: country.name,
-    flag: country.isoCode
-  }));
+  // Format country options - will be populated on-demand when signup step 2 is reached
+  const countryOptions = countries.length > 0 ? countries : [];
 
   // Gender options - Required (only Male/Female)
   const genderOptions = [
@@ -154,7 +160,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
   ];
 
   // Handle country change
-  const handleCountryChange = (selectedOption) => {
+  const handleCountryChange = async (selectedOption) => {
     setSelectedCountry(selectedOption);
     setSelectedCity(null);
     setFormData(prev => ({
@@ -164,11 +170,18 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
     }));
     
     if (selectedOption) {
-      const cities = City.getCitiesOfCountry(selectedOption.value) || [];
-      setAvailableCities(cities.map(city => ({
-        value: city.name,
-        label: city.name
-      })));
+      (async () => {
+        try {
+          const module = await loadCountriesAndCities();
+          const cities = module.City.getCitiesOfCountry(selectedOption.value) || [];
+          setAvailableCities(cities.map(city => ({
+            value: city.name,
+            label: city.name
+          })));
+        } catch (err) {
+          console.error('Failed to load cities:', err);
+        }
+      })();
     } else {
       setAvailableCities([]);
     }
@@ -246,6 +259,29 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
       setIsLoginMode(initialMode === 'login');
     }
   }, [isOpen, initialMode]);
+
+  // 🔥 OPTIMIZED: Lazy load countries only when signup step 2 is reached
+  useEffect(() => {
+    if (!isOpen || isLoginMode || signupStep !== 2 || countriesLoadedRef.current) return;
+
+    const loadCountries = async () => {
+      try {
+        const module = await loadCountriesAndCities();
+        const countryList = module.Country.getAllCountries();
+        const countryOptions = countryList.map(country => ({
+          value: country.isoCode,
+          label: country.name,
+          flag: country.isoCode
+        }));
+        setCountries(countryOptions);
+        countriesLoadedRef.current = true;
+      } catch (err) {
+        console.error('Failed to load countries:', err);
+      }
+    };
+
+    loadCountries();
+  }, [isOpen, isLoginMode, signupStep]);
 
   // Handle input changes
   const handleChange = (e) => {
