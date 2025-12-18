@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import Image from 'next/image';
+import LazyImage from './LazyImage';
 import { formatNumber, formatTimeAgo, createBubbles } from '../../../lib/utils';
 import { absoluteUrl, storiesApi, userApi } from '../../../lib/api';
 
@@ -486,20 +487,33 @@ export default function StoryCard({
                     data-story-slug={story.slug || ''}
                     // Removed touch handlers to avoid blocking vertical scroll.
                 >
-                    {coverImageUrl ? (
-                        <div className="relative w-full h-full">
-                        {/* Using Next.js Image for automatic optimization, lazy loading, and format conversion */}
-                        <Image 
-                            src={coverImageUrl} 
-                            alt={story.title || 'Story cover'} 
-                            fill
-                            className="scene-bg w-full h-full     "
-                            quality={75}
-                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
-                            priority={index === 0}  // ✅ THIS IS CORRECT - KEEP IT
-                        />
-                    </div>
-                    ) : (
+                                        {coverImageUrl ? (
+                                                <div className="relative w-full h-full">
+                                                {/* Use LazyImage for offscreen images; keep priority for first item */}
+                                                {index === 0 ? (
+                                                    <Image
+                                                        src={coverImageUrl}
+                                                        alt={story.title || 'Story cover'}
+                                                        fill
+                                                        className="scene-bg w-full h-full"
+                                                        quality={60}
+                                                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
+                                                        priority
+                                                        fetchPriority="high"
+                                                        loading="eager"
+                                                    />
+                                                ) : (
+                                                    <LazyImage
+                                                        src={coverImageUrl}
+                                                        alt={story.title || 'Story cover'}
+                                                        fill
+                                                        className="scene-bg w-full h-full"
+                                                        quality={60}
+                                                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
+                                                    />
+                                                )}
+                                        </div>
+                                        ) : (
                         <div className="scene-bg-placeholder bg-linear-to-br from-slate-800 to-slate-900 flex items-center justify-center">
                             <div className="text-slate-600 text-4xl">
                                 <i className="fas fa-image"></i>

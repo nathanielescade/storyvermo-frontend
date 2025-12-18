@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import LazyImage from '../LazyImage';
 import { formatTimeAgo } from '../../../../lib/utils';
 import { useAuth } from '../../../../contexts/AuthContext';
 
@@ -253,7 +254,7 @@ const CreatorChip = ({
                     >
                         <div className="creator-avatar w-full h-full rounded-full bg-gradient-to-r from-accent-orange to-neon-pink flex items-center justify-center font-bold text-base flex-shrink-0 cursor-pointer overflow-hidden">
                             {getCreatorProfileImageUrl() ? (
-                                <Image src={getCreatorProfileImageUrl()} alt={`${getCreatorDisplayName()}'s profile`} fill className="object-cover rounded-full" quality={75} />
+                                <LazyImage src={getCreatorProfileImageUrl()} alt={`${getCreatorDisplayName()}'s profile`} fill className="object-cover rounded-full" quality={60} />
                             ) : (
                                 getCreatorInitial()
                             )}

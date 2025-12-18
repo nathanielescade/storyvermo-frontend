@@ -111,8 +111,8 @@ export default function ProfileSettingsClient() {
 
     const loadCountries = async () => {
       try {
-        const module = await loadCountriesAndCities();
-        const countryList = module.Country.getAllCountries();
+        const CountryCityModule = await loadCountriesAndCities();
+        const countryList = CountryCityModule.Country.getAllCountries();
         const options = countryList.map(country => ({
           value: country.isoCode,
           label: country.name,
@@ -276,8 +276,8 @@ export default function ProfileSettingsClient() {
     
     if (selectedOption) {
       try {
-        const module = await loadCountriesAndCities();
-        const cities = module.City.getCitiesOfCountry(selectedOption.value) || [];
+        const CountryCityModule = await loadCountriesAndCities();
+        const cities = CountryCityModule.City.getCitiesOfCountry(selectedOption.value) || [];
         setAvailableCities(cities.map(city => ({
           value: city.name,
           label: city.name

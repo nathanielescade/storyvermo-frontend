@@ -15,14 +15,16 @@ const nextConfig = {
     unoptimized: process.env.NODE_ENV === 'development',
     // Prefer modern formats when possible to reduce transfer sizes
     formats: ['image/avif', 'image/webp'],
-      // Quality presets supported by Next Image (add any values used across app)
-      qualities: [75, 90],
-    // Device widths Next.js will generate images for (reduce if you want fewer sizes)
-    deviceSizes: [320, 420, 768, 1024, 1280, 1600],
-    // Additional image sizes used for srcset
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    // Cache optimized remote images at least 1 hour (3600s)
-    minimumCacheTTL: 3600,
+    // 🔥 AGGRESSIVE: Reduce quality to 60-75 for feed images (user won't notice on mobile)
+    qualities: [60, 75],
+    // 🔥 OPTIMIZED: Reduce device sizes to common breakpoints only
+    deviceSizes: [320, 640, 768, 1024],
+    // 🔥 OPTIMIZED: Smaller image sizes for thumbnails and avatars
+    imageSizes: [32, 48, 64, 96],
+    // 🔥 AGGRESSIVE: Cache optimized remote images longer (6 hours)
+    minimumCacheTTL: 21600,
+    // 🔥 OPTIMIZED: Aggressive dangerously allow SVG optimization
+    dangerouslyAllowSVG: false,
     remotePatterns: [
       // Local development backend
       {

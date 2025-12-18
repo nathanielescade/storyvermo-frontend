@@ -48,7 +48,8 @@ export default function useMain(initialState = null) {
             isPrefetchingRef.current = true;
             const params = { 
                 cursor,
-                limit: 5
+                // Smaller page size to reduce payload
+                limit: 3
             };
 
             // Special-case: if requesting the 'untagged' tag, do not pass a tag
@@ -100,7 +101,7 @@ export default function useMain(initialState = null) {
 
             const params = { 
                 cursor: null, // Reset cursor for new tag
-                limit: 5
+                limit: 3
             };
             if (!isUntagged && tag) params.tag = tag;
             if (force) params._t = Date.now();
@@ -277,7 +278,7 @@ export default function useMain(initialState = null) {
 
             const params = { 
                 cursor,
-                limit: 5
+                limit: 3
             };
             if (!isUntagged && tag) params.tag = tag;
 
@@ -370,7 +371,7 @@ export default function useMain(initialState = null) {
 
             const params = { 
                 cursor: nextCursor,
-                limit: 5
+                limit: 3
             };
             if (!isUntagged && currentTag) params.tag = currentTag;
 
@@ -481,7 +482,7 @@ export default function useMain(initialState = null) {
         try {
             const params = { 
                 cursor: null,
-                limit: 5,
+                limit: 3,
                 tag: currentTag 
             };
             

@@ -99,7 +99,8 @@ export default async function TagPage({ params }) {
   try {
     const params = { 
       cursor: null,
-      limit: 5,
+      // Reduce initial stories to lower first-load payload
+      limit: 3,
       tag: tag || 'for-you' 
     };
     initial = await storiesApi.getPaginatedStories(params);

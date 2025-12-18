@@ -23,14 +23,14 @@ export default function RootLayout({ children }) {
         
         {/* Font preload removed to avoid adding large font to initial payload; CSS is deferred below */}
 
-        {/* Google Analytics - DEFERRED to afterInteractive */}
+        {/* Google Analytics - DEFERRED to lazyOnload for even better performance */}
         {process.env.NODE_ENV === 'production' && (
           <>
             <Script
               src="https://www.googletagmanager.com/gtag/js?id=G-JCM36RQZ8G"
-              strategy="afterInteractive"  // 🔥 Changed from lazyOnload
+              strategy="lazyOnload"  // 🔥 OPTIMIZED: Defer to lazyOnload to reduce critical path
             />
-            <Script id="gtag-init" strategy="afterInteractive">
+            <Script id="gtag-init" strategy="lazyOnload">
               {`
                 window.dataLayer = window.dataLayer || [];
                 function gtag(){dataLayer.push(arguments);} 
