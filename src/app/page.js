@@ -55,8 +55,8 @@ export default async function Home({ initialTag = 'for-you' }) {
   try {
     const params = { 
       cursor: null,
-      // 🔥 OPTIMIZED: Reduce initial stories to minimize network payload on first load
-      limit: 3,
+      // Increased from 3 to 8 for better initial load experience
+      limit: 8,
       tag: initialTag || 'for-you' 
     };
     initial = await storiesApi.getPaginatedStories(params);
