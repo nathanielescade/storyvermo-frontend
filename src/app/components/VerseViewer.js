@@ -1,7 +1,7 @@
+// components/verseviewer/VerseViewer.jsx
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import Image from 'next/image';
 import { useAuth } from '../../../contexts/AuthContext';
 import { absoluteUrl, versesApi, userApi } from '../../../lib/api';
 import ContributeModal from './storycard/ContributeModal';
@@ -9,35 +9,19 @@ import { useRouter } from 'next/navigation';
 import ShareModal from './ShareModal';
 import { createPortal } from 'react-dom';
 
-// Helper to get an image URL from a moment
-const getMomentImageUrl = (moment) => {
-  if (!moment) return null;
-  if (typeof moment === 'string') return absoluteUrl(moment);
-  if (moment.image) {
-    if (typeof moment.image === 'string') return absoluteUrl(moment.image);
-    if (Array.isArray(moment.image) && moment.image.length > 0) {
-      const im = moment.image[0];
-      if (!im) return null;
-      if (typeof im === 'string') return absoluteUrl(im);
-      return absoluteUrl(im.file_url || im.url || im);
-    }
-    if (moment.image.file_url) return absoluteUrl(moment.image.file_url);
-    if (moment.image.url) return absoluteUrl(moment.image.url);
-    if (moment.image.file) {
-      if (typeof moment.image.file === 'string') return absoluteUrl(moment.image.file);
-      if (moment.image.file.url) return absoluteUrl(moment.image.file.url);
-    }
-  }
-  if (moment.file_url) return absoluteUrl(moment.file_url);
-  if (moment.url) return absoluteUrl(moment.url);
-  if (moment.images && Array.isArray(moment.images) && moment.images.length > 0) {
-    const im = moment.images[0];
-    if (!im) return null;
-    if (typeof im === 'string') return absoluteUrl(im);
-    return absoluteUrl(im.file_url || im.url || im);
-  }
-  return null;
-};
+// Import modular components
+import VerseHeader from './verseviewer/VerseHeader';
+import MomentsCarousel from './verseviewer/MomentCarousel';
+import VerseContent from './verseviewer/VerseContent';
+import VerseFooter from './verseviewer/VerseFooter';
+import { 
+  getMomentImageUrl, 
+  getAuthorDisplayName, 
+  getAuthorProfileImageUrl, 
+  getAuthorInitial, 
+  getAuthorUsername, 
+  getUserId 
+} from './verseviewer/utils';
 
 // Match ContributeModal theme exactly
 const defaultTheme = {
@@ -58,10 +42,10 @@ const VerseViewer = ({
   onReady,
   isAuthenticated,
   openAuthModal,
-  onStoryUpdate, // New prop to handle story updates
-  onOpenStoryForm, // Prop to open StoryFormModal for story creators
+  onStoryUpdate,
+  onOpenStoryForm,
 }) => {
-  // Font size state for zoom controls (text-only verses)
+  // State management
   const [fontSize, setFontSize] = useState(32);
   const { currentUser } = useAuth();
   const router = useRouter();
@@ -70,42 +54,17 @@ const VerseViewer = ({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showContributeModal, setShowContributeModal] = useState(false);
   const [isFollowing, setIsFollowing] = useState(() => {
-    // Prefer story-provided follow flags, fall back to false
     return story?.isFollowing || story?.is_following || false;
   });
   
-  // Ref for verse options menu
   const verseOptionsRef = useRef(null);
-
-  // Handle click outside for verse options menu
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (verseOptionsRef.current && !verseOptionsRef.current.contains(event.target)) {
-        setShowVerseOptions(false);
-      }
-    };
-
-    if (showVerseOptions) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showVerseOptions]);
-  
   const [currentVerseIndex, setCurrentVerseIndex] = useState(initialVerseIndex);
-  
-  // Store verse metadata in a ref to persist across scrolling
   const verseMetadataRef = useRef({});
-  
-  // Create a ref to store the latest story data
   const storyRef = useRef(story);
+  
+  // Update story ref when story prop changes
   useEffect(() => {
-    // Only update if the story actually changed (not just a re-render)
-    // This preserves our local updates to verses
     if (story && story.verses) {
-      // Merge incoming verses with our cached metadata
       const mergedVerses = story.verses.map(verse => {
         const cachedMetadata = verseMetadataRef.current[verse.id];
         if (cachedMetadata) {
@@ -128,7 +87,6 @@ const VerseViewer = ({
     }
   }, [story]);
 
-  // Get current verse from the story
   const currentVerse = useMemo(() => {
     if (!storyRef.current?.verses || currentVerseIndex >= storyRef.current.verses.length) {
       return null;
@@ -136,7 +94,6 @@ const VerseViewer = ({
     return storyRef.current.verses[currentVerseIndex];
   }, [currentVerseIndex, storyRef.current?.verses]);
 
-  // Helper to extract like/save status from verse data
   const getVerseInitialState = (verse) => {
     if (!verse) return { isLiked: false, isSaved: false, likeCount: 0, saveCount: 0 };
     
@@ -148,7 +105,6 @@ const VerseViewer = ({
     return { isLiked: isLikedStatus, isSaved: isSavedStatus, likeCount: likeCountVal, saveCount: saveCountVal };
   };
   
-  // Initialize metadata state from verse data
   const initial = getVerseInitialState(currentVerse);
   const [isLiked, setIsLiked] = useState(initial.isLiked);
   const [isSaved, setIsSaved] = useState(initial.isSaved);
@@ -160,91 +116,20 @@ const VerseViewer = ({
   const [readingProgress, setReadingProgress] = useState(0);
   const [isTextVisible, setIsTextVisible] = useState(true);
   const [showScrollHint, setShowScrollHint] = useState(false);
-  const [pullDownProgress, setPullDownProgress] = useState(0); // Track pull-down animation
+  const [pullDownProgress, setPullDownProgress] = useState(0);
   
-  // Loading states to prevent double-clicks and enable instant visual feedback
   const [isLikeLoading, setIsLikeLoading] = useState(false);
   const [isSaveLoading, setIsSaveLoading] = useState(false);
   
   const verseRefs = useRef([]);
   const containerRef = useRef(null);
   const contentRef = useRef(null);
-  // Ref for each verse block
   const verseBlockRefs = useRef([]);
   const userScrolledRef = useRef(false);
-  const momentsContainerRef = useRef(null);
   
-  // Touch tracking for moments carousel
-  const touchStartRef = useRef(0);
-  const touchEndRef = useRef(0);
-  const touchStartYRef = useRef(0); // Track Y position to detect horizontal vs vertical swipe
-  
-  // Check if current verse has moments (images)
   const hasMoments = currentVerse?.moments && currentVerse.moments.length > 0;
   const hasMultipleMoments = hasMoments && currentVerse.moments.length > 1;
   
-  // Helper function to get user ID from different possible formats
-  const getUserId = (user) => {
-    if (!user) return null;
-    
-    // If user is already an ID (number or string)
-    if (typeof user === 'number' || typeof user === 'string') {
-      return user;
-    }
-    
-    // If user is an object with id property
-    if (user.id !== undefined) {
-      return user.id;
-    }
-    
-    // If user is an object with public_id property
-    if (user.public_id !== undefined) {
-      return user.public_id;
-    }
-    
-    return null;
-  };
-
-  // Helper functions to derive author display fields (robust to different API shapes)
-  const getAuthor = () => currentVerse?.author || null;
-
-  const getAuthorDisplayName = () => {
-    const a = getAuthor();
-    if (!a) return 'Poster Name';
-
-    // Check if account is brand type and has brand_name
-    if (a.account_type === 'brand' && a.brand_name) {
-      return a.brand_name;
-    }
-
-    const full = a.get_full_name || a.full_name || a.display_name || a.name;
-    if (full) return full;
-
-    const first = a.first_name || a.firstname || '';
-    const last = a.last_name || a.lastname || '';
-    if (first || last) return `${first} ${last}`.trim();
-
-    return a.username || a.public_id || 'Poster Name';
-  };
-  const getAuthorProfileImageUrl = () => {
-    const a = getAuthor();
-    if (!a) return null;
-    // Prefer profile_image_url if present (matches backend serializer)
-    if (a.profile_image_url) return absoluteUrl(a.profile_image_url);
-    const maybe = a.profile_image || a.image || a.avatar || a.photo || a.picture || (a.profile && (a.profile.image || a.profile.avatar));
-    if (!maybe) return null;
-    if (typeof maybe === 'string') return absoluteUrl(maybe);
-    if (maybe.url) return absoluteUrl(maybe.url);
-    if (maybe.file_url) return absoluteUrl(maybe.file_url);
-    return null;
-  };
-
-  const getAuthorInitial = () => {
-    const name = getAuthorDisplayName() || getAuthorUsername() || 'P';
-    return (name && name.charAt && name.charAt(0).toUpperCase()) || 'P';
-  };
-  
-  // Check if current verse is a contribution (not by the story creator)
   const isContribution = (() => {
     if (!currentVerse || !story || !currentVerse.author) {
       return false;
@@ -253,28 +138,31 @@ const VerseViewer = ({
     const authorId = getUserId(currentVerse.author);
     const creatorId = getUserId(story.creator);
     
-    // If we can't get both IDs, assume it's not a contribution
     if (!authorId || !creatorId) {
       return false;
     }
     
-    // Compare the IDs as strings to handle different formats
     return String(authorId) !== String(creatorId);
   })();
 
-  // Helper to get the author's username (handles multiple shapes)
-  const getAuthorUsername = () => {
-    if (!currentVerse) return null;
-    const a = currentVerse.author;
-    if (!a) return currentVerse.author_name || currentVerse.author_username || null;
-    if (typeof a === 'string') return a;
-    if (a.username) return a.username;
-    if (a.user && a.user.username) return a.user.username;
-    if (a.profile && a.profile.username) return a.profile.username;
-    return currentVerse.author_name || currentVerse.author_username || null;
-  };
+  // Effect for handling click outside verse options
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (verseOptionsRef.current && !verseOptionsRef.current.contains(event.target)) {
+        setShowVerseOptions(false);
+      }
+    };
+
+    if (showVerseOptions) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showVerseOptions]);
   
-  // FIXED: Update state when current verse changes - pull fresh data from story
+  // Effect for updating state when current verse changes
   useEffect(() => {
     if (currentVerse) {
       const initial = getVerseInitialState(currentVerse);
@@ -286,9 +174,9 @@ const VerseViewer = ({
       setIsContentExpanded(false);
       setIsTextVisible(true);
     }
-  }, [currentVerse?.id]); // Only depend on verse ID to avoid infinite loops
+  }, [currentVerse?.id]);
   
-  // Sync state when story data is updated from parent
+  // Effect for syncing state when story data is updated
   useEffect(() => {
     if (currentVerse && storyRef.current?.verses) {
       const latestVerse = storyRef.current.verses.find(v => v.id === currentVerse.id);
@@ -302,25 +190,22 @@ const VerseViewer = ({
     }
   }, [storyRef.current?.verses, currentVerse?.id]);
 
-  // Show scroll hint after 1 second if there are more verses below current verse, then hide after 3 seconds of showing
+  // Effect for scroll hint
   useEffect(() => {
     if (!isOpen || !story?.verses || story.verses.length <= 1) {
       setShowScrollHint(false);
       return;
     }
 
-    // Don't show hint on the last verse
     if (currentVerseIndex >= story.verses.length - 1) {
       setShowScrollHint(false);
       return;
     }
 
-    // Show hint after 1 second
     const showTimer = setTimeout(() => {
       setShowScrollHint(true);
     }, 1000);
 
-    // Hide hint after showing for 3 seconds (total 4 seconds)
     const hideTimer = setTimeout(() => {
       setShowScrollHint(false);
     }, 4000);
@@ -331,7 +216,7 @@ const VerseViewer = ({
     };
   }, [isOpen, story?.verses, currentVerseIndex]);
 
-  // Hide scroll hint when user scrolls
+  // Effect for hiding scroll hint when user scrolls
   useEffect(() => {
     const handleScroll = () => {
       userScrolledRef.current = true;
@@ -347,14 +232,12 @@ const VerseViewer = ({
     }
   }, [isOpen]);
 
-  // Subtle auto-nudge: when the viewer opens and there are more verses below the current one,
-  // after 2s gently scroll the container down a bit using native smooth scrolling, then
-  // scroll back. This is simpler and more likely to be visible across browsers.
+  // Effect for auto-nudge scroll
   useEffect(() => {
     if (!isOpen) return;
     const verses = storyRef.current?.verses || story?.verses || [];
     if (!Array.isArray(verses) || verses.length <= 1) return;
-    if (currentVerseIndex >= verses.length - 1) return; // last verse — don't nudge
+    if (currentVerseIndex >= verses.length - 1) return;
 
     const el = containerRef.current;
     if (!el) return;
@@ -362,28 +245,25 @@ const VerseViewer = ({
     userScrolledRef.current = false;
 
     const nudgeTimeout = setTimeout(() => {
-      if (userScrolledRef.current) return; // user already scrolled — abort
+      if (userScrolledRef.current) return;
 
       const nudge = Math.min(60, Math.round(el.clientHeight * 0.06));
 
-      // Temporarily disable scroll-snap so the nudge doesn't trigger full-snap to next verse
       const prevSnap = el.style.scrollSnapType || '';
       try { el.style.scrollSnapType = 'none'; } catch (e) {}
 
-      // Listen for user scroll during the nudge; if detected, abort returning
       const onUserScrollDuring = () => {
         userScrolledRef.current = true;
       };
       el.addEventListener('scroll', onUserScrollDuring, { passive: true });
 
-      // Perform small native smooth scroll down then back after a short pause
       try {
         el.scrollBy({ top: nudge, behavior: 'smooth' });
       } catch (e) {
         el.scrollTop = Math.min(el.scrollHeight, el.scrollTop + nudge);
       }
 
-      const backDelay = 1200; // wait for the smooth scroll to finish + small pause
+      const backDelay = 1200;
       const returnTimer = setTimeout(() => {
         if (!userScrolledRef.current) {
           try {
@@ -392,18 +272,15 @@ const VerseViewer = ({
             el.scrollTop = Math.max(0, el.scrollTop - nudge);
           }
         }
-        // restore scroll-snap
         try { el.style.scrollSnapType = prevSnap; } catch (e) {}
         try { el.removeEventListener('scroll', onUserScrollDuring); } catch (e) {}
       }, backDelay);
 
-      // Safety: ensure scroll-snap is restored eventually
       const restoreTimer = setTimeout(() => {
         try { el.style.scrollSnapType = prevSnap; } catch (e) {}
         try { el.removeEventListener('scroll', onUserScrollDuring); } catch (e) {}
       }, backDelay + 600);
 
-      // Clear timers on unmount
       const clearAll = () => {
         try { clearTimeout(returnTimer); } catch (e) {}
         try { clearTimeout(restoreTimer); } catch (e) {}
@@ -411,20 +288,18 @@ const VerseViewer = ({
         try { el.style.scrollSnapType = prevSnap; } catch (e) {}
       };
 
-      // Attach cleanup to closure so unmount can stop timers
       el.__nudgeClear = clearAll;
 
     }, 2000);
 
     return () => {
       try { clearTimeout(nudgeTimeout); } catch (e) {}
-      // Run any attached cleanup on the element
       try { if (containerRef.current && typeof containerRef.current.__nudgeClear === 'function') containerRef.current.__nudgeClear(); } catch (e) {}
       userScrolledRef.current = false;
     };
   }, [isOpen, currentVerseIndex, story]);
 
-  // Navigation helpers: scroll to specific verse index (full snap)
+  // Navigation helpers
   const scrollToVerseIndex = (targetIndex) => {
     if (!verseBlockRefs.current || !verseBlockRefs.current.length) return;
     const idx = Math.max(0, Math.min(targetIndex, verseBlockRefs.current.length - 1));
@@ -433,7 +308,6 @@ const VerseViewer = ({
       try {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } catch (e) {
-        // fallback: compute offset within container
         if (containerRef.current) {
           containerRef.current.scrollTop = el.offsetTop;
         }
@@ -444,7 +318,7 @@ const VerseViewer = ({
   const scrollToNextVerse = () => scrollToVerseIndex(currentVerseIndex + 1);
   const scrollToPrevVerse = () => scrollToVerseIndex(currentVerseIndex - 1);
 
-  // Reset state when modal opens
+  // Effect for resetting state when modal opens
   useEffect(() => {
     if (isOpen) {
       setCurrentVerseIndex(initialVerseIndex);
@@ -452,7 +326,6 @@ const VerseViewer = ({
       setFocusMode(false);
       setIsTextVisible(true);
       
-      // Set initial verse state from current story data
       if (story?.verses && story.verses.length > 0) {
         const initialVerse = story.verses[initialVerseIndex] || story.verses[0];
         if (initialVerse) {
@@ -470,10 +343,9 @@ const VerseViewer = ({
     };
   }, [isOpen, initialVerseIndex, story?.id, story?.verses?.length]);
 
-  // Auto-scroll to initial verse when viewer opens
+  // Effect for auto-scrolling to initial verse
   useEffect(() => {
     if (isOpen && initialVerseIndex > 0 && verseBlockRefs.current && verseBlockRefs.current.length > 0) {
-      // Wait for DOM to be ready, then scroll
       const timer = setTimeout(() => {
         scrollToVerseIndex(initialVerseIndex);
       }, 100);
@@ -481,23 +353,20 @@ const VerseViewer = ({
     }
   }, [isOpen, initialVerseIndex]);
 
-  // Notify parent that the viewer has rendered and is ready (used to stop button loading states)
+  // Effect for notifying parent when viewer is ready
   useEffect(() => {
     if (isOpen && typeof onReady === 'function') {
-      // Wait for next paint to ensure viewer is mounted and visible
       requestAnimationFrame(() => requestAnimationFrame(() => {
         try { onReady(); } catch (e) { /* ignore */ }
       }));
     }
   }, [isOpen, onReady]);
 
-  // Update the browser URL (replaceState) to include the current verse id when viewer is open.
-  // This makes the URL shareable and consistent with server-side metadata when someone visits.
+  // Effect for updating browser URL
   useEffect(() => {
     try {
       if (typeof window === 'undefined') return;
       if (!isOpen) {
-        // remove verse param when viewer closes
         const url = new URL(window.location.href);
         if (url.searchParams.has('verse')) {
           url.searchParams.delete('verse');
@@ -517,19 +386,17 @@ const VerseViewer = ({
     }
   }, [isOpen, currentVerseIndex, currentVerse]);
 
-  // FIXED: Use Intersection Observer for performant verse detection with proper metadata updates
+  // Effect for intersection observer
   useEffect(() => {
     if (!containerRef.current || !verseBlockRefs.current.length) return;
 
-    // Create intersection observer to detect which verse is in view
     const observerOptions = {
       root: containerRef.current,
       rootMargin: '0px',
-      threshold: 0.5 // Verse is "in view" when 50% visible
+      threshold: 0.5
     };
 
     const observerCallback = (entries) => {
-      // Find the verse that's most visible
       let mostVisibleVerse = null;
       let maxIntersectionRatio = 0;
 
@@ -546,26 +413,21 @@ const VerseViewer = ({
           setCurrentVerseIndex(newIndex);
           setCurrentMomentIndex(0);
           
-          // FIXED: Update UI state for the new verse with proper metadata
           const newVerse = storyRef.current?.verses?.[newIndex];
           if (newVerse) {
-            // Check if we have cached metadata for this verse
             const cachedMetadata = verseMetadataRef.current[newVerse.id];
             
             if (cachedMetadata) {
-              // Use cached metadata
               setIsLiked(cachedMetadata.is_liked_by_user);
               setIsSaved(cachedMetadata.is_saved_by_user);
               setLikeCount(cachedMetadata.likes_count);
               setSaveCount(cachedMetadata.saves_count);
             } else {
-              // Fall back to verse data properties
               setIsLiked(newVerse.user_has_liked || newVerse.is_liked_by_user || false);
               setIsSaved(newVerse.user_has_saved || newVerse.is_saved_by_user || false);
               setLikeCount(newVerse.likes_count || 0);
               setSaveCount(newVerse.saves_count || 0);
               
-              // Cache this metadata for future use
               verseMetadataRef.current[newVerse.id] = {
                 is_liked_by_user: newVerse.user_has_liked || newVerse.is_liked_by_user || false,
                 is_saved_by_user: newVerse.user_has_saved || newVerse.is_saved_by_user || false,
@@ -580,7 +442,6 @@ const VerseViewer = ({
 
     const observer = new IntersectionObserver(observerCallback, observerOptions);
     
-    // Observe all verse blocks
     verseBlockRefs.current.forEach((ref) => {
       if (ref) observer.observe(ref);
     });
@@ -590,14 +451,12 @@ const VerseViewer = ({
     };
   }, [currentVerseIndex, storyRef.current?.verses]);
 
-  // Handle like action with optimistic UI and proper state synchronization
+  // Action handlers
   const handleLike = async () => {
     if (!currentVerse) return;
     
-    // If verse doesn't have slug, we can't complete the action
     let verseSlug = currentVerse.slug;
     if (!verseSlug && currentVerse.id) {
-      // Try to find the verse in story data to get its slug
       const verseInStory = storyRef.current?.verses?.find(v => v.id === currentVerse.id);
       verseSlug = verseInStory?.slug;
     }
@@ -612,28 +471,22 @@ const VerseViewer = ({
       return;
     }
 
-    // Prevent double-clicks
     if (isLikeLoading) return;
 
-    // Capture previous state for potential revert
     const wasLiked = isLiked;
     const prevLikeCount = likeCount;
 
     try {
       setIsLikeLoading(true);
       
-      // Optimistic UI update - instant visual change
       setIsLiked(!wasLiked);
       setLikeCount(prev => wasLiked ? prev - 1 : prev + 1);
 
-      // Call backend API
       const response = await versesApi.toggleLikeBySlug(verseSlug);
 
-      // Update state with actual server response (trust the server)
       setIsLiked(response.is_liked_by_user || response.user_has_liked || !wasLiked);
       setLikeCount(response.likes_count || likeCount);
 
-      // Update story ref and parent with new data
       if (storyRef.current?.verses) {
         const updatedVerses = storyRef.current.verses.map(v =>
           v.id === currentVerse.id
@@ -649,14 +502,12 @@ const VerseViewer = ({
         const updatedStory = { ...storyRef.current, verses: updatedVerses };
         storyRef.current = updatedStory;
 
-        // Notify parent to update
         if (typeof onStoryUpdate === 'function') {
           onStoryUpdate(updatedStory);
         }
       }
     } catch (error) {
       console.error('Error toggling verse like:', error);
-      // Revert optimistic update on error
       setIsLiked(wasLiked);
       setLikeCount(prevLikeCount);
     } finally {
@@ -664,14 +515,11 @@ const VerseViewer = ({
     }
   };
 
-  // Handle save action with optimistic UI and proper state synchronization
   const handleSave = async () => {
     if (!currentVerse) return;
     
-    // If verse doesn't have slug, we can't complete the action
     let verseSlug = currentVerse.slug;
     if (!verseSlug && currentVerse.id) {
-      // Try to find the verse in story data to get its slug
       const verseInStory = storyRef.current?.verses?.find(v => v.id === currentVerse.id);
       verseSlug = verseInStory?.slug;
     }
@@ -686,28 +534,22 @@ const VerseViewer = ({
       return;
     }
 
-    // Prevent double-clicks
     if (isSaveLoading) return;
 
-    // Capture previous state for potential revert
     const wasSaved = isSaved;
     const prevSaveCount = saveCount;
 
     try {
       setIsSaveLoading(true);
       
-      // Optimistic UI update - instant visual change
       setIsSaved(!wasSaved);
       setSaveCount(prev => wasSaved ? prev - 1 : prev + 1);
 
-      // Call backend API
       const response = await versesApi.toggleSaveBySlug(verseSlug);
 
-      // Update state with actual server response (trust the server)
       setIsSaved(response.is_saved_by_user || response.user_has_saved || !wasSaved);
       setSaveCount(response.saves_count || saveCount);
 
-      // Update story ref and parent with new data
       if (storyRef.current?.verses) {
         const updatedVerses = storyRef.current.verses.map(v =>
           v.id === currentVerse.id
@@ -723,14 +565,12 @@ const VerseViewer = ({
         const updatedStory = { ...storyRef.current, verses: updatedVerses };
         storyRef.current = updatedStory;
 
-        // Notify parent to update
         if (typeof onStoryUpdate === 'function') {
           onStoryUpdate(updatedStory);
         }
       }
     } catch (error) {
       console.error('Error toggling verse save:', error);
-      // Revert optimistic update on error
       setIsSaved(wasSaved);
       setSaveCount(prevSaveCount);
     } finally {
@@ -738,9 +578,7 @@ const VerseViewer = ({
     }
   };
 
-  // Handle share action
   const handleShare = () => {
-    // Open the app's ShareModal with verse-specific data
     if (!currentVerse || !story) return;
 
     const origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
@@ -764,12 +602,6 @@ const VerseViewer = ({
     setShowShareModal(true);
   };
 
-  // Share modal state
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [shareData, setShareData] = useState(null);
-  const [shareImage, setShareImage] = useState(null);
-
-  // Handle opening contribute modal
   const handleOpenContribute = () => {
     if (!isAuthenticated) {
       if (typeof openAuthModal === 'function') openAuthModal('contribute', { slug: story.slug, id: story.id });
@@ -778,70 +610,10 @@ const VerseViewer = ({
     setShowContributeModal(true);
   };
 
-  // Touch handlers for moments carousel with robust horizontal detection
-  const handleMomentTouchStart = (e) => {
-    touchStartRef.current = e.touches[0].clientX;
-    touchStartYRef.current = e.touches[0].clientY;
-    touchEndRef.current = e.touches[0].clientX; // Initialize end position
-  };
-
-  const handleMomentTouchMove = (e) => {
-    if (!touchStartRef.current) return;
-    
-    const touch = e.touches[0];
-    touchEndRef.current = touch.clientX;
-    
-    // Calculate deltas
-    const deltaX = Math.abs(touch.clientX - touchStartRef.current);
-    const deltaY = Math.abs(touch.clientY - touchStartYRef.current);
-    
-    // If horizontal movement is clearly greater than vertical, prevent default
-    // This allows the horizontal swipe while blocking vertical scroll during the swipe
-    if (deltaX > deltaY * 1.5 && deltaX > 5) {
-      e.preventDefault();
-    }
-  };
-
-  const handleMomentTouchEnd = (e) => {
-    const start = touchStartRef.current;
-    const end = touchEndRef.current;
-    
-    if (!start || !end || start === end) return;
-    
-    const deltaX = start - end;  // Positive = swipe left (next), Negative = swipe right (prev)
-    const deltaY = Math.abs(e.changedTouches[0].clientY - touchStartYRef.current);
-    
-    // Only trigger moment change if swipe is clearly horizontal
-    // Require significant horizontal movement (50px) with more horizontal than vertical
-    if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > deltaY * 1.5) {
-      if (deltaX > 0) {
-        // Swipe left - go to next moment
-        goToNextMoment();
-      } else {
-        // Swipe right - go to previous moment
-        goToPreviousMoment();
-      }
-    }
-  };
-
-  // Navigate to previous moment
-  const goToPreviousMoment = () => {
-    if (!currentVerse || currentMomentIndex <= 0) return;
-    setCurrentMomentIndex(prev => prev - 1);
-  };
-
-  // Navigate to next moment
-  const goToNextMoment = () => {
-    if (!currentVerse || !currentVerse.moments || currentMomentIndex >= currentVerse.moments.length - 1) return;
-    setCurrentMomentIndex(prev => prev + 1);
-  };
-
-  // Toggle focus mode
   const toggleFocusMode = () => {
     setFocusMode(!focusMode);
   };
 
-  // Check if content has more than 3 lines
   const hasMoreLines = (content) => {
     if (!content) return false;
     
@@ -861,7 +633,6 @@ const VerseViewer = ({
     return height > lineHeight * 3;
   };
 
-  // Generate colorful bubbles
   const renderColorfulBubbles = () => {
     const particles = [];
     
@@ -895,11 +666,16 @@ const VerseViewer = ({
     return particles;
   };
 
+  // Share modal state
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareData, setShareData] = useState(null);
+  const [shareImage, setShareImage] = useState(null);
+
   if (!isOpen || !story) return null;
 
   const viewer = (
     <div className={`fixed inset-0 z-[10100] bg-gradient-to-br ${defaultTheme.gradient} ${defaultTheme.shadow} transition-all duration-1000 rounded-3xl border ${defaultTheme.border}`} style={{overflow: 'hidden'}}>
-      {/* Glassy border and subtle vignette, matching ContributeModal */}
+      {/* Glassy border and subtle vignette */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute inset-0 rounded-3xl border-2 border-cyan-500/30 animate-pulse"></div>
         <div className="absolute inset-0 rounded-3xl border-2 border-purple-500/20 animate-pulse" style={{ animationDelay: '0.5s' }}></div>
@@ -912,7 +688,7 @@ const VerseViewer = ({
         {renderColorfulBubbles()}
       </div>
 
-      {/* Unique reading progress indicator - always visible; high z-index so it's not occluded */}
+      {/* Reading progress indicator */}
       <div className="fixed top-0 left-0 right-0 h-2 z-[9999] bg-black/30 pointer-events-none rounded-b-2xl">
         <div
           className="h-full bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 transition-all duration-300 ease-out rounded-b-2xl shadow-lg shadow-cyan-400/20"
@@ -920,7 +696,7 @@ const VerseViewer = ({
         ></div>
       </div>
 
-      {/* Scroll hint teaser - shows colorful animated down arrow when there are more verses */}
+      {/* Scroll hint */}
       {showScrollHint && story?.verses && story.verses.length > 1 && (
         <div className="fixed bottom-32 left-0 right-0 flex justify-center z-50 pointer-events-none">
           <div className="animate-bounce">
@@ -929,64 +705,18 @@ const VerseViewer = ({
         </div>
       )}
 
-      {/* Fixed Header with luxury glassmorphism */}
-      <div className={`fixed top-0 left-0 right-0 z-50 ${defaultTheme.glass} border-b border-cyan-400/20 p-4 transition-opacity duration-500 ${!focusMode ? 'opacity-100' : 'opacity-0 pointer-events-none'} shadow-lg shadow-cyan-900/10`}> 
-        <div className="flex justify-between items-center">
-          <div className="text-white font-medium flex items-center gap-2 min-w-0">
-            <div className={`w-3 h-3 rounded-full bg-${defaultTheme.accent} animate-pulse`}></div>
-            <span className="bg-gradient-to-r from-cyan-300 via-blue-200 to-purple-300 bg-clip-text text-transparent truncate block max-w-[60vw] font-bold tracking-wide drop-shadow-lg" title={`${story.title} - Verse ${currentVerseIndex + 1} of ${story.verses.length}`}>
-              {story.title} <span className="opacity-60 font-normal">- Verse {currentVerseIndex + 1} of {story.verses.length}</span>
-            </span>
-          </div>
-          
-          {/* Scroll Direction Indicators */}
-          <div className="flex items-center gap-4 mr-2">
-            {/* Vertical Scroll Indicators (Up/Down for verses) */}
-            <div className="flex flex-col gap-0.5">
-              {/* Up Arrow - show if not on first verse */}
-              {currentVerseIndex > 0 && (
-                <div className="text-cyan-400 text-lg opacity-70 animate-pulse">↑</div>
-              )}
-              {/* Down Arrow - show if not on last verse */}
-              {currentVerseIndex < story.verses.length - 1 && (
-                <div className="text-cyan-400 text-lg opacity-70 animate-pulse">↓</div>
-              )}
-            </div>
-            
-            {/* Horizontal Scroll Indicators (Left/Right for moments) */}
-            {hasMoments && (
-              <div className="flex gap-2">
-                {/* Left Arrow - show if not on first moment */}
-                {currentMomentIndex > 0 && (
-                  <div className="text-purple-400 text-lg opacity-70 animate-pulse">←</div>
-                )}
-                {/* Right Arrow - show if not on last moment */}
-                {currentMomentIndex < currentVerse.moments.length - 1 && (
-                  <div className="text-purple-400 text-lg opacity-70 animate-pulse">→</div>
-                )}
-              </div>
-            )}
-          </div>
-          
-          <button 
-            className="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-black/60 transition-all border border-cyan-400/20 shadow"
-            onClick={onClose}
-          >
-            <i className="fas fa-times"></i>
-          </button>
-        </div>
-      </div>
+      {/* Header */}
+      <VerseHeader 
+        story={story}
+        currentVerseIndex={currentVerseIndex}
+        onClose={onClose}
+        focusMode={focusMode}
+        hasMoments={hasMoments}
+        currentMomentIndex={currentMomentIndex}
+        currentVerse={currentVerse}
+      />
 
-      {/* Moments Counter - below header */}
-      {!focusMode && currentVerse?.moments && currentVerse.moments.length > 0 && (
-        <div className="fixed top-24 right-4 z-40 text-right pointer-events-none">
-          <div className="text-cyan-400 font-mono text-lg font-bold drop-shadow-lg">
-            {currentMomentIndex + 1}/{currentVerse.moments.length}
-          </div>
-        </div>
-      )}
-      
-      {/* Left-side verse navigation arrows (prev/next) */}
+      {/* Left-side navigation arrows */}
       <div className="absolute left-3 z-50 flex flex-col gap-2 pointer-events-auto" style={{ top: 'calc(50% + 48px)' }}>
         <button
           aria-label="Previous verse"
@@ -1006,7 +736,7 @@ const VerseViewer = ({
         </button>
       </div>
 
-      {/* Vertical scroll container for verses - TikTok style with native CSS scroll-snap */}
+      {/* Vertical scroll container for verses */}
       <div 
         ref={containerRef}
         className="h-full w-full overflow-y-scroll scrollbar-hide scroll-smooth"
@@ -1037,7 +767,7 @@ const VerseViewer = ({
                 willChange: 'transform',
               }}
             >
-              {/* Pull-down hint - only show on first verse when there are more verses below */}
+              {/* Pull-down hint */}
               {verseIndex === 0 && story.verses.length > 1 && (
                 <div 
                   className="absolute top-0 left-0 right-0 z-40 flex justify-center pt-8 pointer-events-none"
@@ -1053,148 +783,30 @@ const VerseViewer = ({
                   </div>
                 </div>
               )}
-              {/* Moments (horizontal scroll) */}
+              
+              {/* Moments or content */}
               {verse.moments && verse.moments.length > 0 ? (
-                <div className="w-full h-full flex items-center justify-center bg-black/10 cursor-pointer relative" onClick={toggleFocusMode} style={{ display: 'flex', position: 'relative', width: '100%', height: '100%' }}>
-                  {/* Left scroll indicator - hidden in focus mode */}
-                  {!focusMode && hasMultipleMoments && currentMomentIndex > 0 && (
-                    <button 
-                      className="absolute left-4 z-10 bg-black/50 backdrop-blur-lg rounded-full p-3 animate-pulse hover:bg-black/70 transition-all"
-                      style={{ top: '28%' }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        goToPreviousMoment();
-                      }}
-                    >
-                      <i className="fas fa-chevron-left text-white"></i>
-                    </button>
-                  )}
-                  
-                  {/* Right scroll indicator - hidden in focus mode */}
-                  {!focusMode && hasMultipleMoments && currentMomentIndex < verse.moments.length - 1 && (
-                    <button 
-                      className="absolute right-4 z-10 bg-black/50 backdrop-blur-lg rounded-full p-3 animate-pulse hover:bg-black/70 transition-all"
-                      style={{ top: '28%' }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        goToNextMoment();
-                      }}
-                    >
-                      <i className="fas fa-chevron-right text-white"></i>
-                    </button>
-                  )}
-                  
-                  {/* Moments container with touch handlers for horizontal swiping */}
-                  <div 
-                    className="w-full h-full relative overflow-hidden"
-                    style={{ touchAction: 'pan-y' }} // Allow vertical scroll, capture horizontal swipes
-                    onTouchStart={handleMomentTouchStart}
-                    onTouchMove={handleMomentTouchMove}
-                    onTouchEnd={handleMomentTouchEnd}
-                  >
-                    {verse.moments.map((moment, momentIndex) => {
-                      const imageUrl = getMomentImageUrl(moment);
-                      const momentKey = moment && (moment.id || `moment-${momentIndex}`);
-                      return (
-                        <div 
-                          key={momentKey} 
-                          className={`absolute inset-0 transition-opacity duration-300 ${momentIndex === currentMomentIndex ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-                        >
-                          {imageUrl ? (
-                            <div className="relative w-full h-full flex items-center justify-center">
-                              <Image
-                                src={imageUrl}
-                                alt={`Verse moment ${momentIndex + 1}`}
-                                width={1080}
-                                height={1440}
-                                className="max-w-full max-h-full object-contain mx-auto my-auto"
-                                quality={75}
-                                onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                              />
-                            </div>
-                          ) : moment && moment.content ? (
-                            <div className="w-full h-full flex items-center justify-center p-8">
-                              <div className="text-white text-3xl text-center font-light max-w-3xl">
-                                {moment.content}
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center p-8">
-                              <div className="text-gray-300 text-sm text-center">No moment available</div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  
-                  {/* Unique horizontal scroll indicator */}
-                  <div className="absolute bottom-32 left-0 right-0 flex justify-center space-x-2 z-60">
-                    {verse.moments.map((_, momentIndex) => (
-                      <div 
-                        key={`indicator-${momentIndex}`}
-                        className={`w-2 h-2 rounded-full transition-all duration-300 shadow-lg ${momentIndex === currentMomentIndex ? 'bg-white w-8' : 'bg-white/30'}`}
-                      ></div>
-                    ))}
-                  </div>
-                </div>
+                <MomentsCarousel 
+                  moments={verse.moments}
+                  currentMomentIndex={currentMomentIndex}
+                  setCurrentMomentIndex={setCurrentMomentIndex}
+                  toggleFocusMode={toggleFocusMode}
+                  focusMode={focusMode}
+                />
               ) : (
-                /* If no moments, show verse content in the main area */
-                <div className="w-full h-full flex justify-center bg-black/10 cursor-pointer relative" onClick={toggleFocusMode} style={{ display: 'flex', position: 'relative' }}>
-                  {/* Zoom controls for text-only verse */}
-                  <div className="absolute top-20 right-3 z-20 flex flex-row gap-2 items-end">
-                    <button
-                      className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-200/50 to-blue-500/50 text-white shadow-lg  flex items-center justify-center hover:scale-110 transition-transform border border-cyan-400/40 text-2xl font-bold"
-                      onClick={e => { e.stopPropagation(); setFontSize(f => Math.min(f + 4, 80)); }}
-                      title="Zoom In"
-                      tabIndex={0}
-                    >
-                      +
-                    </button>
-                    <button
-                      className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500/50 to-blue-500/50 text-white shadow-lg flex items-center justify-center hover:scale-110 transition-transform border border-cyan-400/40 text-2xl font-bold"
-                      onClick={e => { e.stopPropagation(); setFontSize(f => Math.max(f - 4, 12)); }}
-                      title="Zoom Out"
-                      tabIndex={0}
-                    >
-                      −
-                    </button>
-                  </div>
-                  <div
-                    className="w-full max-w-3xl h-full relative"
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      justifyContent: 'center',
-                      alignItems: 'stretch',
-                      height: '100%',
-                    }}
-                  >
-                    <div
-                      className="overflow-y-auto px-6 py-8"
-                      style={{
-                        maxHeight: 'calc(100vh - 160px)', // leave space for header/footer
-                        minHeight: '120px',
-                        marginTop: '64px', // header height
-                        marginBottom: '80px', // footer height
-                      }}
-                    >
-                      <div
-                        className="text-white font-light"
-                        style={{ whiteSpace: 'pre-line', textAlign: 'left', fontSize: fontSize, transition: 'font-size 0.2s' }}
-                      >
-                        {verse.content || 'No content for this verse'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <VerseContent 
+                  content={verse.content}
+                  fontSize={fontSize}
+                  setFontSize={setFontSize}
+                  toggleFocusMode={toggleFocusMode}
+                />
               )}
             </div>
           ))}
         </div>
       </div>
       
-      {/* Fixed Content Area with glassmorphism - only show when there are moments */}
+      {/* Fixed Content Area with glassmorphism */}
       {!focusMode && isTextVisible && hasMoments && (
         <div className="fixed bottom-20 left-0 right-0 z-40 bg-gradient-to-t from-black/60 backdrop-blur-lg to-transparent p-6">
           <div className="max-w-3xl mx-auto">
@@ -1230,243 +842,31 @@ const VerseViewer = ({
         </div>
       )}
       
-      {/* Fixed Footer with glassmorphism - always show when not in focus mode */}
-      {!focusMode && (
-        <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-black/60 backdrop-blur-lg to-transparent p-4">
-          <div className="flex justify-between items-center max-w-3xl mx-auto">
-            <div className="flex items-center gap-4">
-              <div className="relative flex-shrink-0" style={{ width: '3rem', height: '3rem' }}>
-                <a
-                  href={`/${encodeURIComponent(getAuthorUsername() || '')}`}
-                  className="block w-full h-full"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    const u = getAuthorUsername();
-                    if (u) router.push(`/${encodeURIComponent(u)}`);
-                  }}
-                >
-                  <div className="w-full h-full rounded-full bg-gradient-to-r from-accent-orange to-neon-pink flex items-center justify-center font-bold text-base flex-shrink-0 cursor-pointer overflow-hidden">
-                    {/* FIXED: Replaced Next.js Image with regular img tag */}
-                    {getAuthorProfileImageUrl() ? (
-                      <Image 
-                        src={getAuthorProfileImageUrl()} 
-                        alt={`${getAuthorDisplayName()}'s profile`} 
-                        width={80}
-                        height={80}
-                        className="w-full h-full object-cover" 
-                        quality={75}
-                        onError={e => {
-                          // Hide image and show initials if image fails to load
-                          e.currentTarget.style.display = 'none';
-                          const fallback = e.currentTarget.parentNode.querySelector('.author-initial-fallback');
-                          if (fallback) fallback.style.display = 'block';
-                        }}
-                      />
-                    ) : null}
-                    <span className="text-white author-initial-fallback" style={{display: getAuthorProfileImageUrl() ? 'none' : 'block'}}>{getAuthorInitial()}</span>
-                  </div>
-                </a>
-                {/* Follow button overlay on avatar (same style & behavior as CreatorChip) */}
-                {getAuthorUsername() && getAuthorUsername() !== 'anonymous' && !isFollowing && String(getUserId(currentVerse?.author || story?.creator || '')) !== String(currentUser?.public_id) && (
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      const username = getAuthorUsername();
-                      console.log('Follow button clicked, username:', username); // Debug log
-                      setIsFollowing(true); // Optimistically hide immediately and never revert
-                      if (!isAuthenticated) {
-                        if (typeof openAuthModal === 'function') openAuthModal('follow', username);
-                        return;
-                      }
-                      userApi.followUser(username)
-                        .then(() => {
-                          console.log('Follow API call succeeded for:', username);
-                        })
-                        .catch((err) => {
-                          console.error('Failed to follow user:', err);
-                          // Do not revert isFollowing
-                        });
-                    }}
-                    className="follow-button absolute bottom-0 right-0 rounded-full flex items-center justify-center shadow-lg transition-all hover:bg-blue-600 bg-transparent border-2 border-white w-6 h-6"
-                    aria-label="Follow"
-                    title="Follow"
-                    style={{ 
-                      color: '#ffffff'
-                    }}
-                  >
-                    <i className="fas fa-plus text-white font-extrabold text-xl"></i>
-                  </button>
-                )}
-              </div>
+      {/* Footer */}
+      <VerseFooter 
+        story={story}
+        currentVerse={currentVerse}
+        isLiked={isLiked}
+        isSaved={isSaved}
+        likeCount={likeCount}
+        saveCount={saveCount}
+        isLikeLoading={isLikeLoading}
+        isSaveLoading={isSaveLoading}
+        handleLike={handleLike}
+        handleSave={handleSave}
+        handleShare={handleShare}
+        handleOpenContribute={handleOpenContribute}
+        isAuthenticated={isAuthenticated}
+        currentUser={currentUser}
+        openAuthModal={openAuthModal}
+        isFollowing={isFollowing}
+        setIsFollowing={setIsFollowing}
+        focusMode={focusMode}
+        showVerseOptions={showVerseOptions}
+        setShowVerseOptions={setShowVerseOptions}
+        isContribution={isContribution}
+      />
 
-              <div className="text-white min-w-0 flex items-center gap-3">
-                <div>
-                  <a
-                    href={`/${encodeURIComponent(getAuthorUsername() || '')}`}
-                    className="block min-w-0"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      const u = getAuthorUsername();
-                      if (u) router.push(`/${encodeURIComponent(u)}`);
-                    }}
-                  >
-                    <span className="font-semibold text-sm truncate block max-w-[18rem]" title={getAuthorDisplayName()}>{getAuthorDisplayName()}</span>
-                  </a>
-                  <div className={`text-xs ${isContribution ? 'text-orange-400' : 'text-cyan-300'}`}>
-                    {isContribution ? 'Contributed' : 'Creator'}
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Vertical buttons container */}
-            <div className="absolute bottom-4 right-4 flex flex-col items-center gap-6 z-50">
-              {/* Ellipsis Menu Button (at very top) - for verse creators and contributors */}
-              {isAuthenticated && currentUser && (() => {
-                const currentUserId = String(currentUser?.public_id || currentUser?.id);
-                const verseAuthorId = String(getUserId(currentVerse?.author) || '');
-                const storyCreatorId = String(getUserId(story?.creator) || '');
-                return currentUserId && (currentUserId === verseAuthorId || currentUserId === storyCreatorId);
-              })() && (
-                <div className="relative">
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setShowVerseOptions(!showVerseOptions);
-                    }}
-                    className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer transition-all duration-200 ease-in-out relative border border-white/20 hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110"
-                    title="Options"
-                  >
-                    <i className="fas fa-ellipsis-v text-[18px] text-white"></i>
-                  </button>
-                  {showVerseOptions && (
-                    <div className="absolute right-0 bottom-full mb-2 w-48 rounded-xl overflow-hidden bg-gray-900/95 backdrop-blur-lg border border-white/10 shadow-xl z-50" ref={verseOptionsRef}>
-                      <button
-                        onClick={() => {
-                          setShowVerseOptions(false);
-                          // Check if user is the verse author (contributor) or story creator
-                          const isVerseAuthor = String(currentUser?.public_id || currentUser?.id) === String(getUserId(currentVerse?.author));
-                          const isStoryCreator = String(currentUser?.public_id || currentUser?.id) === String(getUserId(story?.creator));
-                          
-                          // Contributors (verse authors) should only edit via ContributeModal
-                          // Story creators can use StoryFormModal if available
-                          if (isVerseAuthor && !isStoryCreator) {
-                            // This is a contributor, open ContributeModal only
-                            setEditingVerse(currentVerse);
-                            setShowContributeModal(true);
-                          } else if (isStoryCreator && typeof onOpenStoryForm === 'function') {
-                            // Story creator - use the StoryFormModal
-                            onOpenStoryForm(currentVerse);
-                          } else {
-                            // Fallback: open the contribute modal to edit verse
-                            setEditingVerse(currentVerse);
-                            setShowContributeModal(true);
-                          }
-                        }}
-                        className="w-full px-4 py-2 text-left text-sm text-white hover:bg-cyan-500/20 flex items-center gap-2 border-b border-white/10"
-                      >
-                        <i className="fas fa-edit text-cyan-400"></i>
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => {
-                          setShowVerseOptions(false);
-                          setShowDeleteModal(true);
-                        }}
-                        className="w-full px-4 py-2 text-left text-sm text-white hover:bg-red-500/20 flex items-center gap-2"
-                      >
-                        <i className="fas fa-trash-alt text-red-400"></i>
-                        Delete
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Like Button (below ellipsis) */}
-              <div className="flex flex-col items-center">
-                <button 
-                  className={`w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer relative ${isLiked ? 'bg-accent-orange/10 border-2 border-accent-orange' : 'border border-white/20'} hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110 ${isLikeLoading ? 'transition-none' : 'transition-all duration-200 ease-in-out'}`}
-                  onClick={handleLike}
-                  disabled={isLikeLoading}
-                >
-                  <div className="relative">
-                    <i className={`${isLiked ? 'fas' : 'far'} fa-heart text-[18px] ${isLiked ? 'text-accent-orange' : 'text-white'}`}></i>
-                    {isLiked && (
-                      <div className="absolute inset-0 rounded-full bg-accent-orange animate-ping opacity-40"></div>
-                    )}
-                  </div>
-                </button>
-                <span className={`text-xs mt-1 ${isLiked ? 'text-accent-orange' : 'text-white'}`}>{likeCount}</span>
-              </div>
-              
-              {/* Share Button (below like) */}
-              <button 
-                className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer transition-all duration-200 ease-in-out relative border border-white/20 hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110"
-                onClick={handleShare}
-              >
-                <i className="fas fa-share text-[18px] text-white"></i>
-              </button>
-              
-              {/* Save Button (below share) */}
-              <div className="flex flex-col items-center">
-                <button 
-                  className={`w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer relative ${isSaved ? 'bg-accent-orange/10 border-2 border-accent-orange' : 'border border-white/20'} hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110 ${isSaveLoading ? 'transition-none' : 'transition-all duration-200 ease-in-out'}`}
-                  onClick={handleSave}
-                  disabled={isSaveLoading}
-                >
-                  <div className="relative">
-                    <i className={`${isSaved ? 'fas' : 'far'} fa-bookmark text-[18px] ${isSaved ? 'text-accent-orange' : 'text-white'}`}></i>
-                    {isSaved && (
-                      <div className="absolute inset-0 rounded-full bg-accent-orange animate-ping opacity-40"></div>
-                    )}
-                  </div>
-                </button>
-                <span className={`text-xs mt-1 ${isSaved ? 'text-accent-orange' : 'text-white'}`}>{saveCount}</span>
-              </div>
-              
-              {/* Contribute Button (at bottom) - only if story allows contributions */}
-              {story.allow_contributions ? (
-                <button
-                  title="Contribute verse"
-                  onClick={handleOpenContribute}
-                  className="w-14 h-14 rounded-full flex items-center justify-center transition-all hover:scale-110 relative group"
-                  style={{ 
-                    background: 'linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%)', 
-                    border: '3px solid #ff6b35', 
-                    boxShadow: '0 4px 15px rgba(255, 107, 53, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)',
-                    color: '#ffffff',
-                    animation: 'pulse 2s infinite'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.boxShadow = '0 6px 20px rgba(255, 107, 53, 0.6), inset 0 1px 0 rgba(255,255,255,0.3)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.boxShadow = '0 4px 15px rgba(255, 107, 53, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)';
-                  }}
-                >
-                  <i className="fas fa-users text-white text-2xl font-bold relative z-10"></i>
-                </button>
-              ) : (
-                <div
-                  className="w-14 h-14 rounded-full flex items-center justify-center bg-gray-700/40 text-gray-400 cursor-not-allowed relative group border-4 border-gray-400/20 shadow-xl"
-                  title="Contributions are disabled for this story."
-                  style={{ boxShadow: '0 4px 24px 0 rgba(0,0,0,0.10)' }}
-                >
-                  <span className="absolute inset-0 rounded-full bg-white/5"></span>
-                  <i className="fas fa-plus text-2xl relative z-10"></i>
-                  <span className="absolute bottom-[-2.2rem] left-1/2 -translate-x-1/2 bg-black/90 text-xs text-white rounded px-2 py-1 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
-                    Contributions are disabled for this story.
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-      
       {/* Focus Mode Indicator */}
       {focusMode && (
         <div className="fixed bottom-4 left-0 right-0 flex justify-center z-50">
@@ -1482,12 +882,9 @@ const VerseViewer = ({
         setShowContributeModal={setShowContributeModal}
         story={story}
         onStoryUpdated={async () => {
-          // Refresh the story data when a new contribution is added
           if (story && story.slug) {
             try {
               const updatedStory = await versesApi.getVersesByStorySlug(story.slug);
-              // Update the story state with the new data
-              // This will trigger a re-render with the new verse
             } catch (error) {
               console.error('Error refreshing story data:', error);
             }
@@ -1495,7 +892,7 @@ const VerseViewer = ({
         }}
       />
       
-      {/* Share Modal for verses */}
+      {/* Share Modal */}
       <ShareModal
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
@@ -1527,9 +924,9 @@ const VerseViewer = ({
                   try {
                     await versesApi.deleteVerse(currentVerse.slug);
                     setShowDeleteModal(false);
-                    onClose(); // Close the viewer
+                    onClose();
                     if (typeof onStoryUpdate === 'function') {
-                      await onStoryUpdate(); // Refresh the story data
+                      await onStoryUpdate();
                     }
                     alert('Verse deleted successfully!');
                   } catch (error) {
@@ -1561,21 +958,18 @@ const VerseViewer = ({
         }}
       />
       
-      {/* Custom styles for smooth animations */}
+      {/* Custom styles */}
       <style jsx global>{`
-        /* Smooth scrolling for all elements */
         * {
           scroll-behavior: smooth;
         }
         
-        /* Optimize scrolling performance with native browser scroll-snap */
         .scroll-smooth {
           scroll-behavior: smooth;
           -webkit-overflow-scrolling: touch;
           overscroll-behavior: none;
         }
         
-        /* Hide scrollbar but keep functionality */
         .scrollbar-hide {
           -ms-overflow-style: none;
           scrollbar-width: none;
@@ -1586,7 +980,6 @@ const VerseViewer = ({
         }
       `}</style>
       
-      {/* Custom styles for floating animation and slow bounce */}
       <style jsx>{`
         @keyframes float {
           0% {
