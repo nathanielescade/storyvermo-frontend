@@ -18,19 +18,24 @@ export default function useMain(initialState = null) {
 
     const savedState = getSavedFeedState();
 
+    // CRITICAL: Only use savedState if the tag hasn't changed
+    // If initialState has a different tag than savedState, it means we navigated to a new tag,
+    // so we should use initialState (from server) instead of the old cached state
+    const shouldUseSavedState = savedState && initialState?.currentTag === savedState?.currentTag;
+
     // Always use initialState for hydration, never overwrite with client fetch
-    const [stories, setStories] = useState(savedState?.stories || initialState?.stories || []);
+    const [stories, setStories] = useState(shouldUseSavedState ? savedState.stories : (initialState?.stories || []));
     const [loading, setLoading] = useState(false);
     const [isFetching, setIsFetching] = useState(false);
-    const [currentTag, setCurrentTag] = useState(savedState?.currentTag || initialState?.currentTag || 'for-you');
+    const [currentTag, setCurrentTag] = useState(shouldUseSavedState ? savedState.currentTag : (initialState?.currentTag || 'for-you'));
     const [currentDimension, setCurrentDimension] = useState('feed');
     const [followingUsers, setFollowingUsers] = useState([]);
     const [error, setError] = useState(null);
     
     // CURSOR-BASED PAGINATION STATE
-    const [nextCursor, setNextCursor] = useState(savedState?.nextCursor || initialState?.nextCursor || null);
-    const [hasMore, setHasMore] = useState(savedState?.hasMore !== false && initialState?.hasMore !== false);
-    const [totalCount, setTotalCount] = useState(savedState?.totalCount || initialState?.totalCount || 0);
+    const [nextCursor, setNextCursor] = useState(shouldUseSavedState ? savedState.nextCursor : (initialState?.nextCursor || null));
+    const [hasMore, setHasMore] = useState(shouldUseSavedState ? savedState.hasMore !== false : (initialState?.hasMore !== false));
+    const [totalCount, setTotalCount] = useState(shouldUseSavedState ? savedState.totalCount : (initialState?.totalCount || 0));
     
     // Prefetch management
     const [prefetchedStories, setPrefetchedStories] = useState(null);
