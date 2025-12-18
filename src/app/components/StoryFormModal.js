@@ -1,13 +1,21 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
-import Image from 'next/image';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
-import { buildImageUrl } from '@/utils/cdn';
 import { storiesApi, versesApi, momentsApi } from '../../../lib/api';
 import { useImageCompressionUploader } from '../../../hooks/useImageCompressionUploader';
+
+// Import components
+import ConfirmationDialog from './storyformmodal/ConfirmationDialog';
+import DeleteVerseConfirmation from './storyformmodal/DeleteVerseConfirmation';
+import VerseItem from './storyformmodal/VerseItem';
+import TagInput from './storyformmodal/TagInput';
+import ModalHeader from './storyformmodal/ModalHeader';
+import ImageUploadArea from './storyformmodal/ImageUploadArea';
+import VerseList from './storyformmodal/VerseList';
+import SubmitButtons from './storyformmodal/SubmitButtons';
 
 // Default tags as fallback
 const DEFAULT_TAGS = ['Fantasy', 'Adventure', 'Mystery', 'Romance', 'Sci-Fi', 
@@ -33,371 +41,6 @@ const getCsrfToken = () => {
 const generateUniqueId = () => {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 };
-
-// Confirmation Dialog Component
-const ConfirmationDialog = ({ isOpen, title, message, onConfirm, onCancel }) => {
-  if (!isOpen) return null;
-  
-  return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[10200] flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-slate-900 to-indigo-900 border border-purple-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl shadow-purple-500/20">
-        <h3 className="text-xl font-bold text-white mb-3">{title}</h3>
-        <p className="text-gray-300 mb-6">{message}</p>
-        <div className="flex justify-end gap-3">
-          <button 
-            onClick={onCancel}
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors"
-          >
-            Go Back
-          </button>
-          <button 
-            onClick={onConfirm}
-            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg transition-colors"
-          >
-            Continue Anyway
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Add displayName to ConfirmationDialog
-ConfirmationDialog.displayName = 'ConfirmationDialog';
-
-// Delete Confirmation Modal Component
-const DeleteVerseConfirmation = ({ isOpen, verseNumber, onConfirm, onCancel }) => {
-  if (!isOpen) return null;
-  
-  return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[10200] flex items-center justify-center p-4">
-      <div className="bg-gradient-to-br from-slate-900 to-red-900 border border-red-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl shadow-red-500/20">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center border border-red-500/30">
-            <span className="fas fa-exclamation text-red-400 text-lg"></span>
-          </div>
-          <h3 className="text-xl font-bold text-white">Delete Verse?</h3>
-        </div>
-        <p className="text-gray-300 mb-6">Are you sure you want to delete Verse #{verseNumber}? This action cannot be undone.</p>
-        <div className="flex justify-end gap-3">
-          <button 
-            onClick={onCancel}
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors"
-          >
-            Keep It
-          </button>
-          <button 
-            onClick={onConfirm}
-            className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white rounded-lg transition-colors flex items-center gap-2"
-          >
-            <span className="fas fa-trash text-sm"></span> Delete Verse
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Add displayName to DeleteVerseConfirmation
-DeleteVerseConfirmation.displayName = 'DeleteVerseConfirmation';
-
-// Optimized Verse Content Component with internal state
-const VerseContent = memo(({ value, onChange, verseId, ...props }) => {
-  const textareaRef = useRef(null);
-
-  const handleChange = useCallback((e) => {
-    onChange(e.target.value);
-    // Auto-expand textarea
-    const textarea = e.target;
-    textarea.style.height = 'auto';
-    const newHeight = Math.min(textarea.scrollHeight, 200); // 200px ≈ 5 lines
-    textarea.style.height = newHeight + 'px';
-  }, [onChange]);
-
-  return (
-    <textarea
-      ref={textareaRef}
-      {...props}
-      id={`verse-content-${verseId}`}
-      value={value}
-      onChange={handleChange}
-      rows={2}
-      className={
-        `${props.className || ''} verse-content-textarea overflow-hidden`
-      }
-    />
-  );
-});
-
-// Add displayName to VerseContent
-VerseContent.displayName = 'VerseContent';
-
-// Memoized Verse Item Component
-const VerseItem = memo(({ 
-  verse, 
-  index, 
-  onVerseChange, 
-  onImageUpload,
-  onRemoveVerse,
-  onDeleteMoment,
-  onRemoveImage,
-  onDeleteVerseClick,
-  validationErrors,
-  isEditingVerse,
-  title
-}) => {
-  const contentErrorKey = `verse_${index}_content`;
-  const isExisting = verse.isExisting;
-  
-  const handleContentChange = useCallback((newValue) => {
-    onVerseChange(verse.id, 'content', newValue);
-  }, [verse.id, onVerseChange]);
-  
-  return (
-    <div className={`verse-item bg-gradient-to-b ${isExisting ? 'from-slate-900/60 to-indigo-900/60' : 'from-slate-900/80 to-black/80'} border ${isExisting ? 'border-purple-500/40' : 'border-blue-900/30'} rounded-2xl p-8 mb-8`} id={`verse-${index}`}>
-      <div className="flex justify-between items-center mb-6">
-        <h4 className="text-xl font-semibold text-white flex items-center gap-2">
-          <span className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500/30 to-indigo-500/30 flex items-center justify-center text-purple-400 text-sm font-bold">
-            {index + 1}
-          </span>
-          Verse #{index + 1} {isExisting && <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded">Existing</span>}
-        </h4>
-        {(!isExisting || isExisting) && !isEditingVerse && (
-          <button 
-            onClick={() => onDeleteVerseClick(verse.id, index + 1)}
-            className="w-10 h-10 rounded-full bg-red-500/30 hover:bg-red-500/40 flex items-center justify-center text-red-400 transition-all duration-300 border border-red-500/30"
-            title="Remove verse"
-          >
-            <span className="fas fa-times"></span>
-          </button>
-        )}
-      </div>
-      
-      {/* Verse Content */}
-      <div className="space-y-4 mb-6">
-        <label className="block text-sm font-medium text-gray-300 flex items-center gap-2">
-          <span className="fas fa-pen text-purple-400"></span> Content
-          <span className="text-xs text-gray-500 ml-2">(optional)</span>
-        </label>
-        <VerseContent 
-          placeholder="Describe your verse (optional)"
-          value={verse.content || ''}
-          onChange={handleContentChange}
-          verseId={verse.id}
-          className={`w-full bg-slate-900/40 border rounded-2xl py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500/30 focus:border-purple-500 transition-all resize-none ${
-            validationErrors[contentErrorKey] ? 'border-red-500/50' : 'border-gray-700'
-          }`}
-        />
-        {validationErrors[contentErrorKey] && (
-          <p className="text-red-400 text-sm">{validationErrors[contentErrorKey]}</p>
-        )}
-      </div>
-      
-      {/* Verse Moments (Images) */}
-      <div className="space-y-4">
-        <label className="block text-sm font-medium text-gray-300 flex items-center gap-2">
-          <span className="fas fa-images text-purple-400"></span> Verse Moments (Images)
-        </label>
-        
-                {verse.imageIds && verse.imageIds.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {verse.imageIds.map((image, imgIndex) => (
-              <div key={typeof image === 'string' ? image : (image.public_id || image.preview || image.url || imgIndex)} className="relative group">
-                {typeof image === 'string' ? (
-                  <div className="relative w-full h-36">
-                    <Image
-                      src={buildImageUrl(image, { w: 1080, fmt: 'webp' })}
-                      alt={title ? `${title} - Moment ${imgIndex + 1}` : `Moment ${imgIndex + 1}`}
-                      fill
-                      sizes="(max-width: 768px) 50vw, 33vw"
-                      className="object-cover rounded-xl border border-gray-700"
-                      onError={(e) => {
-                        // next/image doesn't expose the underlying img element directly here
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="relative w-full h-36">
-                    <Image
-                      src={image.preview || image.url || image.file_url || (image.file ? URL.createObjectURL(image.file) : '')}
-                      alt={title ? `${title} - Moment ${imgIndex + 1}` : `Moment ${imgIndex + 1}`}
-                      fill
-                      sizes="(max-width: 768px) 50vw, 33vw"
-                      className="object-cover rounded-xl border border-gray-700"
-                    />
-                  </div>
-                )}
-                <button 
-                  onClick={() => {
-                    const imageToDelete = verse.imageIds[imgIndex];
-                    // Track this moment for deletion if it has a public_id (existing moment)
-                    if (imageToDelete && imageToDelete.public_id) {
-                      onDeleteMoment(imageToDelete.public_id);
-                    }
-                    
-                    onRemoveImage(verse.id, imgIndex);
-                  }}
-                  className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500/80 hover:bg-red-600 flex items-center justify-center text-white text-xs transition-opacity"
-                  title="Delete this image"
-                >
-                  <span className="fas fa-trash"></span>
-                </button>
-                <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-                  {imgIndex + 1}
-                </div>
-              </div>
-            ))}
-            
-            <div className="relative h-36 rounded-xl overflow-hidden border-2 border-dashed border-gray-700 hover:border-purple-500/60 transition-all duration-300 cursor-pointer group">
-              <input 
-                type="file" 
-                className="hidden" 
-                multiple 
-                accept="image/*" 
-                id={`verse-image-input-${verse.id}`}
-                onChange={(e) => onImageUpload(verse.id, e)}
-              />
-              <label 
-                htmlFor={`verse-image-input-${verse.id}`}
-                className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-slate-900/70 to-indigo-900/70 group-hover:from-slate-900/90 group-hover:to-indigo-900/90 transition-all duration-300 cursor-pointer"
-              >
-                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500/30 to-indigo-500/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300 border border-purple-500/30">
-                  <span className="fas fa-plus text-purple-400 text-xl"></span>
-                </div>
-                <p className="text-gray-300 text-sm">Add images</p>
-              </label>
-            </div>
-          </div>
-        ) : (
-          <div className="relative h-36 rounded-xl overflow-hidden border-2 border-dashed border-gray-700 hover:border-purple-500/60 transition-all duration-300 cursor-pointer group">
-            <input 
-              type="file" 
-              className="hidden" 
-              multiple 
-              accept="image/*" 
-              id={`verse-image-input-${index}`}
-              onChange={(e) => onImageUpload(verse.id, e)}
-            />
-            <label 
-              htmlFor={`verse-image-input-${index}`}
-              className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-slate-900/70 to-indigo-900/70 group-hover:from-slate-900/90 group-hover:to-indigo-900/90 transition-all duration-300 cursor-pointer"
-            >
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500/30 to-indigo-500/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300 border border-purple-500/30">
-                <span className="fas fa-images text-purple-400 text-xl"></span>
-              </div>
-              <p className="text-gray-300 text-sm">Add images</p>
-            </label>
-          </div>
-        )}
-        
-        {/* Error message will show up here if neither content nor images are provided */}
-        {validationErrors[`verse_${index}_empty`] && (
-          <p className="text-red-400 text-sm mt-2">
-            Please add either text content or at least one image
-          </p>
-        )}
-      </div>
-    </div>
-  );
-});
-
-// Add displayName to VerseItem
-VerseItem.displayName = 'VerseItem';
-
-// Memoized Tag Input Component
-const TagInput = memo(({ 
-  tagInput, 
-  selectedTags, 
-  availableTags,
-  tagsLoading,
-  tagsError,
-  onTagInputChange,
-  onAddTag,
-  onAddTagByValue,
-  onRemoveTag
-}) => {
-  return (
-    <div className="mb-8">
-      <label className="block text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
-        <span className="fas fa-tags text-cyan-400"></span> Tags
-      </label>
-      <div className="flex flex-wrap gap-3 mb-4">
-        {selectedTags.map((tag, index) => (
-          <div key={index} className="flex items-center bg-gradient-to-r from-cyan-500/30 to-blue-500/30 rounded-xl px-4 py-2 border border-cyan-500/30">
-            <span className="text-cyan-400 text-sm">{tag}</span>
-            <button 
-              type="button"
-              onClick={() => onRemoveTag(tag)}
-              className="ml-2 text-cyan-400 hover:text-red-400 transition-colors"
-            >
-              <span className="fas fa-times text-xs"></span>
-            </button>
-          </div>
-        ))}
-      </div>
-      <div className="relative">
-        <input 
-          type="text" 
-          placeholder="Add tags (press Enter or comma to add)"
-          value={tagInput}
-          onChange={onTagInputChange}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ',') {
-              e.preventDefault();
-              onAddTag();
-            }
-          }}
-          className="w-full px-5 py-4 bg-slate-900/60 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 text-lg"
-        />
-        <button 
-          type="button"
-          onClick={onAddTag}
-          className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg px-3 py-1 text-sm font-medium"
-        >
-          Add
-        </button>
-      </div>
-      <div className="mt-4">
-        <p className="text-gray-400 text-sm mb-3 flex items-center gap-2">
-          <span>Popular tags:</span>
-          {tagsLoading && (
-            <span className="fas fa-spinner fa-spin text-xs"></span>
-          )}
-        </p>
-        
-        {tagsError ? (
-          <div className="text-red-400 text-sm mb-2">{tagsError}</div>
-        ) : null}
-        
-        <div className="flex flex-wrap gap-2">
-          {availableTags.slice(0, 8).map((tag, index) => (
-            <button
-              key={index}
-              type="button"
-              onClick={() => onAddTagByValue(tag)}
-              className={`${
-                selectedTags.includes(tag)
-                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white'
-                  : 'bg-slate-800 hover:bg-slate-700 text-gray-300 hover:text-white'
-              } rounded-lg px-3 py-1 text-sm transition-colors flex items-center gap-1`}
-            >
-              {tag}
-              {/* Show popularity indicator for the top 3 tags */}
-              {index < 3 && (
-                <span className="text-xs bg-yellow-500/20 text-yellow-300 rounded-full w-4 h-4 flex items-center justify-center">
-                  {index + 1}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-});
-
-// Add displayName to TagInput
-TagInput.displayName = 'TagInput';
 
 const StoryFormModal = ({ 
   isOpen = false, 
@@ -611,12 +254,12 @@ const StoryFormModal = ({
     }
   };
   
-  // Check if all verses are empty (no content and no images)
+  // Check if all verses are empty (no images)
   const areAllVersesEmpty = useCallback(() => {
     return verses.every(verse => {
-      const hasContent = verse.content && verse.content.trim() !== '';
       const hasImages = verse.imageIds && verse.imageIds.length > 0;
-      return !hasContent && !hasImages;
+      const hasContent = verse.content && verse.content.trim() !== '';
+      return !hasImages && !hasContent;
     });
   }, [verses]);
   
@@ -843,26 +486,13 @@ const StoryFormModal = ({
     }
   }, [compressImageFile, generatePreview]);
   
-  // Handle verse field changes
-  // Use a ref to the latest `verses` so this callback doesn't change identity
-  // on every keystroke (which could trigger re-mounts and cause focus loss).
-  const handleVerseChange = useCallback((verseId, field, value) => {
-    setVerses(prevVerses => prevVerses.map(verse => verse.id === verseId ? { ...verse, [field]: value } : verse));
-
-    // Compute index from the latest verses snapshot stored in the ref
-    const verseIndex = (versesRef.current || []).findIndex(v => v.id === verseId);
-    const errorKey = `verse_${verseIndex}_${field}`;
-
-    // Clear validation error for this specific field if present
-    setValidationErrors(prev => {
-      if (!prev) return prev;
-      if (prev[errorKey]) {
-        const copy = { ...prev };
-        delete copy[errorKey];
-        return copy;
-      }
-      return prev;
-    });
+  // Handle verse content change
+  const handleVerseContentChange = useCallback((verseId, content) => {
+    setVerses(prevVerses => 
+      prevVerses.map(verse => 
+        verse.id === verseId ? { ...verse, content } : verse
+      )
+    );
   }, []);
   
   // Handle tag input
@@ -1172,11 +802,11 @@ const StoryFormModal = ({
       const storyIdentifier = savedStory?.public_id || savedStory?.id || savedStory?.slug;
       
       // Create/update verses in parallel
-      // Skip verses that are completely empty (no content and no images)
+      // Skip verses that are completely empty (no images and no content)
       const versesToProcess = updatedVerses.filter(verse => {
-        const hasContent = (verse.content || '').trim() !== '';
         const hasImages = (verse.uploadedImageIds || []).length > 0;
-        return hasContent || hasImages;
+        const hasContent = verse.content && verse.content.trim() !== '';
+        return hasImages || hasContent;
       });
 
       const versePromises = versesToProcess.map(async (verse, index) => {
@@ -1443,304 +1073,6 @@ const StoryFormModal = ({
     }
   }, [compressImageFile, generatePreview, handleVerseImageUpload]);
   
-  // Modal Header Component
-  const ModalHeader = () => {
-    const getModalTitle = () => {
-      if (editingStory) return 'EDIT STORY';
-      if (editingVerse) return 'EDIT VERSE';
-      return 'CREATE NEW STORY';
-    };
-    
-    const getModalSubtitle = () => {
-      if (editingStory) return 'Update your creative journey';
-      if (editingVerse) return 'Update your verse';
-      return 'Share your creative journey with the world';
-    };
-    
-    return (
-      <div className="relative z-10 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md border-b border-cyan-500/30 px-6 py-4">
-        {success && (
-          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-green-500/20 border border-green-500/50 rounded-lg px-4 py-2 text-green-300 flex items-center gap-2 z-50 animate-fade-in-down">
-            <span className="fas fa-check-circle"></span>
-            {success}
-          </div>
-        )}
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 flex items-center justify-center shadow-lg shadow-cyan-500/40 border border-cyan-500/30">
-              <span className="fas fa-book text-cyan-400 text-lg"></span>
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500">
-                {getModalTitle()}
-              </h2>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button 
-              type="button"
-              title="Clear form"
-              className="w-9 h-9 rounded-lg bg-gray-900/60 hover:bg-gray-800/60 flex items-center justify-center text-gray-400 hover:text-white transition-all duration-300 border border-gray-700/50 hover:border-cyan-500/50"
-              onClick={clearForm}
-            >
-              <span className="fas fa-sync-alt text-sm"></span>
-            </button>
-            <button 
-              onClick={onClose}
-              className="w-9 h-9 rounded-lg bg-gray-900/60 hover:bg-gray-800/60 flex items-center justify-center text-gray-400 hover:text-white transition-all duration-300 border border-gray-700/50 hover:border-cyan-500/50"
-            >
-              <span className="fas fa-times text-sm"></span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-  
-  // Image Upload Area Component
-  const ImageUploadArea = () => {
-    const fileInputRef = useRef(null);
-
-    const handleFileChange = async (e) => {
-      const file = e.target.files[0];
-      const inputElement = e.target;
-      
-      if (file) {
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
-          setError('Please select a valid image file');
-          // Reset input so user can try again
-          inputElement.value = '';
-          return;
-        }
-        
-        // Validate file size (50MB pre-compression)
-        if (file.size > 50 * 1024 * 1024) {
-          setError('Image file must be less than 50MB');
-          // Reset input so user can try again
-          inputElement.value = '';
-          return;
-        }
-        
-        try {
-          setError(null);
-
-          // Show an immediate preview using an object URL so the user sees the image instantly
-          const immediatePreview = URL.createObjectURL(file);
-          setImagePreview(immediatePreview);
-          // Keep the original file for now; we'll replace with compressed result when ready
-          setImageFile(file);
-
-          // Compress the image in the background and update preview/file when done
-          compressImageFile(file)
-            .then((compressed) => {
-              try {
-                // Replace with compressed file and preview (usually a dataURL)
-                setImageFile(compressed.file);
-                setImagePreview(compressed.preview || immediatePreview);
-                console.log(`Cover image compressed: ${compressed.originalSize}KB → ${compressed.compressedSize}KB (${compressed.ratio}% reduction)`);
-              } finally {
-                // Revoke the temporary object URL to avoid memory leaks
-                try { URL.revokeObjectURL(immediatePreview); } catch (e) {}
-              }
-            })
-            .catch((err) => {
-              console.error('Background compression failed for cover image:', err);
-              // Keep the immediate preview if compression fails; user still sees image
-            })
-            .finally(() => {
-              // Reset input after kicking off background work
-              inputElement.value = '';
-            });
-        } catch (err) {
-          setError(`Failed to process image: ${err.message}`);
-          // Reset input on error too
-          inputElement.value = '';
-        }
-      }
-    };
-
-    const triggerFileInput = () => {
-      fileInputRef.current.click();
-    };
-
-    const removeImage = () => {
-      try {
-        if (imagePreview && typeof imagePreview === 'string' && imagePreview.startsWith('blob:')) {
-          URL.revokeObjectURL(imagePreview);
-        }
-      } catch (e) {}
-      setImagePreview(null);
-      setImageFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    };
-
-    return (
-      <div className="mb-8">
-        <label className="block text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
-          <span className="fas fa-image text-cyan-400"></span> Cover Image
-        </label>
-        <div className="relative w-full h-72 rounded-2xl overflow-hidden border-2 border-dashed border-gray-700 hover:border-cyan-500/60 transition-all duration-300 cursor-pointer group" onClick={triggerFileInput}>
-          <input 
-            type="file" 
-            ref={fileInputRef}
-            className="hidden" 
-            accept="image/*" 
-            onChange={handleFileChange}
-          />
-          {imagePreview ? (
-            <>
-              <div className="relative w-full h-full">
-                <img 
-                  src={imagePreview} 
-                  alt={title ? `${title} - Cover image` : 'Cover image'} 
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.target.src = '';
-                    e.target.alt = "Image preview failed to load";
-                  }}
-                />
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-center pb-6 gap-4">
-                <button 
-                  type="button"
-                  className="px-5 py-2.5 bg-cyan-500/30 hover:bg-cyan-500/40 text-cyan-400 rounded-xl font-medium transition-all duration-300 border border-cyan-500/30"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    triggerFileInput();
-                  }}
-                >
-                  <span className="fas fa-sync-alt mr-2"></span> Change
-                </button>
-                <button 
-                  type="button"
-                  className="px-5 py-2.5 bg-red-500/30 hover:bg-red-500/40 text-red-400 rounded-xl font-medium transition-all duration-300 border border-red-500/30"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    removeImage();
-                  }}
-                >
-                  <span className="fas fa-trash mr-2"></span> Remove
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-slate-900/70 to-indigo-900/70 group-hover:from-slate-900/90 group-hover:to-indigo-900/90 transition-all duration-300">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-600/30 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300 border border-cyan-500/30">
-                <span className="fas fa-cloud-upload-alt text-cyan-400 text-3xl"></span>
-              </div>
-              <p className="text-gray-300 font-medium text-lg">Click to upload cover image</p>
-              <p className="text-gray-500 text-sm mt-2">JPG, PNG, GIF up to 10MB</p>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-  
-  // Verse List Component
-  const VerseList = () => {
-    return (
-      <div className="mb-10">
-        <div className="flex items-center gap-4 mb-8">
-          <div className="h-px bg-gradient-to-r from-transparent via-purple-500/60 to-transparent flex-1"></div>
-          <h3 className="text-2xl font-semibold text-purple-400 px-4 flex items-center gap-2">
-            <span className="fas fa-scroll"></span> Story Verses
-          </h3>
-          <div className="h-px bg-gradient-to-r from-transparent via-purple-500/60 to-transparent flex-1"></div>
-        </div>
-        
-        <div className="verses-container" id="versesContainer">
-          {verses.map((verse, index) => (
-            <VerseItem 
-              key={`verse-${verse.id || `temp-${index}`}`}
-              verse={verse}
-              index={index}
-              onVerseChange={handleVerseChange}
-              onImageUpload={handleVerseImageUpload}
-              onRemoveVerse={removeVerse}
-              onDeleteMoment={(momentId) => setDeletedMoments(prev => [...prev, momentId])}
-              onRemoveImage={(verseId, imgIndex) => {
-                setVerses(prevVerses => 
-                  prevVerses.map(v => {
-                    if (v.id === verseId) {
-                      const newImageIds = [...v.imageIds];
-                      const removed = newImageIds.splice(imgIndex, 1);
-                      // Revoke object URL preview if present to avoid memory leaks
-                      try {
-                        if (removed && removed[0] && removed[0].preview && typeof removed[0].preview === 'string' && removed[0].preview.startsWith('blob:')) {
-                          URL.revokeObjectURL(removed[0].preview);
-                        }
-                      } catch (e) {}
-                      return { ...v, imageIds: newImageIds };
-                    }
-                    return v;
-                  })
-                );
-              }}
-              onDeleteVerseClick={handleDeleteVerseClick}
-              validationErrors={validationErrors}
-              isEditingVerse={!!editingVerse}
-              title={title}
-            />
-          ))}
-        </div>
-        
-        {validationErrors.verse_empty && (
-          <p className="text-red-400 text-sm mt-2 ml-4">{validationErrors.verse_empty}</p>
-        )}
-        
-        {!editingVerse && (
-          <div className="flex justify-center mt-8">
-            <button 
-              onClick={handleAddVerse}
-              className="px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-2xl font-medium flex items-center gap-3 transition-all duration-300 transform hover:scale-105 shadow-lg shadow-purple-500/30 border border-purple-500/30"
-            >
-              <span className="fas fa-plus text-xl"></span> Add Verse
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  };
-  
-  // Submit Buttons Component
-  const SubmitButtons = () => {
-    const isEditing = editingStory || editingVerse;
-    
-    return (
-      <div className="relative z-10 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md border-t border-gray-800/50 px-8 py-4">
-        <div className="flex justify-end gap-4">
-          <button 
-            onClick={onClose}
-            className="px-8 py-3 bg-gray-800/60 hover:bg-gray-700/60 text-gray-300 rounded-2xl font-medium transition-all duration-300 border border-gray-700/50 hover:border-gray-600/50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handlePublish}
-            disabled={loading}
-            className="px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white rounded-2xl font-medium flex items-center gap-3 transition-all duration-300 transform hover:scale-105 shadow-lg shadow-cyan-500/30 border border-cyan-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? (
-              <>
-                <span className="fas fa-spinner animate-spin"></span>
-                {isEditing ? 'Updating...' : 'Publishing...'}
-              </>
-            ) : (
-              <>
-                <span className="fas fa-rocket text-xl"></span>
-                {isEditing ? 'Update' : 'Publish Story'}
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    );
-  };
-  
   const modal = (
     <>
       {/* Outer container - handles backdrop and positioning */}
@@ -1755,7 +1087,13 @@ const StoryFormModal = ({
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-cyan-500/10 to-transparent h-px w-full animate-pulse"></div>
           </div>
           
-          <ModalHeader />
+          <ModalHeader 
+            success={success}
+            editingStory={editingStory}
+            editingVerse={editingVerse}
+            clearForm={clearForm}
+            onClose={onClose}
+          />
           
           {/* Content area - now properly scrollable */}
           <div className="flex-1 overflow-y-auto touch-auto overscroll-contain modal-scroll">
@@ -1776,7 +1114,14 @@ const StoryFormModal = ({
                   <div className="h-px bg-gradient-to-r from-transparent via-cyan-500/60 to-transparent flex-1"></div>
                 </div>
                 
-                <ImageUploadArea />
+                <ImageUploadArea 
+                  imagePreview={imagePreview}
+                  title={title}
+                  compressImageFile={compressImageFile}
+                  setImageFile={setImageFile}
+                  setImagePreview={setImagePreview}
+                  setError={setError}
+                />
                 
                 {/* Title */}
                 <div className="mb-8">
@@ -1930,11 +1275,29 @@ const StoryFormModal = ({
                 )}
               </div>
               
-              <VerseList />
+              <VerseList 
+                verses={verses}
+                handleVerseImageUpload={handleVerseImageUpload}
+                removeVerse={removeVerse}
+                setDeletedMoments={setDeletedMoments}
+                setVerses={setVerses}
+                handleDeleteVerseClick={handleDeleteVerseClick}
+                validationErrors={validationErrors}
+                editingVerse={editingVerse}
+                title={title}
+                handleVerseContentChange={handleVerseContentChange}
+                handleAddVerse={handleAddVerse}
+              />
             </div>
           </div>
           
-          <SubmitButtons />
+          <SubmitButtons 
+            onClose={onClose}
+            handlePublish={handlePublish}
+            loading={loading}
+            editingStory={editingStory}
+            editingVerse={editingVerse}
+          />
           
           {/* Gradient borders */}
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-70"></div>
@@ -2056,7 +1419,6 @@ const StoryFormModal = ({
   return createPortal(modal, document.body);
 };
 
-// Add displayName to StoryFormModal
 StoryFormModal.displayName = 'StoryFormModal';
 
 export default StoryFormModal;
