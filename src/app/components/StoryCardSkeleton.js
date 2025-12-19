@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import './storycard/StoryCardSkeleton.css';
 
 /**
  * Professional skeleton loader for story cards with subtle animations
@@ -9,46 +8,46 @@ import './storycard/StoryCardSkeleton.css';
  */
 export default function StoryCardSkeleton() {
   return (
-    <div className="story-card-skeleton">
+    <div className="flex flex-col gap-4 p-4 bg-black rounded-xl border border-gray-900 mb-6 animate-fade-in">
       <div className="skeleton-content">
         {/* Header skeleton - creator chip */}
-        <div className="skeleton-header">
-          <div className="skeleton-avatar"></div>
-          <div className="skeleton-header-text">
-            <div className="skeleton-username"></div>
-            <div className="skeleton-timestamp"></div>
+        <div className="flex items-center gap-3 pb-2">
+          <div className="w-11 h-11 rounded-full bg-gradient-to-r from-black via-gray-900 to-black bg-[length:200%_100%] animate-shimmer"></div>
+          <div className="flex flex-col gap-2 flex-1">
+            <div className="w-30 h-3.5 rounded bg-gradient-to-r from-black via-gray-900 to-black bg-[length:200%_100%] animate-shimmer"></div>
+            <div className="w-20 h-3 rounded bg-gradient-to-r from-black via-gray-800 to-black bg-[length:200%_100%] animate-shimmer animation-delay-100"></div>
           </div>
         </div>
 
         {/* Cover image skeleton */}
-        <div className="skeleton-image"></div>
+        <div className="w-full h-72 rounded-lg bg-gradient-to-r from-black via-gray-900 to-black bg-[length:200%_100%] animate-shimmer animation-delay-200"></div>
 
         {/* Title skeleton */}
-        <div className="skeleton-title-section">
-          <div className="skeleton-title-line skeleton-line-1"></div>
-          <div className="skeleton-title-line skeleton-line-2"></div>
+        <div className="flex flex-col gap-2 my-4">
+          <div className="h-4.5 rounded bg-gradient-to-r from-black via-gray-900 to-black bg-[length:200%_100%] animate-shimmer animation-delay-150 w-[85%]"></div>
+          <div className="h-4.5 rounded bg-gradient-to-r from-black via-gray-900 to-black bg-[length:200%_100%] animate-shimmer animation-delay-150 w-[60%]"></div>
         </div>
 
         {/* Description skeleton */}
-        <div className="skeleton-description">
-          <div className="skeleton-desc-line skeleton-line-1"></div>
-          <div className="skeleton-desc-line skeleton-line-2"></div>
-          <div className="skeleton-desc-line skeleton-line-3"></div>
+        <div className="flex flex-col gap-2.5 my-2">
+          <div className="h-3.5 rounded bg-gradient-to-r from-black via-gray-800 to-black bg-[length:200%_100%] animate-shimmer animation-delay-200"></div>
+          <div className="h-3.5 rounded bg-gradient-to-r from-black via-gray-800 to-black bg-[length:200%_100%] animate-shimmer animation-delay-200"></div>
+          <div className="h-3.5 rounded bg-gradient-to-r from-black via-gray-800 to-black bg-[length:200%_100%] animate-shimmer animation-delay-200 w-[40%]"></div>
         </div>
 
         {/* Tags skeleton */}
-        <div className="skeleton-tags">
-          <div className="skeleton-tag"></div>
-          <div className="skeleton-tag"></div>
-          <div className="skeleton-tag"></div>
+        <div className="flex flex-wrap gap-2 my-2">
+          <div className="w-18 h-6 rounded-full bg-gradient-to-r from-black via-gray-900 to-black bg-[length:200%_100%] animate-shimmer animation-delay-250"></div>
+          <div className="w-18 h-6 rounded-full bg-gradient-to-r from-black via-gray-900 to-black bg-[length:200%_100%] animate-shimmer animation-delay-250"></div>
+          <div className="w-18 h-6 rounded-full bg-gradient-to-r from-black via-gray-900 to-black bg-[length:200%_100%] animate-shimmer animation-delay-250"></div>
         </div>
 
         {/* Action buttons skeleton */}
-        <div className="skeleton-actions">
-          <div className="skeleton-button"></div>
-          <div className="skeleton-button"></div>
-          <div className="skeleton-button"></div>
-          <div className="skeleton-button"></div>
+        <div className="flex justify-around items-center gap-4 mt-4 pt-4 border-t border-gray-800">
+          <div className="w-12 h-10 rounded-lg bg-gradient-to-r from-black via-gray-800 to-black bg-[length:200%_100%] animate-shimmer animation-delay-300"></div>
+          <div className="w-12 h-10 rounded-lg bg-gradient-to-r from-black via-gray-800 to-black bg-[length:200%_100%] animate-shimmer animation-delay-300"></div>
+          <div className="w-12 h-10 rounded-lg bg-gradient-to-r from-black via-gray-800 to-black bg-[length:200%_100%] animate-shimmer animation-delay-300"></div>
+          <div className="w-12 h-10 rounded-lg bg-gradient-to-r from-black via-gray-800 to-black bg-[length:200%_100%] animate-shimmer animation-delay-300"></div>
         </div>
       </div>
     </div>
