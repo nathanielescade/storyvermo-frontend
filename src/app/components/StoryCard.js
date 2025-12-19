@@ -6,26 +6,37 @@ import Image from 'next/image';
 import LazyImage from './LazyImage';
 import { formatNumber, formatTimeAgo, createBubbles } from '../../../lib/utils';
 import { absoluteUrl, storiesApi, userApi } from '../../../lib/api';
+import dynamic from 'next/dynamic';
 
 // Import modular components
-
 import HologramIcons from './storycard/HologramIcons';
 import TitleSection from './storycard/TitleSection';
 import TagsSection from './storycard/TagsSection';
 import ActionButtons from './storycard/ActionButtons';
 import CreatorChip from './storycard/CreatorChip';
-import dynamic from 'next/dynamic';
-const ContributeModal = dynamic(() => import('./storycard/ContributeModal'), { ssr: false });
-import RecommendModal from './storycard/RecommendModal';
-import EnlargeModal from './storycard/EnlargeModal';
-import DeleteModal from './storycard/DeleteModal';
-import DropdownMenu from './storycard/DropdownModal';
 
-// Import additional modals that were missing
+// Dynamically import modals with ssr: false
+const ContributeModal = dynamic(() => import('./storycard/ContributeModal'), { ssr: false });
+const RecommendModal = dynamic(() => import('./storycard/RecommendModal'), { ssr: false });
+const EnlargeModal = dynamic(() => import('./storycard/EnlargeModal'), { ssr: false });
+const DeleteModal = dynamic(() => import('./storycard/DeleteModal'), { ssr: false });
+const DropdownMenu = dynamic(() => import('./storycard/DropdownModal'), { ssr: false });
 const StoryFormModal = dynamic(() => import('./StoryFormModal'), { ssr: false });
-import CommentModal from './CommentModal';
-import VerseViewer from './VerseViewer';
-import ShareModal from './ShareModal';
+const CommentModal = dynamic(() => import('./CommentModal'), { ssr: false });
+const VerseViewer = dynamic(() => import('./VerseViewer'), { ssr: false });
+const ShareModal = dynamic(() => import('./ShareModal'), { ssr: false });
+
+// Import StoryCover as a server component
+const StoryCover = dynamic(() => import('./storycard/StoryCover'), {
+  ssr: true,
+  loading: () => (
+    <div className="scene-bg-placeholder bg-linear-to-br from-slate-800 to-slate-900 flex items-center justify-center w-full h-full">
+      <div className="text-slate-600 text-4xl">
+        <i className="fas fa-image"></i>
+      </div>
+    </div>
+  )
+});
 
 export default function StoryCard({ 
     story, 
@@ -50,7 +61,6 @@ export default function StoryCard({
     const [isViewerOpening, setIsViewerOpening] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
     const [localCommentsCount, setLocalCommentsCount] = useState(story.comments_count || 0);
-    // Removed swipe-to-open states (gesture open was causing scroll issues)
     
     // Hologram icon modals
     const [showContributeModal, setShowContributeModal] = useState(false);
@@ -65,7 +75,6 @@ export default function StoryCard({
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [storyDeleted, setStoryDeleted] = useState(false);
-    // If opening the StoryFormModal to edit a single verse, store it here
     const [editingVerseForModal, setEditingVerseForModal] = useState(null);
     
     // State for current story to handle updates
@@ -485,35 +494,27 @@ export default function StoryCard({
                     data-story-id={story.id} 
                     data-creator={creatorUsername} 
                     data-story-slug={story.slug || ''}
-                    // Removed touch handlers to avoid blocking vertical scroll.
                 >
-                                        {coverImageUrl ? (
-                                                <div className="relative w-full h-full">
-                                                {/* Use LazyImage for offscreen images; keep priority for first item */}
-                                                {index === 0 ? (
-                                                    <Image
-                                                        src={coverImageUrl}
-                                                        alt={story.title || 'Story cover'}
-                                                        fill
-                                                        className="scene-bg w-full h-full"
-                                                        quality={60}
-                                                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
-                                                        priority
-                                                        fetchPriority="high"
-                                                        loading="eager"
-                                                    />
-                                                ) : (
-                                                    <LazyImage
-                                                        src={coverImageUrl}
-                                                        alt={story.title || 'Story cover'}
-                                                        fill
-                                                        className="scene-bg w-full h-full"
-                                                        quality={60}
-                                                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
-                                                    />
-                                                )}
-                                        </div>
-                                        ) : (
+                    {coverImageUrl ? (
+                        <div className="relative w-full h-full">
+                            {/* Use StoryCover server component for the first image */}
+                            {index === 0 ? (
+                                <StoryCover 
+                                    src={coverImageUrl} 
+                                    alt={story.title || 'Story cover'} 
+                                />
+                            ) : (
+                                <LazyImage
+                                    src={coverImageUrl}
+                                    alt={story.title || 'Story cover'}
+                                    fill
+                                    className="scene-bg w-full h-full"
+                                    quality={60}
+                                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
+                                />
+                            )}
+                        </div>
+                    ) : (
                         <div className="scene-bg-placeholder bg-linear-to-br from-slate-800 to-slate-900 flex items-center justify-center">
                             <div className="text-slate-600 text-4xl">
                                 <i className="fas fa-image"></i>
