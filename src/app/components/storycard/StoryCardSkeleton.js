@@ -79,7 +79,7 @@ export default function StoryCardSkeleton({ story, index, viewType = 'feed' }) {
                                 alt={story.title || 'Story cover'}
                                 fill
                                 priority
-                                fetchpriority="high"
+                                fetchPriority="high"
                                 quality={60}
                                 loading="eager"
                                 className="scene-bg w-full h-full"
