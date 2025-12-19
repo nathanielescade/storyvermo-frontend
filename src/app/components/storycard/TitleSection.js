@@ -152,29 +152,47 @@ const TitleSection = ({
                 )}
             </div>
             <div className="desc-container" id={`desc-container-${index}`}> 
-                <div 
-                    ref={descRef}
-                    className={`scene-description  ${
-                        descExpanded ? '' : 'line-clamp-3'
-                    }`}
-                    id={`desc-${index}`}
-                    style={{
-                        display: '-webkit-box',
-                        WebkitBoxOrient: 'vertical',
-                        WebkitLineClamp: descExpanded ? 'unset' : 3,
-                        overflow: descExpanded ? 'visible' : 'hidden'
-                    }}
-                >
-                    {story.description || 'No description available.'}
-                </div>
-                {wasDescTruncated && (
-                    <span 
-                        className="text-cyan-400 cursor-pointer text-sm font-medium hover:text-cyan-300 transition-colors mt-1 inline-block"
-                        id={`readmore-${index}`}
-                        onClick={toggleDescription}
+                {index === 0 ? (
+                    <div
+                        className="scene-description line-clamp-3"
+                        id={`desc-${index}`}
+                        style={{
+                            display: '-webkit-box',
+                            WebkitBoxOrient: 'vertical',
+                            WebkitLineClamp: 3,
+                            overflow: 'hidden',
+                            containIntrinsicSize: 'auto 3em',
+                        }}
                     >
-                        {descExpanded ? 'Read less' : 'Read more'}
-                    </span>
+                        {story.description || 'No description available.'}
+                    </div>
+                ) : (
+                    <>
+                        <div 
+                            ref={descRef}
+                            className={`scene-description  ${
+                                descExpanded ? '' : 'line-clamp-3'
+                            }`}
+                            id={`desc-${index}`}
+                            style={{
+                                display: '-webkit-box',
+                                WebkitBoxOrient: 'vertical',
+                                WebkitLineClamp: descExpanded ? 'unset' : 3,
+                                overflow: descExpanded ? 'visible' : 'hidden'
+                            }}
+                        >
+                            {story.description || 'No description available.'}
+                        </div>
+                        {wasDescTruncated && (
+                            <span 
+                                className="text-cyan-400 cursor-pointer text-sm font-medium hover:text-cyan-300 transition-colors mt-1 inline-block"
+                                id={`readmore-${index}`}
+                                onClick={toggleDescription}
+                            >
+                                {descExpanded ? 'Read less' : 'Read more'}
+                            </span>
+                        )}
+                    </>
                 )}
             </div>
         </>
