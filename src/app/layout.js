@@ -15,13 +15,13 @@ export default function RootLayout({ children }) {
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
         <meta name="google-site-verification" content="wJjq83au-maldcRICvQfKYPlbzQ1pdustQ_GOSqJuVY" />
 
-        {/* 🔥 CRITICAL PRECONNECTS - Must be before all other resources */}
-        <link rel="preconnect" href="https://nyc3.digitaloceanspaces.com" crossOrigin="anonymous" fetchpriority="high" />
-        <link rel="preconnect" href="https://api.storyvermo.com" crossOrigin="anonymous" fetchpriority="high" />
-        <link rel="dns-prefetch" href="https://nyc3.digitaloceanspaces.com" />
+        {/* 🔥 CRITICAL PRECONNECTS - Load these FIRST */}
+        <link rel="preconnect" href="https://api.storyvermo.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://api.storyvermo.com" />
         <link rel="preconnect" href="https://storyvermo.nyc3.cdn.digitaloceanspaces.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://storyvermo.nyc3.cdn.digitaloceanspaces.com" />
+        <link rel="preconnect" href="https://nyc3.digitaloceanspaces.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://nyc3.digitaloceanspaces.com" />
         <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
         

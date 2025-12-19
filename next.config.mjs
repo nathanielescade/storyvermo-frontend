@@ -70,19 +70,6 @@ const nextConfig = {
     buildActivity: true,
     buildActivityPosition: 'top-right',
   },
-
-  // 🔥 HTTP Link headers for preconnect (sent with page, browser sees these first!)
-  async headers() {
-    return [
-      {
-        source: '/:path*',
-        headers: [
-          {
-            key: 'Link',
-            value: '</api.storyvermo.com>; rel=preconnect; crossorigin, </nyc3.digitaloceanspaces.com>; rel=preconnect; crossorigin, </storyvermo.nyc3.cdn.digitaloceanspaces.com>; rel=preconnect; crossorigin',
-          },
-        ],
-      },
-    ];
-  },
 };
+
+export default nextConfig;
