@@ -1,32 +1,11 @@
 /** @type {import('next').NextConfig} */
 
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: '1024mb', // match your Nginx & Django limits
-    },
-  },
-};
-
 const nextConfig = {
   images: {
-    // Let Next.js optimize remote images in production. In development it's fine
-    // to leave images unoptimized for local workflows.
-    unoptimized: process.env.NODE_ENV === 'development',
-    // Prefer modern formats when possible to reduce transfer sizes
-    formats: ['image/avif', 'image/webp'],
-    // 🔥 AGGRESSIVE: Reduce quality to 60-75 for feed images (user won't notice on mobile)
-    qualities: [60, 75],
-    // 🔥 OPTIMIZED: Reduce device sizes to common breakpoints only
-    deviceSizes: [320, 640, 768, 1024],
-    // 🔥 OPTIMIZED: Smaller image sizes for thumbnails and avatars
-    imageSizes: [32, 48, 64, 96],
-    // 🔥 AGGRESSIVE: Cache optimized remote images much longer (24 hours) for LCP
-    minimumCacheTTL: 86400,
-    // 🔥 OPTIMIZED: Aggressive dangerously allow SVG optimization
-    dangerouslyAllowSVG: false,
-    // 🔥 CRITICAL: Reduce image optimization CPU time - use faster algorithm
-    dangerouslyAllowSVG: false,
+    // 🔥 CRITICAL: Disable Next.js image optimization since Django handles it
+    unoptimized: true,
+    
+    // Keep remote patterns for security (still needed even with unoptimized)
     remotePatterns: [
       // Local development backend
       {
@@ -67,19 +46,26 @@ const nextConfig = {
       },
     ],
   },
+
   // Enable CSS optimization to reduce and inline critical CSS where possible
   experimental: {
     optimizeCss: true,
   },
 
-  // 🔥 OPTIMIZED: Enable Turbopack (default in Next.js 16) with optimized config
+  // 🔥 Production optimizations
+  compiler: {
+    // Remove console.logs in production
+    removeConsole: process.env.NODE_ENV === 'production',
+  },
+
+  // 🔥 OPTIMIZED: Enable Turbopack for faster builds
   turbopack: {
     resolveAlias: {
       '@': './src',
     },
   },
 
-  // Development UI indicators (show small build/reload indicator in dev)
+  // Development UI indicators
   devIndicators: {
     buildActivity: true,
     buildActivityPosition: 'top-right',

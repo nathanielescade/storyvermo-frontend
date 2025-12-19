@@ -79,13 +79,13 @@ export default function RootLayout({ children }) {
           media="print"
           crossOrigin="anonymous"
         />
-        <noscript>
+        {/* <noscript>
           <link
             rel="stylesheet"
             href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
             crossOrigin="anonymous"
           />
-        </noscript>
+        </noscript> */}
 
         {/* 🔥 OPTIMIZED: Defer Swiper CSS (non-blocking) */}
         <link
