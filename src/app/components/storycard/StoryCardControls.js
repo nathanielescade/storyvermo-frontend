@@ -13,10 +13,15 @@ import { absoluteUrl, storiesApi, userApi } from '../../../../lib/api';
 
 // Import modular components
 import HologramIcons from './HologramIcons';
-import TitleSection from './TitleSection';
 import TagsSection from './TagsSection';
 import ActionButtons from './ActionButtons';
 import CreatorChip from './CreatorChip';
+
+// Dynamically import TitleSection to avoid blocking LCP with emoji parsing
+const TitleSection = dynamic(() => import('./TitleSection'), { 
+    ssr: false,
+    loading: () => null // Don't show loader, skeleton title is visible
+});
 
 // Dynamically import modals with ssr: false
 const ContributeModal = dynamic(() => import('./ContributeModal'), { ssr: false });

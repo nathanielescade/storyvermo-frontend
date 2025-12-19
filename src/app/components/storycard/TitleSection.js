@@ -1,5 +1,6 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 
 const TitleSection = ({ 
     story, 
@@ -18,9 +19,16 @@ const TitleSection = ({
     const descRef = useRef(null);
     const [wasTitleTruncated, setWasTitleTruncated] = useState(false);
     const [wasDescTruncated, setWasDescTruncated] = useState(false);
+    const [isReady, setIsReady] = useState(false);
 
     useEffect(() => {
-        checkTruncation();
+        // Defer truncation check to avoid blocking initial render for LCP
+        const timeoutId = setTimeout(() => {
+            checkTruncation();
+            setIsReady(true);
+        }, 0);
+        
+        return () => clearTimeout(timeoutId);
     }, [story.title, story.description, titleExpanded, descExpanded]);
 
     const checkTruncation = () => {
@@ -49,38 +57,40 @@ const TitleSection = ({
         setDescExpanded(!descExpanded);
     };
 
-    // Function to render title with emojis properly
-    const renderTitleWithEmojis = (title) => {
-        if (!title) return 'Untitled Story';
-        
-        // Regular expression to match emojis
-        const emojiRegex = /[\p{Emoji_Presentation}\p{Emoji}\u200D]+/gu;
-        const parts = title.split(emojiRegex);
-        const emojis = title.match(emojiRegex) || [];
-        
-        const result = [];
-        for (let i = 0; i < parts.length; i++) {
-            // Add text part with gradient
-            if (parts[i]) {
-                result.push(
-                    <span key={`text-${i}`} className="bg-gradient-to-r from-neon-blue to-neon-purple bg-clip-text text-transparent">
-                        {parts[i]}
-                    </span>
-                );
+    // Function to render title with emojis properly - MEMOIZED to prevent expensive regex on every render
+    const renderTitleWithEmojis = useMemo(() => {
+        return (title) => {
+            if (!title) return 'Untitled Story';
+            
+            // Regular expression to match emojis
+            const emojiRegex = /[\p{Emoji_Presentation}\p{Emoji}\u200D]+/gu;
+            const parts = title.split(emojiRegex);
+            const emojis = title.match(emojiRegex) || [];
+            
+            const result = [];
+            for (let i = 0; i < parts.length; i++) {
+                // Add text part with gradient
+                if (parts[i]) {
+                    result.push(
+                        <span key={`text-${i}`} className="bg-gradient-to-r from-neon-blue to-neon-purple bg-clip-text text-transparent">
+                            {parts[i]}
+                        </span>
+                    );
+                }
+                
+                // Add emoji without gradient
+                if (i < emojis.length) {
+                    result.push(
+                        <span key={`emoji-${i}`} className="text-3xl">
+                            {emojis[i]}
+                        </span>
+                    );
+                }
             }
             
-            // Add emoji without gradient
-            if (i < emojis.length) {
-                result.push(
-                    <span key={`emoji-${i}`} className="text-3xl">
-                        {emojis[i]}
-                    </span>
-                );
-            }
-        }
-        
-        return result;
-    };
+            return result;
+        };
+    }, []);
 
     return (
         <>

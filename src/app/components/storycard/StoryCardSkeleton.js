@@ -115,9 +115,9 @@ export default function StoryCardSkeleton({ story, index, viewType = 'feed' }) {
                         pointerEvents: 'none' // Don't interact with skeleton
                     }}
                 >
-                    {/* Title */}
+                    {/* Title - LARGER for better LCP (should be LCP element, not client version) */}
                     <div className="mb-3">
-                        <h2 className="text-white text-lg font-bold line-clamp-2">
+                        <h2 className="text-white text-2xl md:text-3xl font-bold line-clamp-2">
                             {story.title || 'Untitled Story'}
                         </h2>
                     </div>
