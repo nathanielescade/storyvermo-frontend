@@ -28,7 +28,7 @@ export default function RootLayout({ children }) {
         {/* Font preload removed to avoid adding large font to initial payload; CSS is deferred below */}
 
         {/* Google Analytics - DEFERRED to lazyOnload for even better performance */}
-        {process.env.NODE_ENV === 'production' && (
+        {/* {process.env.NODE_ENV === 'production' && (
           <>
             <Script
               src="https://www.googletagmanager.com/gtag/js?id=G-JCM36RQZ8G"
@@ -48,7 +48,7 @@ export default function RootLayout({ children }) {
               `}
             </Script>
           </>
-        )}
+        )} */}
 
         {/* Favicon and App Icons */}
         <link rel="icon" href="/favicon.ico" type="image/x-icon" />
