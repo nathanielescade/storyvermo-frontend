@@ -23,7 +23,6 @@ const TrendingTagsModal = ({ isOpen, onClose, onTagSelect }) => {
                 const topTags = tags.slice(0, 10);
                 setTrendingTags(topTags);
             } catch (err) {
-                console.error('Error fetching trending tags:', err);
                 setError('Failed to load trending tags');
             } finally {
                 setLoading(false);

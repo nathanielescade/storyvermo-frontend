@@ -179,7 +179,6 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
             label: city.name
           })));
         } catch (err) {
-          console.error('Failed to load cities:', err);
         }
       })();
     } else {
@@ -276,7 +275,6 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
         setCountries(countryOptions);
         countriesLoadedRef.current = true;
       } catch (err) {
-        console.error('Failed to load countries:', err);
       }
     };
 

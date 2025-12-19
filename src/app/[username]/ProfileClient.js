@@ -223,7 +223,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
       setSavedStories(response.saved_stories || []);
       
     } catch (error) {
-      console.error('Error fetching profile:', error);
     } finally {
       // Only clear loading if we didn't already have an initial profile
       if (!initialProfile) setLoading(false);
@@ -327,7 +326,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
       // Clean up the temporary blob URL
       URL.revokeObjectURL(objectUrl);
     } catch (error) {
-      console.error('Error uploading image:', error);
     }
   }, [username]);
 
@@ -352,7 +350,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
           : story
       ));
     } catch (error) {
-      console.error('Error toggling like:', error);
     }
   };
 
@@ -365,7 +362,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
           : story
       ));
     } catch (error) {
-      console.error('Error toggling save:', error);
     }
   };
 
@@ -428,7 +424,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
         await loadFollowData();
       }
     } catch (error) {
-      console.error('Error toggling follow:', error);
       // rollback optimistic update on error
       setIsFollowing(prev => !prev);
       setFollowersCount(prev => optimistic ? Math.max(0, prev - 1) : prev + 1);
@@ -535,7 +530,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
         }
       }
     } catch (error) {
-      console.error('Error toggling user follow in modal:', error);
       // rollback optimistic changes using the inverse of nowFollowing
       setMyFollowingSet(prev => {
         const copy = new Set(prev);

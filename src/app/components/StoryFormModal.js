@@ -191,7 +191,6 @@ const StoryFormModal = ({
               return;
             }
           } catch (err) {
-            console.error('Failed to fetch full story data:', err);
           }
           
           // Fallback: use provided data
@@ -329,7 +328,6 @@ const StoryFormModal = ({
         setImageFile(file);
         setImagePreview(preview);
       } catch (err) {
-        console.error(`[StoryFormModal] Image processing error:`, err);
         setError(`Failed to process image: ${err.message}`);
       }
     }
@@ -623,7 +621,6 @@ const StoryFormModal = ({
           type: 'cover',
           onProgress: (percent) => {
             // Update UI with progress if needed
-            console.log(`Cover image upload: ${percent.toFixed(0)}%`);
           }
         });
       }
@@ -640,7 +637,6 @@ const StoryFormModal = ({
               imgIndex,
               onProgress: (percent) => {
                 // Update UI with progress if needed
-                console.log(`Verse ${verseIndex + 1}, Image ${imgIndex + 1} upload: ${percent.toFixed(0)}%`);
               }
             });
           }
@@ -715,7 +711,6 @@ const StoryFormModal = ({
       if (deletedMoments.length > 0) {
         const momentDeletePromises = deletedMoments.map(momentId => 
           momentsApi.deleteMoment(momentId).catch(err => {
-            console.error(`Failed to delete moment ${momentId}:`, err);
             // Don't throw - continue with other deletions
           })
         );
@@ -725,7 +720,6 @@ const StoryFormModal = ({
       if (deletedVerses.length > 0) {
         const verseDeletePromises = deletedVerses.map(verseSlug => 
           versesApi.deleteVerse(verseSlug).catch(err => {
-            console.error(`Failed to delete verse ${verseSlug}:`, err);
             // Don't throw - continue with other deletions
           })
         );
@@ -813,7 +807,6 @@ const StoryFormModal = ({
           body: JSON.stringify({ slug: savedStory?.slug })
         })
       } catch (e) {
-        console.error('Failed to notify publish proxy:', e);
       }
 
       setTimeout(() => {
@@ -828,7 +821,6 @@ const StoryFormModal = ({
         }
       }, 1500); // Reduced timeout for faster feedback
     } catch (err) {
-      console.error('Publish error:', err);
       
       // Provide user-friendly error messages
       let errorMessage = 'An error occurred while saving the story. Please try again.';

@@ -104,9 +104,7 @@ export default async function TagPage({ params }) {
       tag: tag  // Pass decoded tag directly to API
     };
     initial = await storiesApi.getPaginatedStories(params);
-    console.log(`[TagPage] Fetched stories for tag "${tag}":`, initial?.results?.length || 0, 'stories');
   } catch (e) {
-    console.error(`[TagPage] Error fetching stories for tag "${tag}":`, e);
     // Return empty initial state instead of null
     initial = { results: [], next_cursor: null, has_more: false, count: 0, page_size: 20 };
   }
@@ -142,7 +140,6 @@ export default async function TagPage({ params }) {
     currentTag: tag,
   };
   
-  console.log(`[TagPage] Passing initialState with ${stories.length} stories for tag "${tag}"`, { hasMore, nextCursor });
 
   return <FeedClient initialState={initialState} />;
 }

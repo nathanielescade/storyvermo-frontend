@@ -34,22 +34,18 @@ async function safeFetch(url, options = {}) {
     });
     
     if (!response.ok) {
-      console.error(`API fetch failed: ${url} - Status: ${response.status}`);
       return null;
     }
     
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error(`API fetch error: ${url}`, error.message);
     return null;
   }
 }
 
 export async function GET() {
   try {
-    console.log('🗺️  Starting sitemap generation...');
-    
     // Static important routes (ALWAYS included)
     const urls = [
       { loc: `${SITE_URL}/`, priority: '1.0', changefreq: 'hourly' },
@@ -84,15 +80,12 @@ export async function GET() {
     // ============================================================================
     // FETCH TAGS (Trending + Recent)
     // ============================================================================
-    console.log('📌 Fetching tags...');
     
     try {
       // Fetch trending tags
       const trendingTags = await safeFetch(`${API_URL}/api/tags/trending/`);
       
       if (Array.isArray(trendingTags) && trendingTags.length > 0) {
-        console.log(`✅ Found ${trendingTags.length} trending tags`);
-        
         trendingTags.slice(0, 100).forEach((t) => {
           const tag = t?.slug || t?.name || (typeof t === 'string' ? t : null);
           if (tag) {
@@ -107,16 +100,12 @@ export async function GET() {
             }
           }
         });
-      } else {
-        console.log('⚠️  No trending tags found');
       }
 
       // Fetch recent tags
       const recentTags = await safeFetch(`${API_URL}/api/tags/recent/`);
       
       if (Array.isArray(recentTags) && recentTags.length > 0) {
-        console.log(`✅ Found ${recentTags.length} recent tags`);
-        
         recentTags.slice(0, 100).forEach((t) => {
           const tag = t?.slug || t?.name || (typeof t === 'string' ? t : null);
           if (tag) {
@@ -133,21 +122,18 @@ export async function GET() {
         });
       }
     } catch (tagError) {
-      console.error('❌ Tag fetch error:', tagError.message);
+      // Silently handle tag errors
     }
 
     // ============================================================================
     // FETCH ALL USERS/CREATORS
     // ============================================================================
-    console.log('👥 Fetching all users...');
     
     try {
       // Fetch recommended creators
       const creators = await safeFetch(`${API_URL}/api/stories/recommended_creators/`);
       
       if (Array.isArray(creators) && creators.length > 0) {
-        console.log(`✅ Found ${creators.length} recommended creators`);
-        
         creators.forEach((creator) => {
           const username = creator?.username;
           if (username) {
@@ -164,13 +150,12 @@ export async function GET() {
         });
       }
     } catch (userError) {
-      console.error('❌ User fetch error:', userError.message);
+      // Silently handle user errors
     }
 
     // ============================================================================
     // FETCH STORIES (Paginated)
     // ============================================================================
-    console.log('📚 Fetching stories...');
     
     const MAX_PAGES = 500;
     let page = 1;
@@ -183,13 +168,8 @@ export async function GET() {
       
       // Break if no data or empty results
       if (!data || !data.results || data.results.length === 0) {
-        if (page === 1) {
-          console.log('⚠️  No stories found - database might be empty');
-        }
         break;
       }
-
-      console.log(`📄 Page ${page}: ${data.results.length} stories`);
 
       for (const story of data.results) {
         const slug = extractSlug(story);
@@ -285,25 +265,6 @@ export async function GET() {
       page++;
     }
 
-    console.log(`✅ Total stories: ${totalStories}`);
-    console.log(`✅ Total URLs: ${urls.length}`);
-
-    // Count each type for logging
-    const counts = {
-      stories: urls.filter(u => u.loc.includes('/stories/')).length,
-      users: urls.filter(u => !u.loc.includes('/stories/') && !u.loc.includes('/tags/') && !u.loc.includes('/verses/') && u.loc.match(/\/[^\/]+$/)).length,
-      tags: urls.filter(u => u.loc.includes('/tags/')).length,
-      verses: urls.filter(u => u.loc.includes('/verses/')).length,
-      static: urls.filter(u => u.loc.match(/\/(about|contact|privacy|terms|login|signup|^$)/)).length,
-    };
-    
-    console.log('📊 URL breakdown:');
-    console.log(`   - Stories: ${counts.stories}`);
-    console.log(`   - Users: ${counts.users}`);
-    console.log(`   - Tags: ${counts.tags}`);
-    console.log(`   - Verses: ${counts.verses}`);
-    console.log(`   - Static pages: ${counts.static}`);
-
     // ============================================================================
     // BUILD XML SITEMAP
     // ============================================================================
@@ -325,8 +286,6 @@ export async function GET() {
 
     const xml = xmlParts.join('\n');
 
-    console.log('🎉 Sitemap generated successfully!');
-
     return new Response(xml, {
       headers: {
         'Content-Type': 'application/xml; charset=utf-8',
@@ -335,8 +294,6 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('❌ Sitemap generation error:', error);
-
     // Return minimal valid sitemap on error
     const minimalXml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

@@ -252,7 +252,6 @@ const CommentModal = ({
       setError('');
       
       const response = await commentsApi.fetchComments(post.slug);
-      console.log('📝 Fetched comments response:', response);
       
       // Handle different response formats
       let commentsArray = [];
@@ -264,8 +263,6 @@ const CommentModal = ({
         commentsArray = response.comments;
       }
       
-      console.log('📝 Comments array:', commentsArray);
-      console.log('📝 First comment:', commentsArray[0]);
       
       // Ensure each comment has a replies array (may be populated if backend returns them)
       commentsArray = commentsArray.map(comment => ({
@@ -287,7 +284,6 @@ const CommentModal = ({
         return new Date(b.created_at) - new Date(a.created_at);
       });
 
-      console.log('📝 Sorted comments:', sortedComments);
       setComments(sortedComments);
       
       // Fetch replies for all comments in parallel
@@ -320,7 +316,6 @@ const CommentModal = ({
         setComments(updatedComments);
       });
     } catch (error) {
-      console.error('❌ Error fetching comments:', error);
       setError('Failed to load comments. Please try again.');
       setComments([]);
     } finally {

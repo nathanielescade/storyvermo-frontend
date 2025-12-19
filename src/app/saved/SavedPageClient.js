@@ -107,7 +107,6 @@ const SavedPageClient = () => {
         const stories = await storiesApi.getSavedStories();
         setSavedStories(stories);
       } catch (error) {
-        console.error('Error fetching saved stories:', error);
       } finally {
         setLoading(false);
       }
@@ -134,7 +133,6 @@ const SavedPageClient = () => {
     try {
       await storiesApi.toggleSaveBySlug(story.slug);
     } catch (error) {
-      console.error('Error toggling save:', error);
       // Revert on error
       setSavedStories(prev => [...prev, story]);
     }
@@ -150,7 +148,6 @@ const SavedPageClient = () => {
         likes_count: s.isLiked ? (s.likes_count || 0) - 1 : (s.likes_count || 0) + 1
       }) : s));
     } catch (e) {
-      console.error('Error toggling like:', e);
     }
   };
 
@@ -170,7 +167,6 @@ const SavedPageClient = () => {
         const el = children[storyFeedModal.initialIndex];
         if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center' });
       } catch (e) {
-        console.error('Error scrolling to story:', e);
       }
     }, 60);
     return () => clearTimeout(t);

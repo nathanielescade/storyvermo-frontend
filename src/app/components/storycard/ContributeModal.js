@@ -117,7 +117,6 @@ const ContributeModal = ({
                                 existing: false
                             };
                         } catch (error) {
-                            console.error(`Failed to process ${file.name}:`, error);
                             return null;
                         }
                     })
@@ -169,7 +168,6 @@ const ContributeModal = ({
                 if (deletedMoments.length > 0) {
                     const momentDeletePromises = deletedMoments.map(momentId => 
                         momentsApi.deleteMoment(momentId).catch(err => {
-                            console.error(`Failed to delete moment ${momentId}:`, err);
                         })
                     );
                     await Promise.all(momentDeletePromises);

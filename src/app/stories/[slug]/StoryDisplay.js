@@ -125,7 +125,6 @@ export default function StoryDisplay({ initialStory, slug }) {
               setInitialVerseIndex(freshIdx >= 0 ? freshIdx : 0);
             }
           } catch (err) {
-            console.error('Error fetching fresh story for verse:', err);
           }
         };
         fetchStoryWithSlug();

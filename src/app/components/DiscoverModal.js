@@ -76,7 +76,6 @@ const DiscoverModal = ({ isOpen, onClose }) => {
         loadMyFollowing(normalized);
       }
     } catch (error) {
-      console.error('Error fetching recommended users:', error);
       setError('Failed to load users. Please try again later.');
       setUsers([]);
     } finally {
@@ -114,14 +113,12 @@ const DiscoverModal = ({ isOpen, onClose }) => {
       router.push(`/${username}`);
       onClose();
     } catch (e) {
-      console.error('Navigation error:', e);
     }
   };
 
   // Toggle follow/unfollow a user from the Discover modal
   const handleToggleFollow = async (e, user) => {
     try { e.stopPropagation(); } catch (err) {}
-    console.debug('DiscoverModal: follow click', user?.username);
     if (!isAuthenticated) {
       try { window.dispatchEvent(new CustomEvent('auth:open', { detail: { type: 'follow', data: null } })); } catch (err) {}
       openAuthModal?.();
@@ -142,9 +139,7 @@ const DiscoverModal = ({ isOpen, onClose }) => {
     }));
 
     try {
-      console.debug('DiscoverModal: calling follow API for', username);
       const res = await userApi.followUser(username);
-      console.debug('DiscoverModal: follow API response', res);
       // reconcile
       const serverFollowing = res && (res.following ?? res.is_following ?? res.followed);
       if (typeof serverFollowing !== 'undefined') {
@@ -169,7 +164,6 @@ const DiscoverModal = ({ isOpen, onClose }) => {
         }
       }
     } catch (err) {
-      console.error('Follow toggle failed', err);
       // rollback on error
       setUsers(prev => prev.map(u => ((u.username || u.user) === username ? { ...u, isFollowing: !u.isFollowing } : u)));
     } finally {

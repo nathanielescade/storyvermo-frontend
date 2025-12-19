@@ -86,7 +86,6 @@ const CreatorChip = ({
         }
 
         if (typeof handleFollow !== 'function') {
-            console.warn('CreatorChip: no handleFollow provided; not performing follow action.');
             return;
         }
 
@@ -97,7 +96,6 @@ const CreatorChip = ({
                 await result;
             }
         } catch (err) {
-            console.error('CreatorChip: follow handler error', err);
         } finally {
             setIsFollowLoading(false);
         }

@@ -49,7 +49,6 @@ const EnlargeModal = ({
             alert('Image downloaded successfully!');
             
         } catch (error) {
-            console.error('Download failed:', error);
             
             // FALLBACK: Try using canvas to convert and download
             try {
@@ -90,7 +89,6 @@ const EnlargeModal = ({
                 img.src = coverImageUrl;
                 
             } catch (canvasError) {
-                console.error('Canvas fallback failed:', canvasError);
                 alert('Unable to download image. Try right-click > Save image as...');
             }
         } finally {

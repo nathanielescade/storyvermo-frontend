@@ -40,7 +40,6 @@ const SearchBar = ({
         const searches = await searchHistoryApi.getRecent();
         setRecentSearches(Array.isArray(searches) ? searches : []);
       } catch (error) {
-        console.error('Failed to load search history:', error);
         setRecentSearches([]);
       }
     };
@@ -110,7 +109,6 @@ const SearchBar = ({
 
       setResults(newResults);
     } catch (error) {
-      console.error('Search error:', error);
       setResults(prev => ({ ...prev, loading: false }));
     }
   }, 120);
@@ -135,7 +133,6 @@ const SearchBar = ({
         }
       }
     } catch (e) {
-      console.error('Navigation error:', e);
     } finally {
       setShowSuggestions(false);
       setActiveSuggestionIndex(-1);
@@ -204,7 +201,6 @@ const SearchBar = ({
       setShowSuggestions(false);
       if (isMobile && onClose) onClose();
     } catch (error) {
-      console.error('Failed to save search:', error);
       // Still navigate even if save fails
       router.push(`/search?q=${encodeURIComponent(trimmedQuery)}`);
       setShowSuggestions(false);
@@ -220,7 +216,6 @@ const SearchBar = ({
       await searchHistoryApi.clear();
       setRecentSearches([]);
     } catch (error) {
-      console.error('Failed to clear search history:', error);
       alert('Failed to clear search history. Please try again.');
     }
   };

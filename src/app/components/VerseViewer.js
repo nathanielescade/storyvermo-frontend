@@ -462,7 +462,6 @@ const VerseViewer = ({
     }
     
     if (!verseSlug) {
-      console.warn('Cannot like verse: missing slug', currentVerse);
       return;
     }
     
@@ -507,7 +506,6 @@ const VerseViewer = ({
         }
       }
     } catch (error) {
-      console.error('Error toggling verse like:', error);
       setIsLiked(wasLiked);
       setLikeCount(prevLikeCount);
     } finally {
@@ -525,7 +523,6 @@ const VerseViewer = ({
     }
     
     if (!verseSlug) {
-      console.warn('Cannot save verse: missing slug', currentVerse);
       return;
     }
     
@@ -570,7 +567,6 @@ const VerseViewer = ({
         }
       }
     } catch (error) {
-      console.error('Error toggling verse save:', error);
       setIsSaved(wasSaved);
       setSaveCount(prevSaveCount);
     } finally {
@@ -886,7 +882,6 @@ const VerseViewer = ({
             try {
               const updatedStory = await versesApi.getVersesByStorySlug(story.slug);
             } catch (error) {
-              console.error('Error refreshing story data:', error);
             }
           }
         }}
@@ -930,7 +925,6 @@ const VerseViewer = ({
                     }
                     alert('Verse deleted successfully!');
                   } catch (error) {
-                    console.error('Error deleting verse:', error);
                     alert('Error deleting verse. Please try again.');
                   }
                 }}

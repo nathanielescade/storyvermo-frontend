@@ -50,14 +50,12 @@ const ActionButtons = ({
 
         // Check authentication first
         if (!isAuthenticated) {
-            console.log('❌ User not authenticated, opening auth modal');
             openAuthModal?.('like');
             return;
         }
 
         // Prevent double-clicks
         if (isLikeLoading) {
-            console.log('⏳ Like already loading, ignoring click');
             return;
         }
 
@@ -68,7 +66,6 @@ const ActionButtons = ({
         try {
             // Mark loading first so UI can apply immediate fill without transition
             setIsLikeLoading(true);
-            console.log('👍 Toggling like for story:', story.id, 'Current state:', isLiked);
 
             // Optimistic UI update (instant visual change)
             setIsLiked(!wasLiked);
@@ -80,7 +77,6 @@ const ActionButtons = ({
 
             // Call backend API
             const response = await storiesApi.toggleLike(story.slug);
-            console.log('✅ Like toggle response:', response);
 
             // Update with actual server response
             const newLikedStatus = response.is_liked || response.isLiked || response.user_has_liked || !wasLiked;
@@ -93,7 +89,6 @@ const ActionButtons = ({
             }
 
         } catch (error) {
-            console.error('❌ Error toggling like:', error);
 
             // Revert optimistic update on error using captured values
             setIsLiked(wasLiked);
@@ -112,14 +107,12 @@ const ActionButtons = ({
 
         // Check authentication first
         if (!isAuthenticated) {
-            console.log('❌ User not authenticated, opening auth modal');
             openAuthModal?.('save');
             return;
         }
 
         // Prevent double-clicks
         if (isSaveLoading) {
-            console.log('⏳ Save already loading, ignoring click');
             return;
         }
 
@@ -127,14 +120,12 @@ const ActionButtons = ({
         try {
             // Mark loading so fill is applied instantly without transition
             setIsSaveLoading(true);
-            console.log('🔖 Toggling save for story:', story.id, 'Current state:', isSaved);
 
             // Optimistic UI update (instant)
             setIsSaved(!wasSaved);
 
             // Call backend API (use slug and existing storiesApi.toggleSave)
             const response = await storiesApi.toggleSave(story.slug);
-            console.log('✅ Save toggle response:', response);
 
             // Update with actual server response
             const newSavedStatus = response.is_saved || response.isSaved || response.user_has_saved || !wasSaved;
@@ -146,7 +137,6 @@ const ActionButtons = ({
             }
 
         } catch (error) {
-            console.error('❌ Error toggling save:', error);
 
             // Revert optimistic update on error
             setIsSaved(wasSaved);

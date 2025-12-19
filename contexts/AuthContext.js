@@ -409,12 +409,10 @@ export function AuthProvider({ children }) {
 
       // For other non-ok responses (network/server errors), do not clear
       // in-memory auth — return false but preserve the current state.
-      console.warn('refreshAuth: non-auth failure', resp.status, await resp.text().catch(() => 'no-body'));
       return false;
     } catch (error) {
       // Network or unexpected error. Don't clear the current in-memory
       // auth state — calling code can retry or surface an error.
-      console.warn('refreshAuth: network/error', error);
       return false;
     }
   };

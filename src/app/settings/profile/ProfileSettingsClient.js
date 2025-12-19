@@ -121,7 +121,6 @@ export default function ProfileSettingsClient() {
         setCountries(options);
         setCountriesLoaded(true);
       } catch (err) {
-        console.error('Failed to load countries:', err);
       }
     };
 
@@ -283,7 +282,6 @@ export default function ProfileSettingsClient() {
           label: city.name
         })));
       } catch (err) {
-        console.error('Failed to load cities:', err);
       }
     } else {
       setAvailableCities([]);

@@ -126,7 +126,6 @@ export default function StoryCard({
             setCurrentStory(fullStory);
             setIsFollowing(fullStory.isFollowing || fullStory.is_following || false);
         } catch (error) {
-            console.error('Error refetching story:', error);
         }
     }, [story.slug]);
 
@@ -269,7 +268,6 @@ export default function StoryCard({
             const response = await userApi.followUser(username);
             setIsFollowing(response.is_following);
         } catch (error) {
-            console.error('Error following user:', error);
         }
     };
 
@@ -288,7 +286,6 @@ export default function StoryCard({
             // Only open the viewer AFTER data is ready
             setShowVerseViewer(true);
         } catch (e) {
-            console.error('Error fetching story verses:', e);
             setIsViewerOpening(false);
         }
     }, [story.slug]);
@@ -334,7 +331,6 @@ export default function StoryCard({
                 }
             }, 500);
         } catch (err) {
-            console.error('Failed to delete story:', err);
             // Show error notification
             try {
               const event = new CustomEvent('notification:show', {
@@ -729,13 +725,11 @@ export default function StoryCard({
                                     document.execCommand('copy');
                                     alert('Link copied to clipboard!');
                                 } catch (err) {
-                                    console.error('Fallback: Oops, unable to copy', err);
                                     alert('Unable to copy link. Please copy manually.');
                                 }
                                 document.body.removeChild(textArea);
                             }
                         } catch (error) {
-                            console.error('Error copying to clipboard:', error);
                             alert('Failed to copy link. Please try again.');
                         }
                     }}
