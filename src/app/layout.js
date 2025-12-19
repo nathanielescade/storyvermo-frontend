@@ -16,19 +16,15 @@ export default function RootLayout({ children }) {
         <meta name="google-site-verification" content="wJjq83au-maldcRICvQfKYPlbzQ1pdustQ_GOSqJuVY" />
 
         {/* 🔥 CRITICAL PRECONNECTS - Load these FIRST */}
-        <link rel="preconnect" href="https://api.storyvermo.com" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://api.storyvermo.com" />
-        <link rel="preconnect" href="https://storyvermo.nyc3.cdn.digitaloceanspaces.com" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://storyvermo.nyc3.cdn.digitaloceanspaces.com" />
         <link rel="dns-prefetch" href="https://storyvermo.nyc3.cdn.digitaloceanspaces.com" />
-        <link rel="preconnect" href="https://nyc3.digitaloceanspaces.com" crossOrigin="anonymous" />
-        <link rel="dns-prefetch" href="https://nyc3.digitaloceanspaces.com" />
         <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
         
         {/* Font preload removed to avoid adding large font to initial payload; CSS is deferred below */}
 
         {/* Google Analytics - DEFERRED to lazyOnload for even better performance */}
-        {/* {process.env.NODE_ENV === 'production' && (
+        {process.env.NODE_ENV === 'production' && (
           <>
             <Script
               src="https://www.googletagmanager.com/gtag/js?id=G-JCM36RQZ8G"
@@ -48,7 +44,7 @@ export default function RootLayout({ children }) {
               `}
             </Script>
           </>
-        )} */}
+        )}
 
         {/* Favicon and App Icons */}
         <link rel="icon" href="/favicon.ico" type="image/x-icon" />
@@ -79,13 +75,13 @@ export default function RootLayout({ children }) {
           media="print"
           crossOrigin="anonymous"
         />
-        {/* <noscript>
+        <noscript>
           <link
             rel="stylesheet"
             href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
             crossOrigin="anonymous"
           />
-        </noscript> */}
+        </noscript>
 
         {/* 🔥 OPTIMIZED: Defer Swiper CSS (non-blocking) */}
         <link
