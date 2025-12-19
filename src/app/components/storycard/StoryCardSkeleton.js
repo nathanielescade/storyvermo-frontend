@@ -70,7 +70,7 @@ export default function StoryCardSkeleton({ story, index, viewType = 'feed' }) {
                 data-creator={creatorUsername}
                 data-story-slug={story.slug || ''}
             >
-                {/* IMAGE - Priority load */}
+                {/* IMAGE - Priority load with fetchpriority for LCP optimization */}
                 {coverImageUrl ? (
                     <div className="relative w-full h-full">
                         {index === 0 ? (
@@ -79,7 +79,9 @@ export default function StoryCardSkeleton({ story, index, viewType = 'feed' }) {
                                 alt={story.title || 'Story cover'}
                                 fill
                                 priority
+                                fetchpriority="high"
                                 quality={60}
+                                loading="eager"
                                 className="scene-bg w-full h-full"
                                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
                             />

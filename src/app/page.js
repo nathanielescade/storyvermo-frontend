@@ -55,8 +55,8 @@ export default async function Home({ initialTag = 'for-you' }) {
   try {
     const params = { 
       cursor: null,
-      // Increased from 3 to 8 for better initial load experience
-      limit: 8,
+      // Increased from 8 to 12 for better LCP - ensures first story loads in viewport
+      limit: 12,
       tag: initialTag || 'for-you' 
     };
     initial = await storiesApi.getPaginatedStories(params);
