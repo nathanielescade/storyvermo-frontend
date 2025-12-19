@@ -75,13 +75,6 @@ export default function RootLayout({ children }) {
           media="print"
           crossOrigin="anonymous"
         />
-        <noscript>
-          <link
-            rel="stylesheet"
-            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-            crossOrigin="anonymous"
-          />
-        </noscript>
 
         {/* 🔥 OPTIMIZED: Defer Swiper CSS (non-blocking) */}
         <link
@@ -89,9 +82,6 @@ export default function RootLayout({ children }) {
           href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css"
           media="print"
         />
-        <noscript>
-          <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css" />
-        </noscript>
 
         {/* Client-side flipping of deferred CSS media to avoid passing event handlers in Server Components */}
         <Script id="deferred-css" strategy="lazyOnload">
