@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 
-const ImageUploadArea = ({ imagePreview, title, compressImageFile, setImageFile, setImagePreview, setError }) => {
+const ImageUploadArea = ({ imagePreview, title, setImageFile, setImagePreview, setError }) => {
   const fileInputRef = useRef(null);
 
   const handleFileChange = async (e) => {
@@ -16,7 +16,7 @@ const ImageUploadArea = ({ imagePreview, title, compressImageFile, setImageFile,
         return;
       }
       
-      // Validate file size (50MB pre-compression)
+      // Validate file size (50MB)
       if (file.size > 50 * 1024 * 1024) {
         setError('Image file must be less than 50MB');
         // Reset input so user can try again
@@ -27,33 +27,13 @@ const ImageUploadArea = ({ imagePreview, title, compressImageFile, setImageFile,
       try {
         setError(null);
 
-        // Show an immediate preview using an object URL so the user sees the image instantly
-        const immediatePreview = URL.createObjectURL(file);
-        setImagePreview(immediatePreview);
-        // Keep the original file for now; we'll replace with compressed result when ready
+        // Create a preview URL for the image
+        const preview = URL.createObjectURL(file);
+        setImagePreview(preview);
         setImageFile(file);
-
-        // Compress the image in the background and update preview/file when done
-        compressImageFile(file)
-          .then((compressed) => {
-            try {
-              // Replace with compressed file and preview (usually a dataURL)
-              setImageFile(compressed.file);
-              setImagePreview(compressed.preview || immediatePreview);
-              console.log(`Cover image compressed: ${compressed.originalSize}KB → ${compressed.compressedSize}KB (${compressed.ratio}% reduction)`);
-            } finally {
-              // Revoke the temporary object URL to avoid memory leaks
-              try { URL.revokeObjectURL(immediatePreview); } catch (e) {}
-            }
-          })
-          .catch((err) => {
-            console.error('Background compression failed for cover image:', err);
-            // Keep the immediate preview if compression fails; user still sees image
-          })
-          .finally(() => {
-            // Reset input after kicking off background work
-            inputElement.value = '';
-          });
+        
+        // Reset input after processing
+        inputElement.value = '';
       } catch (err) {
         setError(`Failed to process image: ${err.message}`);
         // Reset input on error too
@@ -134,7 +114,7 @@ const ImageUploadArea = ({ imagePreview, title, compressImageFile, setImageFile,
               <span className="fas fa-cloud-upload-alt text-cyan-400 text-3xl"></span>
             </div>
             <p className="text-gray-300 font-medium text-lg">Click to upload cover image</p>
-            <p className="text-gray-500 text-sm mt-2">JPG, PNG, GIF up to 10MB</p>
+            <p className="text-gray-500 text-sm mt-2">JPG, PNG, GIF up to 50MB</p>
           </div>
         )}
       </div>

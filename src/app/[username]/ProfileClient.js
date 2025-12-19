@@ -6,7 +6,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { userApi, storiesApi, absoluteUrl } from '../../../lib/api';
 import { useAuth } from '../../../contexts/AuthContext';
-import { useImageCompressionUploader } from '../../../hooks/useImageCompressionUploader';
 import StoryCard from '../components/StoryCard';
 
 // SmartImg component remains unchanged
@@ -270,34 +269,20 @@ export default function ProfileClient({ username, initialProfile = null }) {
     }
   }, [storyFeedModal.visible, storyFeedModal.initialIndex]);
 
-  // Fixed image upload function with compression
-  const { compressImageFile } = useImageCompressionUploader();
-
   const handleImageUpload = useCallback(async (file, type) => {
     try {
-      // Compress the image before uploading
-      let compressedFile = file;
-      try {
-        const compressed = await compressImageFile(file);
-        compressedFile = compressed.file;
-        console.log(`Profile image compressed: ${compressed.originalSize}KB → ${compressed.compressedSize}KB (${compressed.ratio}% reduction)`);
-      } catch (error) {
-        console.warn('Image compression failed, using original file:', error);
-        // Continue with original file if compression fails
-      }
-
-      const formData = new FormData();
-      formData.append('image', compressedFile);
-      formData.append('type', type);
-      
       // Create object URL for immediate preview BEFORE uploading
-      const objectUrl = URL.createObjectURL(compressedFile);
+      const objectUrl = URL.createObjectURL(file);
       
       // Update the user state immediately with the object URL for instant preview
       setUser(prev => ({
         ...prev,
         [type === 'profile' ? 'profile_image_url' : 'cover_image_url']: objectUrl
       }));
+      
+      const formData = new FormData();
+      formData.append('image', file);
+      formData.append('type', type);
       
       // Upload the image
       await userApi.updateProfileImage(username, formData);
@@ -344,7 +329,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
     } catch (error) {
       console.error('Error uploading image:', error);
     }
-  }, [username, compressImageFile]);
+  }, [username]);
 
   // Handle story card click
   const handleStoryClick = (e, index) => {

@@ -5,7 +5,6 @@ import { useDropzone } from 'react-dropzone';
 import { X as CloseIcon } from 'lucide-react';
 import { getCsrfToken } from '../../../../lib/utils';
 import { versesApi, momentsApi, imagesApi } from '../../../../lib/api';
-import { useImageCompressionUploader } from '../../../../hooks/useImageCompressionUploader';
 
 const ContributeModal = ({ 
     showContributeModal, 
@@ -21,7 +20,6 @@ const ContributeModal = ({
     const [deletedMoments, setDeletedMoments] = useState([]);
     const fileInputRef = useRef(null);
     const textareaRef = useRef(null);
-    const { compressImageFile } = useImageCompressionUploader();
 
     // Initialize form when editingVerse changes
     useEffect(() => {
@@ -107,21 +105,10 @@ const ContributeModal = ({
                 return;
             }
 
-            // Compress all images in parallel
             try {
                 const imagePreviews = await Promise.all(
                     validFiles.map(async (file) => {
                         try {
-                            const compressed = await compressImageFile(file);
-                            console.log(`Contribute modal image compressed: ${compressed.originalSize}KB → ${compressed.compressedSize}KB (${compressed.ratio}% reduction)`);
-                            return {
-                                file: compressed.file,
-                                preview: compressed.preview,
-                                name: file.name,
-                                existing: false
-                            };
-                        } catch (error) {
-                            console.error(`Compression failed for ${file.name}, using original:`, error);
                             const preview = await generatePreview(file);
                             return {
                                 file: file,
@@ -129,11 +116,16 @@ const ContributeModal = ({
                                 name: file.name,
                                 existing: false
                             };
+                        } catch (error) {
+                            console.error(`Failed to process ${file.name}:`, error);
+                            return null;
                         }
                     })
                 );
                 
-                setVerseImages(prev => [...prev, ...imagePreviews]);
+                // Filter out any null results from failed processing
+                const validPreviews = imagePreviews.filter(preview => preview !== null);
+                setVerseImages(prev => [...prev, ...validPreviews]);
                 inputElement.value = '';
             } catch (error) {
                 alert(`Failed to process images: ${error.message}`);
@@ -315,7 +307,7 @@ const ContributeModal = ({
                                                 // Check if creator object has account_type and brand_name
                                                 if (typeof story.creator === 'object' && story.creator) {
                                                     if (story.creator.account_type === 'brand' && story.creator.brand_name) {
-                                                        return story.creator.brand_name;
+                                                        return story.creator_brand_name;
                                                     }
                                                     if (story.creator.first_name) {
                                                         return story.creator.first_name;
