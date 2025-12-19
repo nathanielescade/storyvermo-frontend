@@ -80,7 +80,7 @@ export default function StoryCardSkeleton({ story, index, viewType = 'feed' }) {
                                 fill
                                 priority
                                 fetchPriority="high"
-                                quality={60}
+                                quality={50}
                                 loading="eager"
                                 className="scene-bg w-full h-full"
                                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"

@@ -18,8 +18,10 @@ export default function RootLayout({ children }) {
         {/* 🔥 CRITICAL PRECONNECTS - Load these FIRST */}
         <link rel="preconnect" href="https://api.storyvermo.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://api.storyvermo.com" />
-        <link rel="preconnect" href="https://storyvermo.nyc3.cdn.digitaloceanspaces.com" />
+        <link rel="preconnect" href="https://storyvermo.nyc3.cdn.digitaloceanspaces.com" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://storyvermo.nyc3.cdn.digitaloceanspaces.com" />
+        <link rel="preconnect" href="https://nyc3.digitaloceanspaces.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://nyc3.digitaloceanspaces.com" />
         <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
         

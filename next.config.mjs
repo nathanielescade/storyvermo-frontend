@@ -21,9 +21,11 @@ const nextConfig = {
     deviceSizes: [320, 640, 768, 1024],
     // 🔥 OPTIMIZED: Smaller image sizes for thumbnails and avatars
     imageSizes: [32, 48, 64, 96],
-    // 🔥 AGGRESSIVE: Cache optimized remote images longer (6 hours)
-    minimumCacheTTL: 21600,
+    // 🔥 AGGRESSIVE: Cache optimized remote images much longer (24 hours) for LCP
+    minimumCacheTTL: 86400,
     // 🔥 OPTIMIZED: Aggressive dangerously allow SVG optimization
+    dangerouslyAllowSVG: false,
+    // 🔥 CRITICAL: Reduce image optimization CPU time - use faster algorithm
     dangerouslyAllowSVG: false,
     remotePatterns: [
       // Local development backend
