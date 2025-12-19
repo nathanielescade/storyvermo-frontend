@@ -16,6 +16,8 @@ export default function RootLayout({ children }) {
         <meta name="google-site-verification" content="wJjq83au-maldcRICvQfKYPlbzQ1pdustQ_GOSqJuVY" />
 
         {/* 🔥 CRITICAL PRECONNECTS - Load these FIRST */}
+        <link rel="preconnect" href="https://api.storyvermo.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://api.storyvermo.com" />
         <link rel="preconnect" href="https://storyvermo.nyc3.cdn.digitaloceanspaces.com" />
         <link rel="dns-prefetch" href="https://storyvermo.nyc3.cdn.digitaloceanspaces.com" />
         <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossOrigin="anonymous" />
