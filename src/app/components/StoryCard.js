@@ -126,6 +126,7 @@ export default function StoryCard({
             setCurrentStory(fullStory);
             setIsFollowing(fullStory.isFollowing || fullStory.is_following || false);
         } catch (error) {
+
         }
     }, [story.slug]);
 
@@ -268,6 +269,7 @@ export default function StoryCard({
             const response = await userApi.followUser(username);
             setIsFollowing(response.is_following);
         } catch (error) {
+
         }
     };
 
@@ -286,6 +288,7 @@ export default function StoryCard({
             // Only open the viewer AFTER data is ready
             setShowVerseViewer(true);
         } catch (e) {
+
             setIsViewerOpening(false);
         }
     }, [story.slug]);
@@ -331,6 +334,7 @@ export default function StoryCard({
                 }
             }, 500);
         } catch (err) {
+
             // Show error notification
             try {
               const event = new CustomEvent('notification:show', {
@@ -725,11 +729,13 @@ export default function StoryCard({
                                     document.execCommand('copy');
                                     alert('Link copied to clipboard!');
                                 } catch (err) {
+
                                     alert('Unable to copy link. Please copy manually.');
                                 }
                                 document.body.removeChild(textArea);
                             }
                         } catch (error) {
+
                             alert('Failed to copy link. Please try again.');
                         }
                     }}

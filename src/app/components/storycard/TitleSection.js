@@ -22,14 +22,19 @@ const TitleSection = ({
     const [isReady, setIsReady] = useState(false);
 
     useEffect(() => {
-        // Defer truncation check to avoid blocking initial render for LCP
+        // For the first story (index 0), check truncation synchronously to avoid LCP delay
+        if (index === 0) {
+            checkTruncation();
+            setIsReady(true);
+            return;
+        }
+        // For other stories, defer truncation check to avoid blocking initial render
         const timeoutId = setTimeout(() => {
             checkTruncation();
             setIsReady(true);
         }, 0);
-        
         return () => clearTimeout(timeoutId);
-    }, [story.title, story.description, titleExpanded, descExpanded]);
+    }, [story.title, story.description, titleExpanded, descExpanded, index]);
 
     const checkTruncation = () => {
         if (titleRef.current) {
@@ -94,12 +99,11 @@ const TitleSection = ({
 
     return (
         <>
-            <div className="title-container" id={`title-container-${index}`}>
+            <div className="title-container" id={`title-container-${index}`}> 
                 <Link 
                     href={currentTag ? `/stories/${story.slug}/?tag=${encodeURIComponent(currentTag)}` : `/stories/${story.slug}/`} 
                     className="block"
                     onMouseEnter={(e) => {
-                        // Prefetch the story page on hover for instant navigation
                         if (e.currentTarget.prefetch) {
                             e.currentTarget.prefetch();
                         }
@@ -117,7 +121,14 @@ const TitleSection = ({
                                 toggleTitle();
                             }
                         }}
-                        style={{
+                        style={index === 0 ? {
+                            // For the first story, render synchronously for LCP
+                            display: '-webkit-box',
+                            WebkitBoxOrient: 'vertical',
+                            WebkitLineClamp: titleExpanded ? 'unset' : 2,
+                            overflow: titleExpanded ? 'visible' : 'hidden',
+                            containIntrinsicSize: 'auto 2em',
+                        } : {
                             display: '-webkit-box',
                             WebkitBoxOrient: 'vertical',
                             WebkitLineClamp: titleExpanded ? 'unset' : 2,
@@ -127,8 +138,6 @@ const TitleSection = ({
                         {renderTitleWithEmojis(story.title)}
                     </h2>
                 </Link>
-                
-                {/* Title toggle control */}
                 {wasTitleTruncated && (
                     <span 
                         className="text-cyan-400 ml-1 cursor-pointer text-sm font-medium hover:text-cyan-300 transition-colors"
@@ -142,8 +151,7 @@ const TitleSection = ({
                     </span>
                 )}
             </div>
-            
-            <div className="desc-container" id={`desc-container-${index}`}>
+            <div className="desc-container" id={`desc-container-${index}`}> 
                 <div 
                     ref={descRef}
                     className={`scene-description  ${
@@ -159,8 +167,6 @@ const TitleSection = ({
                 >
                     {story.description || 'No description available.'}
                 </div>
-                
-                {/* Description toggle control */}
                 {wasDescTruncated && (
                     <span 
                         className="text-cyan-400 cursor-pointer text-sm font-medium hover:text-cyan-300 transition-colors mt-1 inline-block"
