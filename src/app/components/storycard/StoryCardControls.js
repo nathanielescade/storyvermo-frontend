@@ -52,26 +52,52 @@ export default function StoryCardControls({
     const [descExpanded, setDescExpanded] = useState(false);
     const [isTitleTruncated, setIsTitleTruncated] = useState(false);
     const [isDescTruncated, setIsDescTruncated] = useState(false);
-    const [showCommentModal, setShowCommentModal] = useState(false);
-    const [showVerseViewer, setShowVerseViewer] = useState(false);
-    const [isViewerOpening, setIsViewerOpening] = useState(false);
-    const [showShareModal, setShowShareModal] = useState(false);
+    
+    // 🔥 OPTIMIZED: Lazy initialize modal states only when needed
+    const [activeModals, setActiveModals] = useState({});
+    const showModal = (modalName) => setActiveModals(prev => ({ ...prev, [modalName]: true }));
+    const hideModal = (modalName) => setActiveModals(prev => ({ ...prev, [modalName]: false }));
+    
+    const showCommentModal = activeModals.comment || false;
+    const setShowCommentModal = (val) => val ? showModal('comment') : hideModal('comment');
+    const showVerseViewer = activeModals.verse || false;
+    const setShowVerseViewer = (val) => val ? showModal('verse') : hideModal('verse');
+    const isViewerOpening = activeModals.viewerOpening || false;
+    const setIsViewerOpening = (val) => val ? showModal('viewerOpening') : hideModal('viewerOpening');
+    const showShareModal = activeModals.share || false;
+    const setShowShareModal = (val) => val ? showModal('share') : hideModal('share');
     const [localCommentsCount, setLocalCommentsCount] = useState(story.comments_count || 0);
 
-    // Hologram icon modals
-    const [showContributeModal, setShowContributeModal] = useState(false);
-    const [showRecommendModal, setShowRecommendModal] = useState(false);
-    const [showEnlargeModal, setShowEnlargeModal] = useState(false);
-    const [showMoreOptionsModal, setShowMoreOptionsModal] = useState(false);
-    const [showDropdown, setShowDropdown] = useState(false);
+    // 🔥 OPTIMIZED: Consolidate remaining modal states into single object
+    const [moreModals, setMoreModals] = useState({});
+    const showMoreModal = (name) => setMoreModals(prev => ({ ...prev, [name]: true }));
+    const hideMoreModal = (name) => setMoreModals(prev => ({ ...prev, [name]: false }));
+    
+    const showContributeModal = moreModals.contribute || false;
+    const setShowContributeModal = (val) => val ? showMoreModal('contribute') : hideMoreModal('contribute');
+    const showRecommendModal = moreModals.recommend || false;
+    const setShowRecommendModal = (val) => val ? showMoreModal('recommend') : hideMoreModal('recommend');
+    const showEnlargeModal = moreModals.enlarge || false;
+    const setShowEnlargeModal = (val) => val ? showMoreModal('enlarge') : hideMoreModal('enlarge');
+    const showMoreOptionsModal = moreModals.moreOptions || false;
+    const setShowMoreOptionsModal = (val) => val ? showMoreModal('moreOptions') : hideMoreModal('moreOptions');
+    const showDropdown = moreModals.dropdown || false;
+    const setShowDropdown = (val) => val ? showMoreModal('dropdown') : hideMoreModal('dropdown');
+    const showStoryFormModal = moreModals.form || false;
+    const setShowStoryFormModal = (val) => val ? showMoreModal('form') : hideMoreModal('form');
+    const showDeleteModal = moreModals.delete || false;
+    const setShowDeleteModal = (val) => val ? showMoreModal('delete') : hideMoreModal('delete');
     const [dropdownCoords, setDropdownCoords] = useState(null);
-
-    // Story form modal
-    const [showStoryFormModal, setShowStoryFormModal] = useState(false);
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [isDeleting, setIsDeleting] = useState(false);
-    const [storyDeleted, setStoryDeleted] = useState(false);
-    const [editingVerseForModal, setEditingVerseForModal] = useState(null);
+    
+    // 🔥 OPTIMIZED: Consolidate all remaining form states into single object
+    const [formStates, setFormStates] = useState({});
+    
+    const isDeleting = formStates.isDeleting || false;
+    const setIsDeleting = (val) => setFormStates(prev => ({ ...prev, isDeleting: val }));
+    const storyDeleted = formStates.storyDeleted || false;
+    const setStoryDeleted = (val) => setFormStates(prev => ({ ...prev, storyDeleted: val }));
+    const editingVerseForModal = formStates.editingVerse || null;
+    const setEditingVerseForModal = (val) => setFormStates(prev => ({ ...prev, editingVerse: val }));
 
     // State for current story to handle updates
     const [currentStory, setCurrentStory] = useState(story);
@@ -235,7 +261,7 @@ export default function StoryCardControls({
         return () => {
             document.removeEventListener('mousedown', handleClickOutside);
         };
-    }, []);
+    }, [setShowDropdown]);
 
     const handleFollow = async (event, username) => {
         event.stopPropagation();
@@ -280,7 +306,7 @@ export default function StoryCardControls({
             console.error('Error fetching story verses:', e);
             setIsViewerOpening(false);
         }
-    }, [story.slug]);
+    }, [story.slug, setShowVerseViewer, setIsViewerOpening]);
 
     const handleDeleteStory = async () => {
         setShowDeleteModal(false);
