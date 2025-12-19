@@ -1,5 +1,6 @@
 @import "tailwindcss";
 
+/* 2. Theme definitions */
 @theme inline {
   --font-orbitron: 'Orbitron', sans-serif;
   --font-rajdhani: 'Rajdhani', sans-serif;
@@ -15,24 +16,29 @@
 
 
         
-        .image-container {
-            position: relative;
-            width: 100%;
-            height: 100vh;
-            overflow: hidden;
-            scroll-snap-align: start;
-            scroll-snap-stop: always;
 
-        }
-        
-        .image-feed {
-            height: 100vh;
-            overflow-y: scroll;
-            scroll-snap-type: y mandatory;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
+.image-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background: #111;
+}
 
-        }
+.image-feed {
+    height: 100vh;
+    overflow-y: scroll;
+    scroll-snap-type: y mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+}
         
         .image-feed::-webkit-scrollbar {
             display: none;
@@ -43,6 +49,13 @@
             width: 100%;
             height: 100vh;
             overflow: hidden;
+            scroll-snap-align: start;
+            scroll-snap-stop: always;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: #111;
         }
         
         .scene-bg {

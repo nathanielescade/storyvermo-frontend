@@ -265,14 +265,6 @@ export default function FeedClient({ initialState }) {
         ref={feedRef}
         className={`image-feed ${currentDimension === 'verses_page' ? 'hidden' : ''}`} 
         id="imageFeed"
-        style={{ 
-          height: 'calc(100vh - 80px)',
-          overflowY: 'auto', 
-          paddingTop: '80px',
-          scrollBehavior: 'smooth',
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none'
-        }}
       >
         {/* Custom scrollbar styling */}
         <style jsx>{`
