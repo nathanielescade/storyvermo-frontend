@@ -34,64 +34,47 @@ export default function FeedClient({ initialState }) {
   // Use stories as-is - moment images are already stripped on the API side
   const feedStories = useMemo(() => stories, [stories]);
 
-  // 💾 Restore scroll position when returning to feed
+  // Improved scroll restoration for TikTok-style feed
   useEffect(() => {
-    if (typeof window === 'undefined' || !feedRef.current) return;
-    
-    // Small delay to ensure DOM is fully rendered
-    const timer = setTimeout(() => {
+    if (typeof window === 'undefined') return;
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+
+    // Save scroll position on pagehide (covers SPA and browser back/forward)
+    const saveScroll = () => {
+      if (feedRef.current) {
+        try {
+          sessionStorage.setItem('feedScrollPos', String(feedRef.current.scrollTop));
+        } catch (e) {}
+      }
+    };
+    window.addEventListener('pagehide', saveScroll);
+    window.addEventListener('popstate', saveScroll);
+
+    // Restore scroll position only on back/forward navigation
+    let restored = false;
+    const tryRestore = () => {
+      if (restored) return;
       try {
         const scrollPos = sessionStorage.getItem('feedScrollPos');
         if (scrollPos && feedRef.current) {
           feedRef.current.scrollTop = parseInt(scrollPos, 10);
-          sessionStorage.removeItem('feedScrollPos'); // Clear after restoring
+          restored = true;
         }
-      } catch (e) {
-        // Silently fail if sessionStorage is unavailable
-      }
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [feedStories.length]); // Restore when stories load
-
-  // 💾 Save scroll position before navigation
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const handleBeforeUnload = () => {
-      if (feedRef.current) {
-        try {
-          sessionStorage.setItem('feedScrollPos', String(feedRef.current.scrollTop));
-        } catch (e) {
-          // Silently fail
-        }
-      }
+      } catch (e) {}
     };
-
-    // Save scroll position when user navigates away
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    
-    // Also intercept link clicks (for client-side navigation)
-    const handleLinkClick = (e) => {
-      const target = e.target.closest('a');
-      if (target && target.href && !target.target) {
-        if (feedRef.current) {
-          try {
-            sessionStorage.setItem('feedScrollPos', String(feedRef.current.scrollTop));
-          } catch (e) {
-            // Silently fail
-          }
-        }
-      }
-    };
-
-    document.addEventListener('click', handleLinkClick, true);
+    // Try restore on mount and after stories load
+    setTimeout(tryRestore, 100);
+    // Also restore on popstate (browser back)
+    window.addEventListener('popstate', tryRestore);
 
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      document.removeEventListener('click', handleLinkClick, true);
+      window.removeEventListener('pagehide', saveScroll);
+      window.removeEventListener('popstate', saveScroll);
+      window.removeEventListener('popstate', tryRestore);
     };
-  }, []);
+  }, [feedStories.length]);
 
   // 🚀 INTERSECTION OBSERVER for automatic infinite scroll trigger
   useEffect(() => {
