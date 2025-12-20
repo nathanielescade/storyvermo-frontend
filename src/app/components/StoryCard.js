@@ -490,7 +490,7 @@ export default function StoryCard({
                                         {coverImageUrl ? (
                                                 <div className="relative w-full h-full">
                                                 {/* Use LazyImage for offscreen images; keep priority for first item */}
-                                                {/* {index === 0 ? (
+                                                {index === 0 ? (
                                                     <Image
                                                         src={coverImageUrl}
                                                         alt={story.title || 'Story cover'}
@@ -511,7 +511,7 @@ export default function StoryCard({
                                                         quality={60}
                                                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
                                                     />
-                                                )} */}
+                                                )}
                                         </div>
                                         ) : (
                         <div className="scene-bg-placeholder bg-linear-to-br from-slate-800 to-slate-900 flex items-center justify-center">
