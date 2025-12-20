@@ -1,59 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import ShareModal from '../components/ShareModal';
+import TagsClient from '../components/TagsClient';
 
-export default function TagsClient() {
-  const [tags, setTags] = useState([]);
-  const [error, setError] = useState(null);
-  const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [selectedTag, setSelectedTag] = useState(null);
+export default function TagsPage() {
+  return <TagsClient />;
+}
 
-  // Helper function to get full site URL
-  const siteUrl = (path) => {
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://storyvermo.com';
-    return `${baseUrl}${path}`;
-  };
-
-  useEffect(() => {
-    // Fetch tags from API
-    const fetchTags = async () => {
-      try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/tags/`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch tags');
-        }
-        const data = await response.json();
-        setTags(data);
-      } catch (err) {
-        console.error('Error fetching tags:', err);
-        setError(err.message);
-      }
-    };
-
-    fetchTags();
-  }, []);
-
-  const handleShareTag = (tag, event) => {
-    // Prevent navigation when clicking share button
-    event.preventDefault();
-    event.stopPropagation();
-
-    const name = tag?.name || String(tag);
-    const slug = tag?.slug || String(name).toLowerCase().replace(/\s+/g, '-');
-    const count = tag?.story_count || tag?.count || 0;
-    const tagUrl = siteUrl(`/tags/${encodeURIComponent(slug)}/`);
+// All code below this line was legacy and is now removed for SPA-style build correctness.
     
-    // Create a placeholder image for the tag (you can customize this)
-    const tagImage = `${process.env.NEXT_PUBLIC_SITE_URL}/images/tag-placeholder.jpg`;
-
-    // Set selected tag data
+    // Get the tag image if available
+    const tagImage = tagImages[slug] || siteUrl('/og-image.png');
+    
+    // Set the tag data for the modal
     setSelectedTag({
       name,
       slug,
       url: tagUrl,
-      count: count,
+      count: tag?.story_count || tag?.count || 0,
       image: tagImage
     });
     
@@ -69,12 +32,8 @@ export default function TagsClient() {
 
             <header className="relative mb-6 z-10 flex items-center justify-between">
               <div>
-                <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-500">
-                  Tags
-                </h1>
-                <p className="text-sm text-gray-300 mt-2">
-                  Explore tags and discover stories. Click a tag to open its SEO-friendly page.
-                </p>
+                <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-500">Tags</h1>
+                <p className="text-sm text-gray-300 mt-2">Explore tags and discover stories. Click a tag to open its SEO-friendly page.</p>
                 {error && (
                   <p className="text-sm text-red-400 mt-2">Unable to load tags: {error}</p>
                 )}
@@ -105,19 +64,8 @@ export default function TagsClient() {
                           aria-label="Share tag"
                           title="Share this tag"
                         >
-                          <svg 
-                            xmlns="http://www.w3.org/2000/svg" 
-                            className="h-4 w-4" 
-                            fill="none" 
-                            viewBox="0 0 24 24" 
-                            stroke="currentColor"
-                          >
-                            <path 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round" 
-                              strokeWidth={2} 
-                              d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" 
-                            />
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                           </svg>
                         </button>
                       </div>
@@ -152,24 +100,19 @@ export default function TagsClient() {
       )}
 
       {/* JSON-LD structured data for tags to improve SEO */}
-      <script 
-        type="application/ld+json" 
-        dangerouslySetInnerHTML={{ 
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "ItemList",
-            name: "Tags",
-            description: "List of tags on StoryVermo",
-            url: siteUrl('/tags/'),
-            itemListElement: (Array.isArray(tags) ? tags : []).map((t, i) => ({
-              "@type": "ListItem",
-              position: i + 1,
-              url: siteUrl(`/tags/${encodeURIComponent(t?.slug || (t?.name || '').toLowerCase().replace(/\s+/g, '-'))}/`),
-              name: t?.name || t
-            }))
-          }) 
-        }} 
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "ItemList",
+        name: "Tags",
+        description: "List of tags on StoryVermo",
+        url: siteUrl('/tags/'),
+        itemListElement: (Array.isArray(tags) ? tags : []).map((t, i) => ({
+          "@type": "ListItem",
+          position: i + 1,
+          url: siteUrl(`/tags/${encodeURIComponent(t?.slug || (t?.name || '').toLowerCase().replace(/\s+/g, '-'))}/`),
+          name: t?.name || t
+        }))
+      }) }} />
     </div>
   );
 }
