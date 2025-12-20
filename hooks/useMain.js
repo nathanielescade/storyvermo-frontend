@@ -4,7 +4,11 @@ import { storiesApi, userApi } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { stripVerseImages } from '../lib/utils';
 
+
 export default function useMain(initialState = null) {
+    // In-memory cache for stories by tag (SPA feel)
+    const storiesCacheRef = useRef({});
+
     // Load saved feed state from sessionStorage to restore position when returning
     const getSavedFeedState = () => {
         if (typeof window === 'undefined') return null;
@@ -89,14 +93,26 @@ export default function useMain(initialState = null) {
     }, []);
     
     // Handle tag switching - reset to first page
+
     const handleTagSwitch = useCallback(async (tag, { force = false } = {}) => {
         if (tag === currentTag && !force) return;
 
-        setLoading(true);
+        // Show cached stories instantly if available
+        const cacheKey = String(tag || '').toLowerCase();
+        const cached = storiesCacheRef.current[cacheKey];
+        if (cached && !force) {
+            setStories(cached.stories);
+            setNextCursor(cached.nextCursor);
+            setHasMore(cached.hasMore);
+            setTotalCount(cached.totalCount);
+            setLoading(false);
+        } else {
+            setLoading(true);
+        }
         setError(null);
         setPrefetchedStories(null);
         setPrefetchedCursor(null);
-        
+
         try {
             setCurrentTag(tag);
             lastFetchTagRef.current = tag;
@@ -113,13 +129,13 @@ export default function useMain(initialState = null) {
 
             const result = await storiesApi.getPaginatedStories(params);
             let fetched = result.results || [];
-            
+
             // 🚀 OPTIMIZATION: Only enrich stories that are missing tag data
             // This ensures instant display by using lightweight data when available
             const needsEnrichment = fetched.some(story => 
               !Array.isArray(story.tags) && story.tags_count === undefined
             );
-            
+
             if (needsEnrichment) {
                 try {
                     fetched = await Promise.all(
@@ -140,7 +156,7 @@ export default function useMain(initialState = null) {
                     // If Promise.all fails, just use lightweight stories
                 }
             }
-            
+
             // Shuffle for-you feed for variety
             if (force && tag === 'for-you' && fetched.length > 1) {
                 for (let i = fetched.length - 1; i > 0; i--) {
@@ -233,7 +249,15 @@ export default function useMain(initialState = null) {
             setNextCursor(result.next_cursor || null);
             setHasMore(result.has_more !== false);
             setTotalCount(result.count || 0);
-            
+
+            // Cache the stories for this tag for instant switching
+            storiesCacheRef.current[cacheKey] = {
+                stories: fetched,
+                nextCursor: result.next_cursor || null,
+                hasMore: result.has_more !== false,
+                totalCount: result.count || 0
+            };
+
             // Prefetch next page automatically
             if (result.next_cursor && !isPrefetchingRef.current) {
                 prefetchNextPageInner(result.next_cursor, tag);
