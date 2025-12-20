@@ -64,8 +64,10 @@ export default function FeedClient({ initialState }) {
         }
       } catch (e) {}
     };
-    // Try restore on mount and after stories load
-    setTimeout(tryRestore, 100);
+    // Restore scroll after stories are loaded and not in loading state
+    if (!loading && feedStories.length > 0) {
+      setTimeout(tryRestore, 100);
+    }
     // Also restore on popstate (browser back)
     window.addEventListener('popstate', tryRestore);
 
@@ -74,7 +76,7 @@ export default function FeedClient({ initialState }) {
       window.removeEventListener('popstate', saveScroll);
       window.removeEventListener('popstate', tryRestore);
     };
-  }, [feedStories.length]);
+  }, [feedStories.length, loading]);
 
   // 🚀 INTERSECTION OBSERVER for automatic infinite scroll trigger
   useEffect(() => {
@@ -195,17 +197,10 @@ export default function FeedClient({ initialState }) {
 
   // Listen for back/forward navigation
   useEffect(() => {
-    const onPop = () => {
+    const onPop = (e) => {
       const m = window.location.pathname.match(/^\/tags\/([^\/]+)\/?$/);
       const tag = m && m[1] ? decodeURIComponent(m[1]) : 'for-you';
-      if (feedRef.current) {
-        try {
-          feedRef.current.scrollTo({ top: 0 });
-        } catch (e) {
-          // ignore scroll errors in non-DOM contexts
-        }
-      }
-
+      // On popstate, do NOT scroll to top. Just switch tag and let scroll restoration logic handle position.
       handleTagSwitch(tag);
     };
     window.addEventListener('popstate', onPop);
@@ -259,7 +254,7 @@ export default function FeedClient({ initialState }) {
         {/* Initial loading state - show skeleton loaders instead of "no stories" */}
         {loading || feedStories.length === 0 ? (
           loading ? (
-            <div className="flex justify-center items-center h-64">
+            <div className="flex justify-center items-center min-h-screen h-[70vh]">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent-orange"></div>
             </div>
           ) : (

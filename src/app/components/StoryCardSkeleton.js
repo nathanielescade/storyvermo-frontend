@@ -8,46 +8,46 @@ import React from 'react';
  */
 export default function StoryCardSkeleton() {
   return (
-    <div className="story-card-skeleton">
-      <div className="skeleton-content">
+    <div className="bg-zinc-900  overflow-hidden border border-zinc-800">
+      <div className="p-0 space-y-4">
         {/* Header skeleton - creator chip */}
-        <div className="skeleton-header">
-          <div className="skeleton-avatar"></div>
-          <div className="skeleton-header-text">
-            <div className="skeleton-username"></div>
-            <div className="skeleton-timestamp"></div>
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-zinc-800 rounded-full animate-pulse"></div>
+          <div className="flex-1 space-y-2">
+            <div className="h-4 bg-zinc-800 rounded w-24 animate-pulse"></div>
+            <div className="h-3 bg-zinc-800 rounded w-16 animate-pulse"></div>
           </div>
         </div>
 
         {/* Cover image skeleton */}
-        <div className="skeleton-image"></div>
+        <div className="w-full h-48 bg-zinc-800 rounded-lg animate-pulse"></div>
 
         {/* Title skeleton */}
-        <div className="skeleton-title-section">
-          <div className="skeleton-title-line skeleton-line-1"></div>
-          <div className="skeleton-title-line skeleton-line-2"></div>
+        <div className="space-y-2">
+          <div className="h-5 bg-zinc-800 rounded w-3/4 animate-pulse"></div>
+          <div className="h-5 bg-zinc-800 rounded w-1/2 animate-pulse"></div>
         </div>
 
         {/* Description skeleton */}
-        <div className="skeleton-description">
-          <div className="skeleton-desc-line skeleton-line-1"></div>
-          <div className="skeleton-desc-line skeleton-line-2"></div>
-          <div className="skeleton-desc-line skeleton-line-3"></div>
+        <div className="space-y-2">
+          <div className="h-4 bg-zinc-800 rounded w-full animate-pulse"></div>
+          <div className="h-4 bg-zinc-800 rounded w-full animate-pulse"></div>
+          <div className="h-4 bg-zinc-800 rounded w-2/3 animate-pulse"></div>
         </div>
 
         {/* Tags skeleton */}
-        <div className="skeleton-tags">
-          <div className="skeleton-tag"></div>
-          <div className="skeleton-tag"></div>
-          <div className="skeleton-tag"></div>
+        <div className="flex gap-2">
+          <div className="h-6 bg-zinc-800 rounded-full w-16 animate-pulse"></div>
+          <div className="h-6 bg-zinc-800 rounded-full w-20 animate-pulse"></div>
+          <div className="h-6 bg-zinc-800 rounded-full w-14 animate-pulse"></div>
         </div>
 
         {/* Action buttons skeleton */}
-        <div className="skeleton-actions">
-          <div className="skeleton-button"></div>
-          <div className="skeleton-button"></div>
-          <div className="skeleton-button"></div>
-          <div className="skeleton-button"></div>
+        <div className="flex items-center gap-4 pt-2">
+          <div className="h-9 bg-zinc-800 rounded w-20 animate-pulse"></div>
+          <div className="h-9 bg-zinc-800 rounded w-20 animate-pulse"></div>
+          <div className="h-9 bg-zinc-800 rounded w-20 animate-pulse"></div>
+          <div className="h-9 bg-zinc-800 rounded flex-1 animate-pulse"></div>
         </div>
       </div>
     </div>

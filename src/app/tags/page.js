@@ -1,109 +1,11 @@
 // src/app/tags/page.js
 'use client';
 
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { absoluteUrl, siteUrl } from '../../../lib/api';
-import ShareModal from '../components/ShareModal';
+import TagsClient from '../components/TagsClient';
 
 export default function TagsPage() {
-  const [tags, setTags] = useState([]);
-  const [error, setError] = useState(null);
-  const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [selectedTag, setSelectedTag] = useState(null);
-  const [tagImages, setTagImages] = useState({});
-  
-  // Fetch tags data
-  useEffect(() => {
-    const fetchTags = async () => {
-      try {
-        // Fetch all tags with their story counts
-        const response = await fetch(absoluteUrl('/api/tags/'), {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          // Handle both array and paginated response
-          let fetchedTags = Array.isArray(data) ? data : (data?.results || []);
-          
-          // If no tags from LIST, fallback to trending tags
-          if (!Array.isArray(fetchedTags) || fetchedTags.length === 0) {
-            const trendingResponse = await fetch(absoluteUrl('/api/tags/trending/'), {
-              method: 'GET',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              credentials: 'include',
-            });
-            
-            if (trendingResponse.ok) {
-              const trendingData = await trendingResponse.json();
-              fetchedTags = Array.isArray(trendingData) ? trendingData : (trendingData?.results || []);
-            }
-          }
-          setTags(fetchedTags);
-          
-          // Fetch first story image for each tag
-          fetchTagImages(fetchedTags);
-        } else {
-          setError(`Failed to fetch tags: ${response.status}`);
-        }
-      } catch (e) {
-        setError(e.message);
-        setTags([]);
-      }
-    };
-
-    fetchTags();
-  }, []);
-
-  const fetchTagImages = async (tagsToFetch) => {
-    const images = {};
-    
-    for (const tag of tagsToFetch.slice(0, 10)) { // Limit to first 10 to avoid too many requests
-      try {
-        const slug = tag?.slug || String(tag?.name || '').toLowerCase().replace(/\s+/g, '-');
-        const response = await fetch(absoluteUrl('/api/stories/paginated_stories/?tag=' + encodeURIComponent(slug) + '&limit=5'), {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          const stories = data?.results || [];
-          
-          // Find the first story WITH a cover image
-          for (const story of stories) {
-            const coverImage = story?.cover_image_url || story?.cover_image?.file_url;
-            if (coverImage) {
-              images[slug] = coverImage;
-              break; // Found one with image, stop searching
-            }
-          }
-        }
-      } catch (e) {
-        // Silent fail - will use fallback image
-      }
-    }
-    
-    setTagImages(images);
-  };
-
-  const handleShareTag = (tag, e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const name = tag?.name || String(tag);
-    const slug = tag?.slug || String(name).toLowerCase().replace(/\s+/g, '-');
-    const tagUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/tags/${encodeURIComponent(slug)}/`;
+  return <TagsClient />;
+}
     
     // Get the tag image if available
     const tagImage = tagImages[slug] || siteUrl('/og-image.png');
