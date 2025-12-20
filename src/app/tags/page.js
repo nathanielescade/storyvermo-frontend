@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import ShareModal from './ShareModal';
+import ShareModal from '../components/ShareModal';
 
 export default function TagsClient() {
   const [tags, setTags] = useState([]);
