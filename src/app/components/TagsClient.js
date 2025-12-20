@@ -112,7 +112,7 @@ export default function TagsClient() {
       )}
       {selectedTag && (
         <div className="mt-6">
-          <h3 className="text-lg font-semibold mb-2">Stories for "{selectedTag}"</h3>
+          <h3 className="text-lg font-semibold mb-2">Stories for &quot;{selectedTag}&quot;</h3>
           {storiesLoading ? <div>Loading stories...</div> : (
             <ul>
               {stories.length === 0 ? <li>No stories found for this tag.</li> : stories.map(story => (
