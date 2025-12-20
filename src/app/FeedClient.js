@@ -32,7 +32,15 @@ export default function FeedClient({ initialState }) {
   const observerRef = useRef(null);
 
   // Use stories as-is - moment images are already stripped on the API side
-  const feedStories = useMemo(() => stories, [stories]);
+  // When loading, show skeletons immediately on tag switch
+  const [pendingTagSwitch, setPendingTagSwitch] = useState(false);
+  const feedStories = useMemo(() => {
+    if (loading && pendingTagSwitch) {
+      // Show empty array to trigger skeletons
+      return [];
+    }
+    return stories;
+  }, [stories, loading, pendingTagSwitch]);
 
   // Improved scroll restoration for TikTok-style feed
   useEffect(() => {
@@ -163,11 +171,14 @@ export default function FeedClient({ initialState }) {
       return;
     }
 
+    setPendingTagSwitch(true);
+
     if (currentTag === tagName) {
       if (feedRef.current) {
         feedRef.current.scrollTo({ top: 0, behavior: 'smooth' });
       }
-      handleTagSwitch(tagName, { force: true });
+      await handleTagSwitch(tagName, { force: true });
+      setPendingTagSwitch(false);
       return;
     }
 
@@ -179,7 +190,8 @@ export default function FeedClient({ initialState }) {
       // Ignore navigation errors
     }
 
-    handleTagSwitch(tagName);
+    await handleTagSwitch(tagName);
+    setPendingTagSwitch(false);
   }, [currentTag, handleTagSwitch, isAuthenticated]);
 
   // Listen for trending tag selection from Header
@@ -251,8 +263,14 @@ export default function FeedClient({ initialState }) {
           }
         `}</style>
 
-        {/* Initial loading state - show skeleton loaders instead of "no stories" */}
-        {loading || feedStories.length === 0 ? (
+        {/* Show skeletons instantly on tag switch */}
+        {pendingTagSwitch && loading ? (
+          <div className="space-y-4 px-4">
+            {[1, 2, 3].map((i) => (
+              <StoryCardSkeleton key={`skeleton-${i}`} />
+            ))}
+          </div>
+        ) : feedStories.length === 0 ? (
           loading ? (
             <div className="flex justify-center items-center min-h-screen h-[70vh]">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent-orange"></div>
