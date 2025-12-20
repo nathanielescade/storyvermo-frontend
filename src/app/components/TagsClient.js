@@ -2,12 +2,11 @@
 'use client';
 
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Head from 'next/head';
 import { absoluteUrl } from '../../../lib/api';
 
-export default function TagsClient() {
   const [tags, setTags] = useState([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -15,10 +14,11 @@ export default function TagsClient() {
   const [stories, setStories] = useState([]);
   const [storiesLoading, setStoriesLoading] = useState(false);
   const [meta, setMeta] = useState({ title: 'Tags — StoryVermo', description: 'Explore tags and discover stories.' });
+  const storiesCacheRef = useRef({});
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Fetch tags on mount
+  // Fetch tags on mount and prefetch all tag stories
   useEffect(() => {
     const fetchTags = async () => {
       setLoading(true);
@@ -41,6 +41,24 @@ export default function TagsClient() {
           fetchedTags = Array.isArray(trendingData) ? trendingData : (trendingData?.results || []);
         }
         setTags(fetchedTags);
+
+        // Prefetch all tag stories in the background
+        fetchedTags.forEach(async (tag) => {
+          const slug = tag.slug || tag.name;
+          if (!storiesCacheRef.current[slug]) {
+            try {
+              const response = await fetch(absoluteUrl(`/api/tags/${encodeURIComponent(slug)}/stories/`), {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+              });
+              const data = await response.json();
+              storiesCacheRef.current[slug] = Array.isArray(data) ? data : (data?.results || []);
+            } catch (e) {
+              storiesCacheRef.current[slug] = [];
+            }
+          }
+        });
       } catch (e) {
         setError(e.message);
         setTags([]);
@@ -63,27 +81,17 @@ export default function TagsClient() {
     }
   }, [searchParams]);
 
-  // Fetch stories for selected tag
+  // Show stories instantly from cache for selected tag
   useEffect(() => {
     if (!selectedTag) return;
-    setStoriesLoading(true);
+    setStoriesLoading(false);
     setMeta({ title: `${selectedTag} — StoryVermo`, description: `Discover creative stories and verses inspired by ${selectedTag} on StoryVermo.` });
-    const fetchStories = async () => {
-      try {
-        const response = await fetch(absoluteUrl(`/api/tags/${encodeURIComponent(selectedTag)}/stories/`), {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-        });
-        const data = await response.json();
-        setStories(Array.isArray(data) ? data : (data?.results || []));
-      } catch (e) {
-        setStories([]);
-      } finally {
-        setStoriesLoading(false);
-      }
-    };
-    fetchStories();
+    const cached = storiesCacheRef.current[selectedTag];
+    if (cached) {
+      setStories(cached);
+    } else {
+      setStories([]);
+    }
   }, [selectedTag]);
 
   // Handle tag click (SPA navigation)
