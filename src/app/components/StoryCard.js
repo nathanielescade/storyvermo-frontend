@@ -1,598 +1,754 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Heart, Bookmark, Share2, MessageCircle, MoreVertical, ChevronDown } from 'lucide-react';
+"use client";
+// StoryCard.js
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useAuth } from '../../../contexts/AuthContext';
+import Image from 'next/image';
+import LazyImage from './LazyImage';
+import { formatNumber, formatTimeAgo, createBubbles } from '../../../lib/utils';
+import { absoluteUrl, storiesApi, userApi } from '../../../lib/api';
 
-// Mock data for demonstration
-const MOCK_STORIES = [
-  {
-    id: 1,
-    slug: "enchanted-forest",
-    title: "The Enchanted Forest",
-    description: "Deep within the ancient woods lies a realm where magic still thrives. The trees whisper secrets of old, and mystical creatures dance in the moonlight. Every step reveals a new wonder, from glowing mushrooms to streams that sing.",
-    cover_image: { url: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&h=1200&fit=crop" },
-    creator: { username: "ForestWalker", profile_image: null },
-    likes_count: 12450,
-    comments_count: 890,
-    shares_count: 456,
-    saves_count: 234,
-    user_has_liked: false,
-    user_has_saved: false,
-    created_at: "2024-01-15T10:30:00Z",
-    tags: [{ name: "Fantasy" }, { name: "Magic" }, { name: "Nature" }],
-    verses: [
-      { id: 101, title: "Glowing Mushrooms", images: ["https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800"] },
-      { id: 102, title: "Ancient Spirits", images: ["https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?w=800"] }
-    ]
-  },
-  {
-    id: 2,
-    slug: "urban-nights",
-    title: "Neon City Nights",
-    description: "The city never sleeps, and neither do its stories. Every corner holds a new tale, every neon sign illuminates a different reality.",
-    cover_image: { url: "https://images.unsplash.com/photo-1514565131-fce0801e5785?w=800&h=1200&fit=crop" },
-    creator: { username: "UrbanExplorer", profile_image: null },
-    likes_count: 8920,
-    comments_count: 445,
-    shares_count: 221,
-    saves_count: 567,
-    user_has_liked: false,
-    user_has_saved: false,
-    created_at: "2024-01-14T18:45:00Z",
-    tags: [{ name: "Urban" }, { name: "Night" }, { name: "City" }],
-    verses: [
-      { id: 201, title: "Crossing Paths", images: ["https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800"] }
-    ]
-  },
-  {
-    id: 3,
-    slug: "ocean-waves",
-    title: "Ocean Waves",
-    description: "The rhythmic dance of ocean waves against the shore. Nature's meditation in motion.",
-    cover_image: { url: "https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=800&h=1200&fit=crop" },
-    creator: { username: "OceanLife", profile_image: null },
-    likes_count: 21030,
-    comments_count: 1560,
-    shares_count: 670,
-    saves_count: 890,
-    user_has_liked: true,
-    user_has_saved: false,
-    created_at: "2024-01-13T08:20:00Z",
-    tags: [{ name: "Ocean" }, { name: "Waves" }, { name: "Nature" }],
-    verses: [
-      { id: 301, title: "Sunrise Surf", images: ["https://images.unsplash.com/photo-1505142468610-359e7d316be0?w=800"] }
-    ]
-  },
-  {
-    id: 4,
-    slug: "mountain-peak",
-    title: "Mountain Peak",
-    description: "Standing at the summit, where earth meets sky. The journey was worth every step.",
-    cover_image: { url: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&h=1200&fit=crop" },
-    creator: { username: "HikersJourney", profile_image: null },
-    likes_count: 15670,
-    comments_count: 780,
-    shares_count: 430,
-    saves_count: 1200,
-    user_has_liked: false,
-    user_has_saved: true,
-    created_at: "2024-01-12T14:10:00Z",
-    tags: [{ name: "Mountain" }, { name: "Hiking" }, { name: "Adventure" }],
-    verses: [
-      { id: 401, title: "The Ascent", images: ["https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800"] }
-    ]
-  }
-];
+// Import modular components
 
-// Format time ago
-const formatTimeAgo = (dateString) => {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffInSeconds = Math.floor((now - date) / 1000);
+import HologramIcons from './storycard/HologramIcons';
+import TitleSection from './storycard/TitleSection';
+import TagsSection from './storycard/TagsSection';
+import ActionButtons from './storycard/ActionButtons';
+import CreatorChip from './storycard/CreatorChip';
+import dynamic from 'next/dynamic';
+const ContributeModal = dynamic(() => import('./storycard/ContributeModal'), { ssr: false });
+import RecommendModal from './storycard/RecommendModal';
+import EnlargeModal from './storycard/EnlargeModal';
+import DeleteModal from './storycard/DeleteModal';
+import DropdownMenu from './storycard/DropdownModal';
+
+// Import additional modals that were missing
+const StoryFormModal = dynamic(() => import('./StoryFormModal'), { ssr: false });
+import CommentModal from './CommentModal';
+import VerseViewer from './VerseViewer';
+import ShareModal from './ShareModal';
+
+export default function StoryCard({ 
+    story, 
+    index, 
+    viewType = 'feed',
+    onFollowUser,
+    onOpenStoryVerses,
+    onDeleteStory,
+    currentTag,
+    onTagSelect,
+    isAuthenticated,
+    openAuthModal
+}) {
+    const { currentUser } = useAuth();
+    const [isFollowing, setIsFollowing] = useState(story.isFollowing || story.is_following || false);
+    const [titleExpanded, setTitleExpanded] = useState(false);
+    const [descExpanded, setDescExpanded] = useState(false);
+    const [isTitleTruncated, setIsTitleTruncated] = useState(false);
+    const [isDescTruncated, setIsDescTruncated] = useState(false);
+    const [showCommentModal, setShowCommentModal] = useState(false);
+    const [showVerseViewer, setShowVerseViewer] = useState(false);
+    const [isViewerOpening, setIsViewerOpening] = useState(false);
+    const [showShareModal, setShowShareModal] = useState(false);
+    const [localCommentsCount, setLocalCommentsCount] = useState(story.comments_count || 0);
+    // Removed swipe-to-open states (gesture open was causing scroll issues)
+    
+    // Hologram icon modals
+    const [showContributeModal, setShowContributeModal] = useState(false);
+    const [showRecommendModal, setShowRecommendModal] = useState(false);
+    const [showEnlargeModal, setShowEnlargeModal] = useState(false);
+    const [showMoreOptionsModal, setShowMoreOptionsModal] = useState(false);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const [dropdownCoords, setDropdownCoords] = useState(null);
+    
+    // Story form modal
+    const [showStoryFormModal, setShowStoryFormModal] = useState(false);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [storyDeleted, setStoryDeleted] = useState(false);
+    // If opening the StoryFormModal to edit a single verse, store it here
+    const [editingVerseForModal, setEditingVerseForModal] = useState(null);
+    
+    // State for current story to handle updates
+    const [currentStory, setCurrentStory] = useState(story);
+    
+    const cardRef = useRef(null);
+    const hologramRef = useRef(null);
+    const dropdownRef = useRef(null);
+
+    // Trigger a short burst of extra bubbles in the hologram (e.g., when user likes)
+    const triggerLikeBurst = useCallback(() => {
+        const node = hologramRef.current;
+        if (!node) return;
+
+        const burstCount = 12;
+        const created = [];
+
+        for (let i = 0; i < burstCount; i++) {
+            const heart = document.createElement('div');
+            heart.className = 'like-burst-heart';
+            
+            const size = Math.random() * 10 + 8; // 8-18px (smaller)
+            heart.style.fontSize = `${size}px`;
+            heart.innerHTML = '<i class="fas fa-heart"></i>';
+            
+            // Use varied colors for each heart
+            const colors = ['#ff6b35', '#ff0080', '#00d4ff', '#9d00ff', '#ff6b35'];
+            heart.style.color = colors[Math.floor(Math.random() * colors.length)];
+
+            // Position near the like icon (left side of hologram) with some spread
+            const left = 10 + Math.random() * 15; // 10-25% (near left where like icon is)
+            const top = 30 + Math.random() * 40; // 30-70% (vertically centered)
+            heart.style.position = 'absolute';
+            heart.style.left = `${left}%`;
+            heart.style.top = `${top}%`;
+            heart.style.pointerEvents = 'none';
+            heart.style.zIndex = '1';
+
+            // Short, snappy animation so they disappear quickly
+            const duration = (Math.random() * 0.8) + 0.8; // ~0.8 - 1.6s
+            const delay = Math.random() * 0.12;
+            heart.style.animation = `bubble-float ${duration}s ease-out ${delay}s forwards`;
+
+            node.appendChild(heart);
+            created.push(heart);
+        }
+
+        // Remove them after ~2s
+        setTimeout(() => {
+            created.forEach(h => h && h.remove());
+        }, 2000);
+    }, []);
+
+    // Function to refetch story data - MUST be before first useEffect that calls it
+    const refetchStory = useCallback(async () => {
+        try {
+            const fullStory = await storiesApi.getStoryBySlug(story.slug);
+            setCurrentStory(fullStory);
+            setIsFollowing(fullStory.isFollowing || fullStory.is_following || false);
+        } catch (error) {
+
+        }
+    }, [story.slug]);
+
+    // Check if current user is the owner of the story (robust across different API shapes)
+    const isOwner = (() => {
+        if (!currentUser || !story) return false;
   
-  if (diffInSeconds < 60) return 'just now';
-  if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
-  if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
-  return `${Math.floor(diffInSeconds / 86400)}d ago`;
-};
+        const cuUsername = currentUser.username || '';
+        const cuId = currentUser.id || currentUser.pk || currentUser.user_id || '';
 
-// Format numbers
-const formatNumber = (num) => {
-  if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
-  if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
-  return num.toString();
-};
+        // If serializer provided a direct username field
+        if (story.creator_username && cuUsername && story.creator_username === cuUsername) return true;
 
-// HologramIcons Component
-const HologramIcons = ({ 
-  story, 
-  isOwner = false, 
-  isAuthenticated = true, 
-  openAuthModal = () => {},
-  setShowContributeModal = () => {},
-  setShowRecommendModal = () => {},
-  setShowEnlargeModal = () => {},
-  onOpenDropdown = () => {}
-}) => {
-  return (
-    <div className="flex justify-between items-center mb-3">
-      {/* Like button */}
-      <button 
-        className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/30 flex items-center justify-center text-white hover:scale-105 transition-all relative"
-        onClick={() => console.log('Like clicked')}
-      >
-        <i className={`${story.user_has_liked ? 'fas' : 'far'} fa-heart text-[18px] ${story.user_has_liked ? 'text-[#ff6b35]' : 'text-white'}`}></i>
-        <div className="absolute -bottom-1 -right-1 bg-[#ff6b35] text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[18px] text-center z-10">
-          {formatNumber(story.likes_count)}
-        </div>
-      </button>
+        // If serializer provided a numeric id field
+        if (story.creator_id && cuId && String(story.creator_id) === String(cuId)) return true;
 
-      {/* Comment button */}
-      <button 
-        className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/30 flex items-center justify-center text-white hover:scale-105 transition-all relative"
-        onClick={() => console.log('Comment clicked')}
-      >
-        <i className="far fa-comment text-[18px] text-white"></i>
-        <div className="absolute -bottom-1 -right-1 bg-[#ff6b35] text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[18px] text-center z-10">
-          {formatNumber(story.comments_count)}
-        </div>
-      </button>
+        // If story.creator is a plain string (username) or numeric id
+        if (typeof story.creator === 'string') {
+            if (cuUsername && story.creator === cuUsername) return true;
+            if (cuId && String(story.creator) === String(cuId)) return true;
+        }
 
-      {/* Share button */}
-      <button 
-        className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/30 flex items-center justify-center text-white hover:scale-105 transition-all relative"
-        onClick={() => console.log('Share clicked')}
-      >
-        <i className="fas fa-share text-[18px] text-white"></i>
-        <div className="absolute -bottom-1 -right-1 bg-[#ff6b35] text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[18px] text-center z-10">
-          {formatNumber(story.shares_count)}
-        </div>
-      </button>
+        // If story.creator is an object, check common fields
+        if (typeof story.creator === 'object' && story.creator) {
+            const c = story.creator;
+            if (c.username && cuUsername && c.username === cuUsername) return true;
+            if ((c.id || c.pk || c.user_id) && cuId && String(c.id || c.pk || c.user_id) === String(cuId)) return true;
+        }
 
-      {/* Save button */}
-      <button 
-        className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/30 flex items-center justify-center text-white hover:scale-105 transition-all relative"
-        onClick={() => console.log('Save clicked')}
-      >
-        <i className={`${story.user_has_saved ? 'fas' : 'far'} fa-bookmark text-[18px] ${story.user_has_saved ? 'text-[#ff6b35]' : 'text-white'}`}></i>
-      </button>
+        // Fallback: check top-level creator_user / creator_username style fields
+        if (story.creator_user && cuUsername && story.creator_user === cuUsername) return true;
 
-      {/* More options button */}
-      <button 
-        className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/30 flex items-center justify-center text-white hover:scale-105 transition-all"
-        onClick={(e) => onOpenDropdown(e.currentTarget)}
-      >
-        <i className="fas fa-ellipsis-v text-[18px] text-white"></i>
-      </button>
-    </div>
-  );
-};
+        return false;
+    })();
 
-// ActionButtons Component
-const ActionButtons = ({ 
-  story, 
-  localCommentsCount, 
-  setShowCommentModal = () => {}, 
-  setShowShareModal = () => {},
-  isAuthenticated = true,
-  openAuthModal = () => {},
-  onStoryUpdate = () => {},
-  onLikeBurst = () => {}
-}) => {
-  const [isLiked, setIsLiked] = useState(story.user_has_liked);
-  const [isSaved, setIsSaved] = useState(story.user_has_saved);
-  const [likesCount, setLikesCount] = useState(story.likes_count);
-  const [isLikeLoading, setIsLikeLoading] = useState(false);
-  const [isSaveLoading, setIsSaveLoading] = useState(false);
-
-  const handleLikeClick = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (!isAuthenticated) {
-      openAuthModal('like');
-      return;
-    }
-
-    if (isLikeLoading) return;
-
-    const wasLiked = isLiked;
-    const prevLikesCount = likesCount;
-
-    try {
-      setIsLikeLoading(true);
-      setIsLiked(!wasLiked);
-      if (!wasLiked) {
-        onLikeBurst();
-      }
-      setLikesCount(prev => wasLiked ? prev - 1 : prev + 1);
-
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Update with actual server response (simulated)
-      const newLikedStatus = !wasLiked;
-      setIsLiked(newLikedStatus);
-      setLikesCount(prevLikesCount + (newLikedStatus ? 1 : -1));
-
-      if (onStoryUpdate) {
-        await onStoryUpdate();
-      }
-    } catch (error) {
-      setIsLiked(wasLiked);
-      setLikesCount(prevLikesCount);
-      console.error('Failed to update like:', error);
-    } finally {
-      setIsLikeLoading(false);
-    }
-  };
-  
-  const handleSaveClick = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (!isAuthenticated) {
-      openAuthModal('save');
-      return;
-    }
-
-    if (isSaveLoading) return;
-
-    const wasSaved = isSaved;
-    try {
-      setIsSaveLoading(true);
-      setIsSaved(!wasSaved);
-
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Update with actual server response (simulated)
-      const newSavedStatus = !wasSaved;
-      setIsSaved(newSavedStatus);
-
-      if (onStoryUpdate) {
-        await onStoryUpdate();
-      }
-    } catch (error) {
-      setIsSaved(wasSaved);
-      console.error('Failed to update save:', error);
-    } finally {
-      setIsSaveLoading(false);
-    }
-  };
-
-  const getIconClass = (iconType, isActive) => {
-    return `${isActive ? 'fas' : 'far'} ${iconType} text-[18px] ${isActive ? 'text-[#ff6b35]' : 'text-white'}`;
-  };
-
-  const baseButtonClasses = 'w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer relative transition-all duration-200';
-  const hoverClasses = 'hover:bg-[#00d4ff]/20 hover:border-[#00d4ff] hover:scale-110';
-  const inactiveClasses = 'border border-white/20';
-  const activeClasses = 'bg-[#ff6b35]/20 border-2 border-[#ff6b35]';
-  const loadingClasses = 'opacity-50 cursor-not-allowed';
-
-  const likeButtonClasses = `${baseButtonClasses} ${hoverClasses} ${isLiked ? activeClasses : inactiveClasses} ${isLikeLoading ? 'transition-none' : ''}`;
-  const saveButtonClasses = `${baseButtonClasses} ${hoverClasses} ${isSaved ? activeClasses : inactiveClasses} ${isSaveLoading ? 'transition-none' : ''}`;
-
-  return (
-    <div className="flex justify-between mb-3 w-full gap-2">
-      {/* LIKE button */}
-      <div 
-        className={likeButtonClasses}
-        onClick={handleLikeClick}
-        role="button"
-        tabIndex={0}
-        aria-label={isLiked ? "Unlike story" : "Like story"}
-        aria-busy={isLikeLoading}
-        onKeyPress={(e) => e.key === 'Enter' && handleLikeClick(e)}
-      >
-        <i className={`${getIconClass('fa-heart', isLiked)}`}></i>
-        <div className="absolute -bottom-1 -right-1 bg-[#ff6b35] text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[18px] text-center z-10 transition-all duration-200">
-          {formatNumber(likesCount)}
-        </div>
-      </div>
-
-      {/* COMMENT button */}
-      <div 
-        className={`${baseButtonClasses} ${hoverClasses} ${inactiveClasses}`} 
-        onClick={(e) => { 
-          e.preventDefault();
-          e.stopPropagation(); 
-          setShowCommentModal(true); 
-        }}
-        role="button"
-        tabIndex={0}
-        aria-label="View comments"
-        onKeyPress={(e) => e.key === 'Enter' && setShowCommentModal(true)}
-      >
-        <i className={getIconClass('fa-comment', false)}></i>
-        <div className="absolute -bottom-1 -right-1 bg-[#ff6b35] text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[18px] text-center z-10">
-          {formatNumber(localCommentsCount || 0)}
-        </div>
-      </div>
-      
-      {/* SHARE button */}
-      <div 
-        className={`${baseButtonClasses} ${hoverClasses} ${inactiveClasses}`} 
-        onClick={() => setShowShareModal(true)}
-        role="button"
-        tabIndex={0}
-        aria-label="Share story"
-        onKeyPress={(e) => e.key === 'Enter' && setShowShareModal(true)}
-      >
-        <i className="fas fa-share text-[18px] text-white"></i>
-        <div className="absolute -bottom-1 -right-1 bg-[#ff6b35] text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[18px] text-center z-10">
-          {formatNumber(story.shares_count || 0)}
-        </div>
-      </div>
-
-      {/* SAVE button */}
-      <div 
-        className={saveButtonClasses}
-        onClick={handleSaveClick}
-        role="button"
-        tabIndex={0}
-        aria-label={isSaved ? "Remove from saved" : "Save story"}
-        aria-busy={isSaveLoading}
-        onKeyPress={(e) => e.key === 'Enter' && handleSaveClick(e)}
-      >
-        <i className={`${getIconClass('fa-bookmark', isSaved)}`}></i>
-      </div>
-    </div>
-  );
-};
-
-// Individual StoryCard Component (matches HTML structure)
-const StoryCard = ({ story, index, onTagSelect }) => {
-  const [liked, setLiked] = useState(story.user_has_liked);
-  const [saved, setSaved] = useState(story.user_has_saved);
-  const [likesCount, setLikesCount] = useState(story.likes_count);
-  const [descExpanded, setDescExpanded] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [dropdownCoords, setDropdownCoords] = useState(null);
-  const descRef = useRef(null);
-  const [needsReadMore, setNeedsReadMore] = useState(false);
-  const dropdownRef = useRef(null);
-
-  useEffect(() => {
-    if (descRef.current) {
-      setNeedsReadMore(descRef.current.scrollHeight > descRef.current.clientHeight);
-    }
-  }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowDropdown(false);
-        setDropdownCoords(null);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
-  const handleLike = () => {
-    setLiked(!liked);
-    setLikesCount(prev => liked ? prev - 1 : prev + 1);
-  };
-
-  const handleOpenDropdown = (btnEl) => {
-    try {
-      if (!btnEl || typeof btnEl.getBoundingClientRect !== 'function') {
-        setShowDropdown(true);
-        return;
-      }
-      const rect = btnEl.getBoundingClientRect();
-      const left = rect.left + (window.scrollX || 0);
-      const top = rect.bottom + (window.scrollY || 0);
-      setDropdownCoords({ left, top });
-      setShowDropdown(true);
-    } catch (e) {
-      setShowDropdown(true);
-    }
-  };
-
-  const getInitials = (username) => {
-    return username?.slice(0, 1).toUpperCase() || 'U';
-  };
-
-  const triggerLikeBurst = () => {
-    // Simulate like burst effect
-    console.log('Like burst triggered');
-  };
-
-  return (
-    <div className="relative w-full h-screen snap-start snap-always overflow-hidden">
-      {/* Background Image */}
-      <img
-        src={story.cover_image?.url}
-        alt={story.title}
-        className="absolute inset-0 w-full h-full object-cover"
-        style={{ filter: 'brightness(0.85)' }}
-      />
-
-      {/* Gradient Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60" />
-
-      {/* Bottom Hologram - Story Info */}
-      <div className="absolute bottom-12 left-[5%] right-[5%] z-10 bg-black/60 backdrop-blur-md rounded-2xl border border-cyan-500/30 p-5 shadow-2xl">
-        {/* Hologram Icons */}
-        <HologramIcons 
-          story={story}
-          onOpenDropdown={handleOpenDropdown}
-        />
+    useEffect(() => {
+        if (!story) return;
         
-        {/* Title with ellipsis menu */}
-        <div className="relative pr-8 mb-2">
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">
-            {story.title}
-          </h2>
-        </div>
+        // Always update state based on the latest props
+        const followingValue = story.isFollowing || story.is_following || false;
+        setIsFollowing(followingValue);
+        setLocalCommentsCount(story.comments_count || 0);
+        // IMPORTANT: Set currentStory immediately with the prop story (which has verses_count, tags from paginated endpoint)
+        // This ensures instant display without waiting for refetch
+        setCurrentStory(story);
 
-        {/* Description */}
-        <p 
-          ref={descRef}
-          className={`text-white/90 text-sm leading-relaxed mb-3 transition-all ${
-            descExpanded ? '' : 'line-clamp-2'
-          }`}
-        >
-          {story.description}
-        </p>
-        {needsReadMore && (
-          <button
-            onClick={() => setDescExpanded(!descExpanded)}
-            className="text-cyan-400 text-xs font-semibold mb-3"
-          >
-            {descExpanded ? 'Show less' : 'Read more'}
-          </button>
-        )}
+        // Only refetch if story is missing BOTH tag arrays AND tags count
+        // This handles cases where paginated endpoint doesn't include tags
+        const hasTagArray = Array.isArray(story.tags);
+        const hasTagCount = story.tags_count !== undefined && story.tags_count !== null;
+        const hasVerseArray = Array.isArray(story.verses);
+        const hasVerseCount = story.verses_count !== undefined && story.verses_count !== null;
+        
+        const needsRefetch = !hasTagArray && !hasTagCount && (!hasVerseArray && !hasVerseCount);
+        
+        if (needsRefetch) {
+            // Fire and forget - don't await, let refetch happen in background
+            refetchStory();
+        }
 
-        {/* Tags */}
-        <div className="flex flex-wrap gap-2 mb-3 overflow-x-auto">
-          {story.tags?.map((tag, idx) => (
-            <span
-              key={idx}
-              className="px-3 py-1 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/40 rounded-full text-cyan-300 text-xs font-medium cursor-pointer hover:scale-105 transition-transform whitespace-nowrap"
-              onClick={() => onTagSelect && onTagSelect(tag.name)}
-            >
-              #{tag.name}
-            </span>
-          ))}
-        </div>
+        // Create bubbles around the hologram
+        const node = hologramRef.current;
+        if (node) {
+            const existingBubbles = node.querySelectorAll('.bubble');
+            existingBubbles.forEach(bubble => bubble.remove());
+            
+            const hologramId = `hologram-${story.id || Math.random().toString(36).substr(2, 9)}`;
+            node.id = hologramId;
+            createBubbles(hologramId);
+        }
 
-        {/* Action Buttons */}
-        <ActionButtons 
-          story={story}
-          localCommentsCount={story.comments_count}
-          onLikeBurst={triggerLikeBurst}
-        />
+        // Cleanup function to remove bubbles when component unmounts
+        return () => {
+            if (node) {
+                const existingBubbles = node.querySelectorAll('.bubble');
+                existingBubbles.forEach(bubble => bubble.remove());
+            }
+        };
+    }, [story, refetchStory]);
 
-        {/* Creator Chip */}
-        <div className="flex items-center justify-between bg-white/10 py-2 px-4 rounded-full border border-white/20">
-          <div className="flex items-center gap-3 flex-1 min-w-0">
-            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-orange-500 to-pink-500 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-              {getInitials(story.creator?.username)}
-            </div>
-            <div className="flex flex-col min-w-0">
-              <span className="text-sm font-semibold text-white truncate">
-                {story.creator?.username || 'unknown'}
-              </span>
-              <span className="text-xs text-gray-400 truncate">
-                {formatTimeAgo(story.created_at)}
-              </span>
-            </div>
-          </div>
+    // Keep a global reference used by the VerseViewer in sync so the viewer
+    // always reads the latest story even if it previously cached one on open.
+    useEffect(() => {
+        if (typeof window !== 'undefined' && currentStory) {
+            try {
+                window.__fullStoryForViewer = currentStory;
+            } catch (e) {
+                // ignore
+            }
+        }
+    }, [currentStory]);
 
-          <button className="bg-gradient-to-r from-orange-500 to-pink-500 text-white py-1.5 px-5 rounded-full font-bold text-sm hover:scale-105 transition-all flex items-center gap-1.5 flex-shrink-0">
-            Verses
-            <span className="bg-black/30 text-white text-xs font-bold py-0.5 px-1.5 rounded-full">
-              {story.verses?.length || 0}
-            </span>
-          </button>
-        </div>
-      </div>
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setShowDropdown(false);
+                setDropdownCoords(null);
+            }
+        };
 
-      {/* Dropdown menu */}
-      {showDropdown && (
-        <div 
-          ref={dropdownRef}
-          className="absolute z-20 w-48 bg-black/90 backdrop-blur-lg border border-white/20 rounded-lg shadow-lg overflow-hidden"
-          style={dropdownCoords ? { 
-            left: `${dropdownCoords.left}px`, 
-            top: `${dropdownCoords.top}px` 
-          } : { right: '20px', top: '200px' }}
-        >
-          <button className="w-full text-left px-4 py-3 text-white hover:bg-white/10 flex items-center gap-3 transition-colors">
-            <Share2 size={16} className="text-green-400" />
-            <span>Share Post</span>
-          </button>
-          <button className="w-full text-left px-4 py-3 text-white hover:bg-white/10 flex items-center gap-3 transition-colors border-t border-white/10">
-            <MessageCircle size={16} className="text-yellow-400" />
-            <span>Report Post</span>
-          </button>
-        </div>
-      )}
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
 
-      {/* Scroll Indicator */}
-      <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20 animate-bounce opacity-70">
-        <ChevronDown size={32} className="text-white" />
-      </div>
-    </div>
-  );
-};
+    // StoryCard.js - handleFollow function
+    const handleFollow = async (event, username) => {
+        event.stopPropagation();
 
-// Main Feed Component
-export default function StoryCardFeed() {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const containerRef = useRef(null);
+        if (!isAuthenticated) {
+            openAuthModal('follow', username);
+            return;
+        }
 
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
+        try {
+            // If a parent handler is provided, delegate to it so we don't call the
+            // API twice (some parents already call userApi.followUser).
+            if (typeof onFollowUser === 'function') {
+                // Optimistically update isFollowing immediately
+                setIsFollowing(prev => !prev);
+                
+                // Let parent perform the follow/unfollow action and update global state.
+                // The parent will update the stories array, which will trigger this component's
+                // useEffect to update isFollowing from the new story prop.
+                try {
+                    await onFollowUser(username);
+                } catch (error) {
+                    // If parent call fails, revert the optimistic update
+                    setIsFollowing(prev => !prev);
+                    throw error;
+                }
+                // Parent's handleFollowUser will update stories, which triggers our useEffect([story])
+                // which will call setIsFollowing with the correct value from story.is_following
+                return;
+            }
 
-    const handleScroll = () => {
-      const scrollPosition = container.scrollTop;
-      const cardHeight = window.innerHeight;
-      const newIndex = Math.round(scrollPosition / cardHeight);
-      setCurrentIndex(newIndex);
+            // Fallback: perform the API call locally when no parent handler exists
+            const response = await userApi.followUser(username);
+            setIsFollowing(response.is_following);
+        } catch (error) {
+
+        }
     };
 
-    container.addEventListener('scroll', handleScroll);
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, []);
+    const handleOpenVerses = useCallback(async () => {
+        try {
+            setIsViewerOpening(true);
+            
+            // IMPORTANT: Fetch fresh story data BEFORE opening the viewer
+            // This prevents showing stale/wrong verses from previous stories
+            const fullStory = await storiesApi.getStoryBySlug(story.slug);
+            setCurrentStory(fullStory);
+            if (typeof window !== 'undefined') {
+                window.__fullStoryForViewer = fullStory;
+            }
+            
+            // Only open the viewer AFTER data is ready
+            setShowVerseViewer(true);
+        } catch (e) {
 
-  const handleTagSelect = (tagName) => {
-    console.log('Tag selected:', tagName);
-  };
-
-  return (
-    <div className="relative w-full h-screen bg-black overflow-hidden">
-      {/* Scrollable Container */}
-      <div
-        ref={containerRef}
-        className="w-full h-screen overflow-y-scroll snap-y snap-mandatory"
-        style={{
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-          WebkitOverflowScrolling: 'touch'
-        }}
-      >
-        {MOCK_STORIES.map((story, index) => (
-          <StoryCard
-            key={story.id}
-            story={story}
-            index={index}
-            onTagSelect={handleTagSelect}
-          />
-        ))}
-      </div>
-
-      {/* Progress Indicator */}
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-2">
-        {MOCK_STORIES.map((_, index) => (
-          <div
-            key={index}
-            className={`w-1 rounded-full transition-all ${
-              index === currentIndex
-                ? 'h-8 bg-white'
-                : 'h-2 bg-white/40'
-            }`}
-          />
-        ))}
-      </div>
-
-      <style jsx global>{`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
+            setIsViewerOpening(false);
         }
-        .line-clamp-2 {
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
+    }, [story.slug]);
+
+    const handleDeleteStory = async () => {
+        setShowDeleteModal(false);
+        const slug = story.slug;
+        if (!slug) {
+            alert('Cannot delete story: missing slug/identifier.');
+            setShowDropdown(false);
+            setDropdownCoords(null);
+            return;
         }
-      `}</style>
-    </div>
-  );
+
+        try {
+            setIsDeleting(true);
+            await storiesApi.deleteStory(slug);
+            setShowDropdown(false);
+            setDropdownCoords(null);
+            setStoryDeleted(true);
+            
+            if (cardRef.current) {
+                cardRef.current.style.transition = 'all 0.5s ease-out';
+                cardRef.current.style.opacity = '0';
+                cardRef.current.style.transform = 'translateY(-20px)';
+            }
+            
+            setTimeout(() => {
+                // Show success notification
+                try {
+                  const event = new CustomEvent('notification:show', {
+                    detail: {
+                      message: 'Your story has been deleted successfully',
+                      type: 'success',
+                      duration: 3000
+                    }
+                  });
+                  window.dispatchEvent(event);
+                } catch (e) { /* notification failed */ }
+                
+                if (typeof onDeleteStory === 'function') {
+                    try { onDeleteStory(slug); } catch (e) { /* onDeleteStory callback failed */ }
+                }
+            }, 500);
+        } catch (err) {
+
+            // Show error notification
+            try {
+              const event = new CustomEvent('notification:show', {
+                detail: {
+                  message: `Failed to delete story: ${err.message || err}`,
+                  type: 'error',
+                  duration: 4000
+                }
+              });
+              window.dispatchEvent(event);
+            } catch (e) { /* notification failed */ }
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    // Helper functions
+    const getCreatorDisplayName = () => {
+        // Check if account is brand type and has brand_name
+        if (story && story.creator_account_type === 'brand' && story.creator_brand_name) {
+            return story.creator_brand_name;
+        }
+
+        // Check if creator object has account_type and brand_name
+        if (story && typeof story.creator === 'object' && story.creator) {
+            if (story.creator.account_type === 'brand' && story.creator.brand_name) {
+                return story.creator.brand_name;
+            }
+        }
+
+        // Prefer serializer-provided consolidated/full name fields
+        if (story && story.creator_full_name) return story.creator_full_name;
+        if (story && (story.creator_first_name || story.creator_last_name)) {
+            return `${story.creator_first_name || ''}${story.creator_first_name && story.creator_last_name ? ' ' : ''}${story.creator_last_name || ''}`.trim();
+        }
+
+        // If creator is a string (username), return it
+        if (story && typeof story.creator === 'string') return story.creator;
+
+        // If creator is an object, try common fields
+        if (story && typeof story.creator === 'object' && story.creator) {
+            if (story.creator.first_name || story.creator.last_name) {
+                return `${story.creator.first_name || ''}${story.creator.first_name && story.creator.last_name ? ' ' : ''}${story.creator.last_name || ''}`.trim();
+            }
+            if (story.creator.name) return story.creator.name;
+            if (story.creator.username) return story.creator.username;
+        }
+
+        // Fallbacks
+        if (story && story.creator_username) return story.creator_username;
+        return 'unknown';
+    };
+
+    const getCreatorUsername = () => {
+        // Prefer serializer-provided username field
+        if (story && story.creator_username) return story.creator_username;
+        if (story && typeof story.creator === 'string') return story.creator;
+        if (story && typeof story.creator === 'object' && story.creator) {
+            return story.creator.username || story.creator.id || String(story.creator.id || '') || 'anonymous';
+        }
+        return 'anonymous';
+    };
+
+    const getCreatorProfileImage = () => {
+        // Prefer top-level serializer field
+        if (story && story.creator_profile_image) return story.creator_profile_image;
+        if (typeof story.creator === 'object' && story.creator) {
+            return story.creator.profile_image || story.creator.avatar || null;
+        }
+        return null;
+    };
+
+    // FIXED: Improved getCoverImageUrl function to handle all image URL formats
+    const getCoverImageUrl = () => {
+        if (!story) return null;
+        const cov = story.cover_image;
+        if (!cov) return null;
+        
+        // Handle string URLs
+        if (typeof cov === 'string') {
+            return cov ? absoluteUrl(cov) : null;
+        }
+        
+        // Handle object URLs
+        const url = cov.file_url || cov.url || '';
+        return url ? absoluteUrl(url) : null;
+    };
+
+    const getFirstVerseImage = () => {
+        if (!story || !Array.isArray(story.verses)) return null;
+        const v = story.verses[0];
+        if (!v) return null;
+        if (Array.isArray(v.images) && v.images.length > 0) {
+            const img = v.images[0];
+            return img ? absoluteUrl(img) : null;
+        }
+        return null;
+    };
+
+    const getCreatorProfileImageUrl = () => {
+        const img = getCreatorProfileImage();
+        return img ? absoluteUrl(img) : null;
+    };
+
+    const getCreatorInitial = () => {
+        const name = getCreatorDisplayName();
+        return name.charAt(0);
+    };
+
+    const getTagName = (tag) => {
+        if (typeof tag === 'string') return tag;
+        return tag.name || tag.slug || tag.id || 'tag';
+    };
+
+    const getTagId = (tag) => {
+        if (typeof tag === 'string') return tag;
+        return tag.id || tag.slug || tag.name;
+    };
+
+    // Share data (guard window for SSR). If origin is not available on server,
+    // fall back to a relative URL so server render doesn't crash.
+    const _origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
+    const shareData = {
+        title: story.title || 'StoryVermo',
+        description: story.description || 'Check out this story on StoryVermo',
+        url: _origin ? `${_origin}/stories/${story.slug}/` : `/stories/${story.slug}/`
+    };
+
+    if (viewType === 'feed') {
+        const coverImageUrl = getCoverImageUrl();
+        const creatorUsername = getCreatorUsername(); // Get the username once
+        
+        return (
+            <div className="image-container" style={{ display: storyDeleted ? 'none' : 'block' }}>
+                <div 
+                    ref={cardRef} 
+                    className="scene-card " 
+                    style={{ 
+                        transition: 'transform 0.2s ease',
+                        perspective: '1000px',
+                        transformStyle: 'preserve-3d',
+                        backfaceVisibility: 'hidden',
+                        position: 'relative',
+                        touchAction: 'auto',
+                        userSelect: 'none',
+                        WebkitUserSelect: 'none'
+                    }}
+                    data-story-id={story.id} 
+                    data-creator={creatorUsername} 
+                    data-story-slug={story.slug || ''}
+                    // Removed touch handlers to avoid blocking vertical scroll.
+                >
+                                        {coverImageUrl ? (
+                                                <div className="relative w-full h-full">
+                                                {/* Use LazyImage for offscreen images; keep priority for first item */}
+                                                {index === 0 ? (
+                                                    <Image
+                                                        src={coverImageUrl}
+                                                        alt={story.title || 'Story cover'}
+                                                        fill
+                                                        className="scene-bg w-full h-full"
+                                                        quality={60}
+                                                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
+                                                        priority
+                                                        fetchPriority="high"
+                                                        loading="eager"
+                                                    />
+                                                ) : (
+                                                    <LazyImage
+                                                        src={coverImageUrl}
+                                                        alt={story.title || 'Story cover'}
+                                                        fill
+                                                        className="scene-bg w-full h-full"
+                                                        quality={60}
+                                                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
+                                                    />
+                                                )}
+                                        </div>
+                                        ) : (
+                        <div className="scene-bg-placeholder bg-linear-to-br from-slate-800 to-slate-900 flex items-center justify-center">
+                            <div className="text-slate-600 text-4xl">
+                                <i className="fas fa-image"></i>
+                            </div>
+                        </div>
+                    )}
+                    <div className="scene-overlay"></div>
+                    
+                    {/* Updated hologram with fixed positioning */}
+                    <div 
+                        ref={hologramRef}
+                        className="fixed-hologram absolute bottom-36  left-[5%] right-[5%] bg-black/60 backdrop-blur-[0.5px] border-2 border-[rgba(80,105,219,0.4)] rounded-2xl p-3 overflow-visible  "
+                        style={{
+                            position: 'absolute',
+                            transform: 'translateZ(0)',
+                            willChange: 'transform',
+                            userSelect: 'none'
+                        }}
+                    >
+                        <HologramIcons 
+                            story={currentStory}
+                            isOwner={isOwner}
+                            isAuthenticated={isAuthenticated}
+                            openAuthModal={openAuthModal}
+                            setShowContributeModal={setShowContributeModal}
+                            setShowRecommendModal={setShowRecommendModal}
+                            setShowEnlargeModal={setShowEnlargeModal}
+                            // new handler: compute coords and open dropdown
+                            onOpenDropdown={(btnEl) => {
+                                try {
+                                    if (!btnEl || typeof btnEl.getBoundingClientRect !== 'function') {
+                                        setShowDropdown(true);
+                                        return;
+                                    }
+                                    const rect = btnEl.getBoundingClientRect();
+                                    const left = rect.left + (window.scrollX || 0);
+                                    const top = rect.bottom + (window.scrollY || 0);
+                                    setDropdownCoords({ left, top });
+                                    setShowDropdown(true);
+                                } catch (e) {
+                                    setShowDropdown(true);
+                                }
+                            }}
+                        />
+                        
+                        <TitleSection 
+                            story={currentStory}
+                            index={index}
+                            currentTag={currentTag}
+                            titleExpanded={titleExpanded}
+                            descExpanded={descExpanded}
+                            isTitleTruncated={isTitleTruncated}
+                            isDescTruncated={isDescTruncated}
+                            setTitleExpanded={setTitleExpanded}
+                            setDescExpanded={setDescExpanded}
+                            setIsTitleTruncated={setIsTitleTruncated}
+                            setIsDescTruncated={setIsDescTruncated}
+                        />
+                        
+                        <TagsSection 
+                            story={currentStory}
+                            currentTag={currentTag}
+                            onTagSelect={onTagSelect}
+                            getTagName={getTagName}
+                            getTagId={getTagId}
+                        />
+                        
+                        <ActionButtons 
+                            story={currentStory}
+                            localCommentsCount={localCommentsCount}
+                            setShowCommentModal={setShowCommentModal}
+                            setShowShareModal={setShowShareModal}
+                            isAuthenticated={isAuthenticated}
+                            openAuthModal={openAuthModal}
+                            onStoryUpdate={refetchStory}
+                            onLikeBurst={triggerLikeBurst}
+                        />
+                        
+                        <CreatorChip 
+                            story={currentStory}
+                            isOwner={isOwner}
+                            isFollowing={isFollowing}
+                            handleFollow={handleFollow}
+                            handleOpenVerses={handleOpenVerses}
+                            isViewerOpening={isViewerOpening}
+                            getCreatorDisplayName={getCreatorDisplayName}
+                            getCreatorUsername={getCreatorUsername}
+                            getCreatorProfileImageUrl={getCreatorProfileImageUrl}
+                            getCreatorInitial={getCreatorInitial}
+                        />
+                    </div>
+                </div>
+                
+                {/* Modals */}
+                <StoryFormModal
+                    isOpen={showStoryFormModal}
+                    onClose={() => { setShowStoryFormModal(false); setEditingVerseForModal(null); }}
+                    editingStory={currentStory}
+                    editingVerse={editingVerseForModal}
+                    mode="edit"
+                    onUpdateStory={refetchStory}
+                    onUpdateVerse={(updatedVerse) => {
+                        // update verse in local story state for immediate UI reflection
+                        setCurrentStory(prev => ({
+                            ...prev,
+                            verses: prev.verses ? prev.verses.map(v => v.id === updatedVerse.id ? updatedVerse : v) : prev.verses
+                        }));
+                    }}
+                />
+                
+                <CommentModal
+                    isOpen={showCommentModal}
+                    onClose={(e) => {
+                        if (e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }
+                        setTimeout(() => {
+                            setShowCommentModal(false);
+                        }, 0);
+                    }}
+                    post={currentStory}
+                    updateCommentCount={(slug, increment) => {
+                        if (slug === story.slug) {
+                            setLocalCommentsCount(prev => prev + increment);
+                        }
+                    }}
+                />
+                
+                <VerseViewer
+                    isOpen={showVerseViewer}
+                    onClose={() => {
+                        setShowVerseViewer(false);
+                        setIsViewerOpening(false);
+                        // Clean up
+                        if (typeof window !== 'undefined') delete window.__fullStoryForViewer;
+                    }}
+                    story={(typeof window !== 'undefined' && window.__fullStoryForViewer) ? window.__fullStoryForViewer : currentStory}
+                    initialVerseIndex={0}
+                    onReady={() => setIsViewerOpening(false)}
+                    isAuthenticated={isAuthenticated}
+                    openAuthModal={openAuthModal}
+                    onStoryUpdate={refetchStory}
+                    onOpenStoryForm={(verse) => {
+                        setEditingVerseForModal(verse);
+                        setShowStoryFormModal(true);
+                    }}
+                />
+                
+                <ShareModal
+                    isOpen={showShareModal}
+                    onClose={() => setShowShareModal(false)}
+                    shareData={shareData}
+                    imageUrl={getCoverImageUrl()}
+                    isVerse={false}
+                />
+                
+                <ContributeModal 
+                    showContributeModal={showContributeModal}
+                    setShowContributeModal={setShowContributeModal}
+                    story={currentStory}
+                    onStoryUpdated={refetchStory}
+                />
+                
+                <RecommendModal 
+                    showRecommendModal={showRecommendModal}
+                    setShowRecommendModal={setShowRecommendModal}
+                    story={currentStory}
+                    isAuthenticated={isAuthenticated}
+                    currentUser={currentUser}
+                />
+                
+                <EnlargeModal 
+                    showEnlargeModal={showEnlargeModal}
+                    setShowEnlargeModal={setShowEnlargeModal}
+                    story={currentStory}
+                    getCoverImageUrl={getCoverImageUrl}
+                />
+                
+                <DeleteModal 
+                    showDeleteModal={showDeleteModal}
+                    setShowDeleteModal={setShowDeleteModal}
+                    story={currentStory}
+                    handleDeleteStory={handleDeleteStory}
+                    isDeleting={isDeleting}
+                />
+                
+                <DropdownMenu 
+                    showDropdown={showDropdown}
+                    setShowDropdown={(v) => {
+                        setShowDropdown(v);
+                        if (!v) setDropdownCoords(null);
+                    }}
+                    isOwner={isOwner}
+                    isFollowing={isFollowing}
+                    handleFollow={handleFollow}
+                    handleEditStory={() => setShowStoryFormModal(true)}
+                    handleDeleteStory={() => setShowDeleteModal(true)}
+                    handleCopyLink={async () => {
+                        const storyUrl = `${window.location.origin}/stories/${story.slug}/`;
+                        try {
+                            if (navigator.clipboard) {
+                                await navigator.clipboard.writeText(storyUrl);
+                                alert('Link copied to clipboard!');
+                            } else {
+                                // Fallback for older browsers
+                                const textArea = document.createElement('textarea');
+                                textArea.value = storyUrl;
+                                document.body.appendChild(textArea);
+                                textArea.focus();
+                                textArea.select();
+                                try {
+                                    document.execCommand('copy');
+                                    alert('Link copied to clipboard!');
+                                } catch (err) {
+
+                                    alert('Unable to copy link. Please copy manually.');
+                                }
+                                document.body.removeChild(textArea);
+                            }
+                        } catch (error) {
+
+                            alert('Failed to copy link. Please try again.');
+                        }
+                    }}
+                    handleReportStory={() => alert('Report functionality would open here')}
+                    handleShareStory={() => setShowShareModal(true)}
+                    dropdownRef={dropdownRef}
+                    coords={dropdownCoords}
+                    creatorUsername={creatorUsername} // Pass the username to the dropdown
+                />
+            </div>
+        );
+    }
+    
+    
+    return null;
 }
