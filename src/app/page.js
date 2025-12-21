@@ -67,24 +67,7 @@ export default async function Home({ initialTag = 'for-you' }) {
 
   let stories = initial?.results || (Array.isArray(initial) ? initial : []);
   
-  // CRITICAL: Enrich lightweight paginated stories with full data (tags, verses_count, etc)
-  // This ensures instant display just like /stories/[slug] pages
-  try {
-    stories = await Promise.all(
-      stories.map(async (story) => {
-        try {
-          // Fetch full story data in parallel for instant rendering
-          const fullStory = await storiesApi.getStoryBySlug(story.slug);
-          return fullStory;
-        } catch (error) {
-          // If fetch fails, return the lightweight story we have
-          return story;
-        }
-      })
-    );
-  } catch (e) {
-    // If Promise.all fails, just use lightweight stories
-  }
+  // (Removed N+1 hydration: only use paginated stories)
   
   // 🎯 OPTIMIZATION: Strip verse images to reduce payload and improve performance
   // Images will be lazy-loaded when user opens VerseViewer

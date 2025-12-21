@@ -2,37 +2,96 @@
 'use client';
 
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import StoryCard from './components/StoryCard';
 import StoryCardSkeleton from './components/StoryCardSkeleton';
 import { storiesApi } from '../../lib/api';
 
-export default function FeedClient() {
+export default function FeedClient({ initialTag = 'for-you' }) {
+  const { isAuthenticated, openAuthModal } = useAuth();
 
-  const [currentTag, setCurrentTag] = useState('for-you');
+  const [currentTag, setCurrentTag] = useState(initialTag);
   const [stories, setStories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [refreshCount, setRefreshCount] = useState(0);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loaderRef = useRef(null);
+
+  // Sync currentTag with initialTag if it changes (e.g., direct URL navigation)
+  React.useEffect(() => {
+    setCurrentTag(initialTag);
+  }, [initialTag]);
 
   useEffect(() => {
     setLoading(true);
     setError(null);
-    // You can pass params for pagination, filtering, etc. For now, just fetch default feed
-    storiesApi.getPaginatedStories({ tag: currentTag !== 'for-you' ? currentTag : undefined })
+    storiesApi.getPaginatedStories({ tag: currentTag })
       .then((data) => {
-        // If your API returns { results: [...] }, adjust accordingly
         setStories(data.results || data);
+        setNextCursor(data.next_cursor || null);
         setLoading(false);
       })
       .catch((err) => {
         setError('Failed to load stories.');
         setLoading(false);
       });
+  }, [currentTag, refreshCount]);
+
+  // Infinite scroll: load more when loaderRef is visible
+  useEffect(() => {
+    if (!nextCursor) return;
+    const observer = new window.IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loadingMore) {
+          setLoadingMore(true);
+          setError(null);
+          storiesApi.getPaginatedStories({ tag: currentTag, cursor: nextCursor })
+            .then((data) => {
+              setStories(prev => [...prev, ...(data.results || [])]);
+              setNextCursor(data.next_cursor || null);
+            })
+            .catch(() => setError('Failed to load more stories.'))
+            .finally(() => setLoadingMore(false));
+        }
+      },
+      { root: null, rootMargin: '0px', threshold: 0.1 }
+    );
+    if (loaderRef.current) observer.observe(loaderRef.current);
+    return () => {
+      if (loaderRef.current) observer.unobserve(loaderRef.current);
+    };
+  }, [nextCursor, loadingMore, currentTag]);
+
+  const handleTagOptionClick = useCallback((tagName) => {
+    // Always scroll feed to top
+    const feedEl = document.getElementById('imageFeed');
+    if (feedEl) {
+      feedEl.scrollTop = 0;
+      if (feedEl.scrollTop !== 0) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    if (tagName === currentTag) {
+      setRefreshCount((c) => c + 1); // force reload
+    } else {
+      setCurrentTag(tagName);
+    }
   }, [currentTag]);
 
-  const handleTagOptionClick = (tagName) => {
-    setCurrentTag(tagName);
-  };
+  // Listen for 'tag:switch' event (e.g., from DimensionNav Home)
+  useEffect(() => {
+    const handler = (e) => {
+      const tag = e.detail?.tag || 'for-you';
+      handleTagOptionClick(tag);
+    };
+    window.addEventListener('tag:switch', handler);
+    return () => window.removeEventListener('tag:switch', handler);
+  }, [handleTagOptionClick]);
 
   return (
     <div className="min-h-screen">
@@ -63,18 +122,17 @@ export default function FeedClient() {
               viewType="feed"
               currentTag={currentTag}
               onTagSelect={handleTagOptionClick}
-              isAuthenticated={false}
-              openAuthModal={() => {}}
+              isAuthenticated={isAuthenticated}
+              openAuthModal={openAuthModal}
             />
           </div>
         ))}
 
-        {/* Sentinel element for future infinite scroll */}
-        <div 
-          style={{ height: '2px', width: '100%' }} 
-          aria-hidden="true"
-          className="my-8"
-        />
+        {/* Infinite scroll loader sentinel */}
+        <div ref={loaderRef} style={{ height: 32 }} />
+        {loadingMore && (
+          <div className="text-center text-gray-400 my-4">Loading more...</div>
+        )}
       </div>
 
       {/* Tag switcher navigation */}
@@ -95,12 +153,12 @@ export default function FeedClient() {
         ].map(option => {
           const isDisabled = option.requiresAuth;
           const isActive = currentTag === option.name;
-          
+          const url = `/tags/${encodeURIComponent(option.name)}`;
           return (
-            <button
+            <a
               key={option.id}
-              type="button"
-              disabled={isDisabled}
+              href={url}
+              tabIndex={isDisabled ? -1 : 0}
               className={`tag-option ${option.name} px-2 py-2 text-sm font-semibold cursor-pointer transition-all duration-150 ease-out transform-gpu flex-1 ${
                 isActive 
                   ? 'bg-linear-to-r from-accent-orange/90 to-neon-pink/90 border border-accent-orange text-white scale-105 opacity-100' 
@@ -108,11 +166,14 @@ export default function FeedClient() {
                     ? 'text-white/40 cursor-not-allowed opacity-50'
                     : 'text-white/80 hover:text-white hover:bg-white/10 opacity-60 hover:opacity-90'
               } rounded-full focus:outline-none focus:ring-2 focus:ring-neon-blue/50 truncate`}
-              onClick={() => handleTagOptionClick(option.name)}
+              onClick={e => {
+                e.preventDefault();
+                if (!isDisabled) handleTagOptionClick(option.name);
+              }}
             >
               {option.display_name}
               {isDisabled && ' (Login Required)'}
-            </button>
+            </a>
           );
         })}
       </div>
