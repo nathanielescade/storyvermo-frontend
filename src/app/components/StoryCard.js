@@ -181,11 +181,7 @@ export default function StoryCard({
         const hasVerseCount = story.verses_count !== undefined && story.verses_count !== null;
         
         const needsRefetch = !hasTagArray && !hasTagCount && (!hasVerseArray && !hasVerseCount);
-        
-        if (needsRefetch) {
-            // Fire and forget - don't await, let refetch happen in background
-            refetchStory();
-        }
+
 
         // Create bubbles around the hologram
         const node = hologramRef.current;
