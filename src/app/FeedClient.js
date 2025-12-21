@@ -87,12 +87,11 @@ export default function FeedClient({ initialTag = 'for-you' }) {
       <div className="image-feed" id="imageFeed">
 
         {/* Loading state */}
-        {loading && (
+        {/* {loading && (
           <>
             <StoryCardSkeleton />
-            <StoryCardSkeleton />
           </>
-        )}
+        )} */}
 
         {/* Error state */}
         {error && (
@@ -105,7 +104,7 @@ export default function FeedClient({ initialTag = 'for-you' }) {
         )}
         {!loading && !error && stories.map((story, index) => (
           <div key={`${story.id || story.slug || index}-${index}`}>
-            {/* <StoryCard 
+            <StoryCard 
               story={story} 
               index={index} 
               viewType="feed"
@@ -113,7 +112,7 @@ export default function FeedClient({ initialTag = 'for-you' }) {
               onTagSelect={handleTagOptionClick}
               isAuthenticated={isAuthenticated}
               openAuthModal={openAuthModal}
-            /> */}
+            />
           </div>
         ))}
 
