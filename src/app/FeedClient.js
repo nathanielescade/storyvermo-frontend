@@ -2,7 +2,7 @@
 'use client';
 
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import StoryCard from './components/StoryCard';
 import StoryCardSkeleton from './components/StoryCardSkeleton';
@@ -18,7 +18,6 @@ export default function FeedClient({ initialTag = 'for-you' }) {
   const [refreshCount, setRefreshCount] = useState(0);
   const [nextCursor, setNextCursor] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
-  const loaderRef = useRef(null);
 
   // Sync currentTag with initialTag if it changes (e.g., direct URL navigation)
   React.useEffect(() => {
@@ -40,30 +39,20 @@ export default function FeedClient({ initialTag = 'for-you' }) {
       });
   }, [currentTag, refreshCount]);
 
-  // Infinite scroll: load more when loaderRef is visible
-  useEffect(() => {
-    if (!nextCursor) return;
-    const observer = new window.IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !loadingMore) {
-          setLoadingMore(true);
-          setError(null);
-          storiesApi.getPaginatedStories({ tag: currentTag, cursor: nextCursor })
-            .then((data) => {
-              setStories(prev => [...prev, ...(data.results || [])]);
-              setNextCursor(data.next_cursor || null);
-            })
-            .catch(() => setError('Failed to load more stories.'))
-            .finally(() => setLoadingMore(false));
-        }
-      },
-      { root: null, rootMargin: '0px', threshold: 0.1 }
-    );
-    if (loaderRef.current) observer.observe(loaderRef.current);
-    return () => {
-      if (loaderRef.current) observer.unobserve(loaderRef.current);
-    };
-  }, [nextCursor, loadingMore, currentTag]);
+  const handleLoadMore = async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    setError(null);
+    try {
+      const data = await storiesApi.getPaginatedStories({ tag: currentTag, cursor: nextCursor });
+      setStories(prev => [...prev, ...(data.results || [])]);
+      setNextCursor(data.next_cursor || null);
+    } catch (err) {
+      setError('Failed to load more stories.');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const handleTagOptionClick = useCallback((tagName) => {
     // Always scroll feed to top
@@ -128,56 +117,61 @@ export default function FeedClient({ initialTag = 'for-you' }) {
           </div>
         ))}
 
-        {/* Infinite scroll loader sentinel */}
-        <div ref={loaderRef} style={{ height: 32 }} />
-        {loadingMore && (
-          <div className="text-center text-gray-400 my-4">Loading more...</div>
+        {/* Load More button for pagination - appears after last story */}
+        {!loading && nextCursor && (
+          <div className="flex justify-center my-8">
+            <button
+              className="px-6 py-2 rounded-full bg-gradient-to-r from-accent-orange/90 to-neon-pink/90 text-white font-bold text-lg shadow-lg hover:scale-105 transition-all duration-150"
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+            >
+              {loadingMore ? 'Loading...' : 'Load More'}
+            </button>
+          </div>
         )}
       </div>
 
       {/* Tag switcher navigation */}
       <div
         id="tagSwitcher"
-        className="fixed left-1/2 top-8 transform -translate-x-1/2 bg-black/50 rounded-full z-10 flex px-1 py-1 justify-center items-center"
+        className="fixed left-1/2 top-8 transform -translate-x-1/2 bg-black/50 rounded-full z-10 flex px-1 py-1"
         style={{ 
           width: '90%', 
           maxWidth: '500px',
           border: '2px solid rgba(80, 105, 219, 0.4)'
         }}
       >
-        <div className="flex justify-center items-center w-full gap-2">
-          {[
-            { id: 'for-you', name: 'for-you', display_name: 'For You' },
-            { id: 'trending', name: 'trending', display_name: 'Trending' },
-            { id: 'recent', name: 'recent', display_name: 'Recent' },
-            { id: 'following', name: 'following', display_name: 'Following', requiresAuth: true }
-          ].map(option => {
-            const isDisabled = option.requiresAuth;
-            const isActive = currentTag === option.name;
-            const url = `/tags/${encodeURIComponent(option.name)}`;
-            return (
-              <a
-                key={option.id}
-                href={url}
-                tabIndex={isDisabled ? -1 : 0}
-                className={`tag-option ${option.name} px-2 py-2 text-sm font-semibold cursor-pointer transition-all duration-150 ease-out transform-gpu flex-1 text-center ${
-                  isActive 
-                    ? 'bg-linear-to-r from-accent-orange/90 to-neon-pink/90 border border-accent-orange text-white scale-105 opacity-100' 
-                    : isDisabled
-                      ? 'text-white/40 cursor-not-allowed opacity-50'
-                      : 'text-white/80 hover:text-white hover:bg-white/10 opacity-60 hover:opacity-90'
-                } rounded-full focus:outline-none focus:ring-2 focus:ring-neon-blue/50`}
-                onClick={e => {
-                  e.preventDefault();
-                  if (!isDisabled) handleTagOptionClick(option.name);
-                }}
-              >
-                {option.display_name}
-                {isDisabled }
-              </a>
-            );
-          })}
-        </div>
+        {[
+          { id: 'for-you', name: 'for-you', display_name: 'For You' },
+          { id: 'trending', name: 'trending', display_name: 'Trending' },
+          { id: 'recent', name: 'recent', display_name: 'Recent' },
+          { id: 'following', name: 'following', display_name: 'Following', requiresAuth: true }
+        ].map(option => {
+          const isDisabled = option.requiresAuth;
+          const isActive = currentTag === option.name;
+          const url = `/tags/${encodeURIComponent(option.name)}`;
+          return (
+            <a
+              key={option.id}
+              href={url}
+              tabIndex={isDisabled ? -1 : 0}
+              className={`tag-option ${option.name} px-2 py-2 text-sm font-semibold cursor-pointer transition-all duration-150 ease-out transform-gpu flex-1 ${
+                isActive 
+                  ? 'bg-linear-to-r from-accent-orange/90 to-neon-pink/90 border border-accent-orange text-white scale-105 opacity-100' 
+                  : isDisabled
+                    ? 'text-white/40 cursor-not-allowed opacity-50'
+                    : 'text-white/80 hover:text-white hover:bg-white/10 opacity-60 hover:opacity-90'
+              } rounded-full focus:outline-none focus:ring-2 focus:ring-neon-blue/50 truncate`}
+              onClick={e => {
+                e.preventDefault();
+                if (!isDisabled) handleTagOptionClick(option.name);
+              }}
+            >
+              {option.display_name}
+              {isDisabled && ' (Login Required)'}
+            </a>
+          );
+        })}
       </div>
     </div>
   );
