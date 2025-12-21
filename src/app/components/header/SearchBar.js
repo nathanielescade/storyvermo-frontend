@@ -51,13 +51,17 @@ const SearchBar = ({
   useEffect(() => {
     if (!isMobile && searchInputRef.current) {
       setTimeout(() => {
-        searchInputRef.current.focus();
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
       }, 100);
     }
-    
+
     if (isMobile && shouldFocus && searchInputRef.current) {
       setTimeout(() => {
-        searchInputRef.current.focus();
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+        }
       }, 50);
     }
   }, [isMobile, shouldFocus]);
