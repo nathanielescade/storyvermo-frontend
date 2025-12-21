@@ -8,6 +8,7 @@ import { formatNumber, formatTimeAgo, createBubbles } from '../../../lib/utils';
 import { absoluteUrl, storiesApi, userApi } from '../../../lib/api';
 
 // Import modular components
+
 import HologramIcons from './storycard/HologramIcons';
 import TitleSection from './storycard/TitleSection';
 import TagsSection from './storycard/TagsSection';
@@ -20,7 +21,7 @@ import EnlargeModal from './storycard/EnlargeModal';
 import DeleteModal from './storycard/DeleteModal';
 import DropdownMenu from './storycard/DropdownModal';
 
-// Import additional modals
+// Import additional modals that were missing
 const StoryFormModal = dynamic(() => import('./StoryFormModal'), { ssr: false });
 import CommentModal from './CommentModal';
 import VerseViewer from './VerseViewer';
@@ -49,6 +50,7 @@ export default function StoryCard({
     const [isViewerOpening, setIsViewerOpening] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
     const [localCommentsCount, setLocalCommentsCount] = useState(story.comments_count || 0);
+    // Removed swipe-to-open states (gesture open was causing scroll issues)
     
     // Hologram icon modals
     const [showContributeModal, setShowContributeModal] = useState(false);
@@ -63,16 +65,17 @@ export default function StoryCard({
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [storyDeleted, setStoryDeleted] = useState(false);
+    // If opening the StoryFormModal to edit a single verse, store it here
     const [editingVerseForModal, setEditingVerseForModal] = useState(null);
     
-    // State for current story
+    // State for current story to handle updates
     const [currentStory, setCurrentStory] = useState(story);
     
     const cardRef = useRef(null);
     const hologramRef = useRef(null);
     const dropdownRef = useRef(null);
 
-    // Trigger a short burst of extra bubbles in the hologram
+    // Trigger a short burst of extra bubbles in the hologram (e.g., when user likes)
     const triggerLikeBurst = useCallback(() => {
         const node = hologramRef.current;
         if (!node) return;
@@ -84,22 +87,25 @@ export default function StoryCard({
             const heart = document.createElement('div');
             heart.className = 'like-burst-heart';
             
-            const size = Math.random() * 10 + 8;
+            const size = Math.random() * 10 + 8; // 8-18px (smaller)
             heart.style.fontSize = `${size}px`;
             heart.innerHTML = '<i class="fas fa-heart"></i>';
             
+            // Use varied colors for each heart
             const colors = ['#ff6b35', '#ff0080', '#00d4ff', '#9d00ff', '#ff6b35'];
             heart.style.color = colors[Math.floor(Math.random() * colors.length)];
 
-            const left = 10 + Math.random() * 15;
-            const top = 30 + Math.random() * 40;
+            // Position near the like icon (left side of hologram) with some spread
+            const left = 10 + Math.random() * 15; // 10-25% (near left where like icon is)
+            const top = 30 + Math.random() * 40; // 30-70% (vertically centered)
             heart.style.position = 'absolute';
             heart.style.left = `${left}%`;
             heart.style.top = `${top}%`;
             heart.style.pointerEvents = 'none';
             heart.style.zIndex = '1';
 
-            const duration = (Math.random() * 0.8) + 0.8;
+            // Short, snappy animation so they disappear quickly
+            const duration = (Math.random() * 0.8) + 0.8; // ~0.8 - 1.6s
             const delay = Math.random() * 0.12;
             heart.style.animation = `bubble-float ${duration}s ease-out ${delay}s forwards`;
 
@@ -107,62 +113,77 @@ export default function StoryCard({
             created.push(heart);
         }
 
+        // Remove them after ~2s
         setTimeout(() => {
             created.forEach(h => h && h.remove());
         }, 2000);
     }, []);
 
-    // Function to refetch story data - only used when absolutely necessary
+    // Function to refetch story data - MUST be before first useEffect that calls it
     const refetchStory = useCallback(async () => {
         try {
             const fullStory = await storiesApi.getStoryBySlug(story.slug);
             setCurrentStory(fullStory);
             setIsFollowing(fullStory.isFollowing || fullStory.is_following || false);
         } catch (error) {
-            console.error("Error refetching story:", error);
+
         }
     }, [story.slug]);
 
-    // Check if current user is the owner of the story
+    // Check if current user is the owner of the story (robust across different API shapes)
     const isOwner = (() => {
         if (!currentUser || !story) return false;
   
         const cuUsername = currentUser.username || '';
         const cuId = currentUser.id || currentUser.pk || currentUser.user_id || '';
 
+        // If serializer provided a direct username field
         if (story.creator_username && cuUsername && story.creator_username === cuUsername) return true;
+
+        // If serializer provided a numeric id field
         if (story.creator_id && cuId && String(story.creator_id) === String(cuId)) return true;
 
+        // If story.creator is a plain string (username) or numeric id
         if (typeof story.creator === 'string') {
             if (cuUsername && story.creator === cuUsername) return true;
             if (cuId && String(story.creator) === String(cuId)) return true;
         }
 
+        // If story.creator is an object, check common fields
         if (typeof story.creator === 'object' && story.creator) {
             const c = story.creator;
             if (c.username && cuUsername && c.username === cuUsername) return true;
             if ((c.id || c.pk || c.user_id) && cuId && String(c.id || c.pk || c.user_id) === String(cuId)) return true;
         }
 
+        // Fallback: check top-level creator_user / creator_username style fields
         if (story.creator_user && cuUsername && story.creator_user === cuUsername) return true;
 
         return false;
     })();
 
-    // Initialize component state - only fetch if absolutely necessary
     useEffect(() => {
         if (!story) return;
         
-        // Set initial state from props
+        // Always update state based on the latest props
         const followingValue = story.isFollowing || story.is_following || false;
         setIsFollowing(followingValue);
         setLocalCommentsCount(story.comments_count || 0);
+        // IMPORTANT: Set currentStory immediately with the prop story (which has verses_count, tags from paginated endpoint)
+        // This ensures instant display without waiting for refetch
         setCurrentStory(story);
 
-        // Only refetch if critical data is missing
-        // This prevents unnecessary API calls
-        const hasEssentialData = story.title && story.creator && story.slug;
-        if (!hasEssentialData) {
+        // Only refetch if story is missing BOTH tag arrays AND tags count
+        // This handles cases where paginated endpoint doesn't include tags
+        const hasTagArray = Array.isArray(story.tags);
+        const hasTagCount = story.tags_count !== undefined && story.tags_count !== null;
+        const hasVerseArray = Array.isArray(story.verses);
+        const hasVerseCount = story.verses_count !== undefined && story.verses_count !== null;
+        
+        const needsRefetch = !hasTagArray && !hasTagCount && (!hasVerseArray && !hasVerseCount);
+        
+        if (needsRefetch) {
+            // Fire and forget - don't await, let refetch happen in background
             refetchStory();
         }
 
@@ -177,6 +198,7 @@ export default function StoryCard({
             createBubbles(hologramId);
         }
 
+        // Cleanup function to remove bubbles when component unmounts
         return () => {
             if (node) {
                 const existingBubbles = node.querySelectorAll('.bubble');
@@ -185,7 +207,8 @@ export default function StoryCard({
         };
     }, [story, refetchStory]);
 
-    // Keep a global reference used by the VerseViewer
+    // Keep a global reference used by the VerseViewer in sync so the viewer
+    // always reads the latest story even if it previously cached one on open.
     useEffect(() => {
         if (typeof window !== 'undefined' && currentStory) {
             try {
@@ -211,6 +234,7 @@ export default function StoryCard({
         };
     }, []);
 
+    // StoryCard.js - handleFollow function
     const handleFollow = async (event, username) => {
         event.stopPropagation();
 
@@ -220,22 +244,32 @@ export default function StoryCard({
         }
 
         try {
+            // If a parent handler is provided, delegate to it so we don't call the
+            // API twice (some parents already call userApi.followUser).
             if (typeof onFollowUser === 'function') {
+                // Optimistically update isFollowing immediately
                 setIsFollowing(prev => !prev);
                 
+                // Let parent perform the follow/unfollow action and update global state.
+                // The parent will update the stories array, which will trigger this component's
+                // useEffect to update isFollowing from the new story prop.
                 try {
                     await onFollowUser(username);
                 } catch (error) {
+                    // If parent call fails, revert the optimistic update
                     setIsFollowing(prev => !prev);
                     throw error;
                 }
+                // Parent's handleFollowUser will update stories, which triggers our useEffect([story])
+                // which will call setIsFollowing with the correct value from story.is_following
                 return;
             }
 
+            // Fallback: perform the API call locally when no parent handler exists
             const response = await userApi.followUser(username);
             setIsFollowing(response.is_following);
         } catch (error) {
-            console.error("Error following user:", error);
+
         }
     };
 
@@ -243,26 +277,21 @@ export default function StoryCard({
         try {
             setIsViewerOpening(true);
             
-            // Only fetch fresh data if we don't have complete verse data
-            if (!currentStory.verses || currentStory.verses.length === 0) {
-                const fullStory = await storiesApi.getStoryBySlug(story.slug);
-                setCurrentStory(fullStory);
-                if (typeof window !== 'undefined') {
-                    window.__fullStoryForViewer = fullStory;
-                }
-            } else {
-                // Use existing data
-                if (typeof window !== 'undefined') {
-                    window.__fullStoryForViewer = currentStory;
-                }
+            // IMPORTANT: Fetch fresh story data BEFORE opening the viewer
+            // This prevents showing stale/wrong verses from previous stories
+            const fullStory = await storiesApi.getStoryBySlug(story.slug);
+            setCurrentStory(fullStory);
+            if (typeof window !== 'undefined') {
+                window.__fullStoryForViewer = fullStory;
             }
             
+            // Only open the viewer AFTER data is ready
             setShowVerseViewer(true);
         } catch (e) {
-            console.error("Error opening verses:", e);
+
             setIsViewerOpening(false);
         }
-    }, [story.slug, currentStory]);
+    }, [story.slug]);
 
     const handleDeleteStory = async () => {
         setShowDeleteModal(false);
@@ -288,6 +317,7 @@ export default function StoryCard({
             }
             
             setTimeout(() => {
+                // Show success notification
                 try {
                   const event = new CustomEvent('notification:show', {
                     detail: {
@@ -304,7 +334,8 @@ export default function StoryCard({
                 }
             }, 500);
         } catch (err) {
-            console.error("Error deleting story:", err);
+
+            // Show error notification
             try {
               const event = new CustomEvent('notification:show', {
                 detail: {
@@ -322,23 +353,28 @@ export default function StoryCard({
 
     // Helper functions
     const getCreatorDisplayName = () => {
+        // Check if account is brand type and has brand_name
         if (story && story.creator_account_type === 'brand' && story.creator_brand_name) {
             return story.creator_brand_name;
         }
 
+        // Check if creator object has account_type and brand_name
         if (story && typeof story.creator === 'object' && story.creator) {
             if (story.creator.account_type === 'brand' && story.creator.brand_name) {
                 return story.creator.brand_name;
             }
         }
 
+        // Prefer serializer-provided consolidated/full name fields
         if (story && story.creator_full_name) return story.creator_full_name;
         if (story && (story.creator_first_name || story.creator_last_name)) {
             return `${story.creator_first_name || ''}${story.creator_first_name && story.creator_last_name ? ' ' : ''}${story.creator_last_name || ''}`.trim();
         }
 
+        // If creator is a string (username), return it
         if (story && typeof story.creator === 'string') return story.creator;
 
+        // If creator is an object, try common fields
         if (story && typeof story.creator === 'object' && story.creator) {
             if (story.creator.first_name || story.creator.last_name) {
                 return `${story.creator.first_name || ''}${story.creator.first_name && story.creator.last_name ? ' ' : ''}${story.creator.last_name || ''}`.trim();
@@ -347,11 +383,13 @@ export default function StoryCard({
             if (story.creator.username) return story.creator.username;
         }
 
+        // Fallbacks
         if (story && story.creator_username) return story.creator_username;
         return 'unknown';
     };
 
     const getCreatorUsername = () => {
+        // Prefer serializer-provided username field
         if (story && story.creator_username) return story.creator_username;
         if (story && typeof story.creator === 'string') return story.creator;
         if (story && typeof story.creator === 'object' && story.creator) {
@@ -361,6 +399,7 @@ export default function StoryCard({
     };
 
     const getCreatorProfileImage = () => {
+        // Prefer top-level serializer field
         if (story && story.creator_profile_image) return story.creator_profile_image;
         if (typeof story.creator === 'object' && story.creator) {
             return story.creator.profile_image || story.creator.avatar || null;
@@ -368,15 +407,18 @@ export default function StoryCard({
         return null;
     };
 
+    // FIXED: Improved getCoverImageUrl function to handle all image URL formats
     const getCoverImageUrl = () => {
         if (!story) return null;
         const cov = story.cover_image;
         if (!cov) return null;
         
+        // Handle string URLs
         if (typeof cov === 'string') {
             return cov ? absoluteUrl(cov) : null;
         }
         
+        // Handle object URLs
         const url = cov.file_url || cov.url || '';
         return url ? absoluteUrl(url) : null;
     };
@@ -412,6 +454,8 @@ export default function StoryCard({
         return tag.id || tag.slug || tag.name;
     };
 
+    // Share data (guard window for SSR). If origin is not available on server,
+    // fall back to a relative URL so server render doesn't crash.
     const _origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
     const shareData = {
         title: story.title || 'StoryVermo',
@@ -421,13 +465,13 @@ export default function StoryCard({
 
     if (viewType === 'feed') {
         const coverImageUrl = getCoverImageUrl();
-        const creatorUsername = getCreatorUsername();
+        const creatorUsername = getCreatorUsername(); // Get the username once
         
         return (
             <div className="image-container" style={{ display: storyDeleted ? 'none' : 'block' }}>
                 <div 
                     ref={cardRef} 
-                    className="scene-card" 
+                    className="scene-card " 
                     style={{ 
                         transition: 'transform 0.2s ease',
                         perspective: '1000px',
@@ -441,33 +485,35 @@ export default function StoryCard({
                     data-story-id={story.id} 
                     data-creator={creatorUsername} 
                     data-story-slug={story.slug || ''}
+                    // Removed touch handlers to avoid blocking vertical scroll.
                 >
-                    {coverImageUrl ? (
-                        <div className="relative w-full h-full">
-                            {index === 0 ? (
-                                <Image
-                                    src={coverImageUrl}
-                                    alt={story.title || 'Story cover'}
-                                    fill
-                                    className="scene-bg w-full h-full"
-                                    quality={60}
-                                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
-                                    priority
-                                    fetchPriority="high"
-                                    loading="eager"
-                                />
-                            ) : (
-                                <LazyImage
-                                    src={coverImageUrl}
-                                    alt={story.title || 'Story cover'}
-                                    fill
-                                    className="scene-bg w-full h-full"
-                                    quality={60}
-                                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
-                                />
-                            )}
-                        </div>
-                    ) : (
+                                        {coverImageUrl ? (
+                                                <div className="relative w-full h-full">
+                                                {/* Use LazyImage for offscreen images; keep priority for first item */}
+                                                {index === 0 ? (
+                                                    <Image
+                                                        src={coverImageUrl}
+                                                        alt={story.title || 'Story cover'}
+                                                        fill
+                                                        className="scene-bg w-full h-full"
+                                                        quality={60}
+                                                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
+                                                        priority
+                                                        fetchPriority="high"
+                                                        loading="eager"
+                                                    />
+                                                ) : (
+                                                    <LazyImage
+                                                        src={coverImageUrl}
+                                                        alt={story.title || 'Story cover'}
+                                                        fill
+                                                        className="scene-bg w-full h-full"
+                                                        quality={60}
+                                                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
+                                                    />
+                                                )}
+                                        </div>
+                                        ) : (
                         <div className="scene-bg-placeholder bg-linear-to-br from-slate-800 to-slate-900 flex items-center justify-center">
                             <div className="text-slate-600 text-4xl">
                                 <i className="fas fa-image"></i>
@@ -476,9 +522,10 @@ export default function StoryCard({
                     )}
                     <div className="scene-overlay"></div>
                     
+                    {/* Updated hologram with fixed positioning */}
                     <div 
                         ref={hologramRef}
-                        className="fixed-hologram absolute bottom-36 left-[5%] right-[5%] bg-black/60 backdrop-blur-[0.5px] border-2 border-[rgba(80,105,219,0.4)] rounded-2xl p-3 overflow-visible"
+                        className="fixed-hologram absolute bottom-36  left-[5%] right-[5%] bg-black/60 backdrop-blur-[0.5px] border-2 border-[rgba(80,105,219,0.4)] rounded-2xl p-3 overflow-visible  "
                         style={{
                             position: 'absolute',
                             transform: 'translateZ(0)',
@@ -494,6 +541,7 @@ export default function StoryCard({
                             setShowContributeModal={setShowContributeModal}
                             setShowRecommendModal={setShowRecommendModal}
                             setShowEnlargeModal={setShowEnlargeModal}
+                            // new handler: compute coords and open dropdown
                             onOpenDropdown={(btnEl) => {
                                 try {
                                     if (!btnEl || typeof btnEl.getBoundingClientRect !== 'function') {
@@ -568,6 +616,7 @@ export default function StoryCard({
                     mode="edit"
                     onUpdateStory={refetchStory}
                     onUpdateVerse={(updatedVerse) => {
+                        // update verse in local story state for immediate UI reflection
                         setCurrentStory(prev => ({
                             ...prev,
                             verses: prev.verses ? prev.verses.map(v => v.id === updatedVerse.id ? updatedVerse : v) : prev.verses
@@ -599,6 +648,7 @@ export default function StoryCard({
                     onClose={() => {
                         setShowVerseViewer(false);
                         setIsViewerOpening(false);
+                        // Clean up
                         if (typeof window !== 'undefined') delete window.__fullStoryForViewer;
                     }}
                     story={(typeof window !== 'undefined' && window.__fullStoryForViewer) ? window.__fullStoryForViewer : currentStory}
@@ -669,6 +719,7 @@ export default function StoryCard({
                                 await navigator.clipboard.writeText(storyUrl);
                                 alert('Link copied to clipboard!');
                             } else {
+                                // Fallback for older browsers
                                 const textArea = document.createElement('textarea');
                                 textArea.value = storyUrl;
                                 document.body.appendChild(textArea);
@@ -678,11 +729,13 @@ export default function StoryCard({
                                     document.execCommand('copy');
                                     alert('Link copied to clipboard!');
                                 } catch (err) {
+
                                     alert('Unable to copy link. Please copy manually.');
                                 }
                                 document.body.removeChild(textArea);
                             }
                         } catch (error) {
+
                             alert('Failed to copy link. Please try again.');
                         }
                     }}
@@ -690,7 +743,7 @@ export default function StoryCard({
                     handleShareStory={() => setShowShareModal(true)}
                     dropdownRef={dropdownRef}
                     coords={dropdownCoords}
-                    creatorUsername={creatorUsername}
+                    creatorUsername={creatorUsername} // Pass the username to the dropdown
                 />
             </div>
         );
@@ -702,6 +755,7 @@ export default function StoryCard({
         return (
             <div className="verse-card" onClick={handleOpenVerses}>
                 {imageUrl ? (
+                    // Using Next.js Image for automatic optimization
                     <Image 
                         src={imageUrl} 
                         alt={story.title || 'Untitled Story'}

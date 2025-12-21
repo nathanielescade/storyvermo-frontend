@@ -147,7 +147,7 @@ export default function FeedClient({ initialTag = 'for-you' }) {
           { id: 'recent', name: 'recent', display_name: 'Recent' },
           { id: 'following', name: 'following', display_name: 'Following', requiresAuth: true }
         ].map(option => {
-          const isDisabled = option.requiresAuth;
+          const isDisabled = option.requiresAuth && !isAuthenticated;
           const isActive = currentTag === option.name;
           const url = `/tags/${encodeURIComponent(option.name)}`;
           return (
