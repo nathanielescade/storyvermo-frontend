@@ -1,344 +1,86 @@
-// FeedClient.js - 🚀 CURSOR-BASED INFINITE SCROLL with skeleton loaders
+// FeedClient.js - Static UI without backend logic
 'use client';
 
-import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import StoryCard from './components/StoryCard';
 import StoryCardSkeleton from './components/StoryCardSkeleton';
-import useMain from '../../hooks/useMain';
-import { useAuth } from '../../contexts/AuthContext';
+import { storiesApi } from '../../lib/api';
 
-export default function FeedClient({ initialState }) {
-  const {
-    stories,
-    loading,
-    hasMore,
-    isFetching,
-    currentTag,
-    currentDimension,
-    handleTagSwitch,
-    handleFetchMore,
-    handleFollowUser,
-    handleOpenStoryVerses,
-    isAuthenticated,
-    refreshAuth,
-    refreshStories,
-    error,
-    prefetchNext
-  } = useMain(initialState);
+export default function FeedClient() {
 
-  const { currentUser } = useAuth();
-  const feedRef = useRef(null);
-  const sentinelRef = useRef(null);
-  const observerRef = useRef(null);
+  const [currentTag, setCurrentTag] = useState('for-you');
+  const [stories, setStories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Use stories as-is - moment images are already stripped on the API side
-  const feedStories = useMemo(() => stories, [stories]);
-
-  // Improved scroll restoration for TikTok-style feed
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if ('scrollRestoration' in window.history) {
-      window.history.scrollRestoration = 'manual';
-    }
+    setLoading(true);
+    setError(null);
+    // You can pass params for pagination, filtering, etc. For now, just fetch default feed
+    storiesApi.getPaginatedStories({ tag: currentTag !== 'for-you' ? currentTag : undefined })
+      .then((data) => {
+        // If your API returns { results: [...] }, adjust accordingly
+        setStories(data.results || data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError('Failed to load stories.');
+        setLoading(false);
+      });
+  }, [currentTag]);
 
-    // Save scroll position on pagehide (covers SPA and browser back/forward)
-    const saveScroll = () => {
-      if (feedRef.current) {
-        try {
-          sessionStorage.setItem('feedScrollPos', String(feedRef.current.scrollTop));
-        } catch (e) {}
-      }
-    };
-    window.addEventListener('pagehide', saveScroll);
-    window.addEventListener('popstate', saveScroll);
-
-    // Restore scroll position only on back/forward navigation
-    let restored = false;
-    const tryRestore = () => {
-      if (restored) return;
-      try {
-        const scrollPos = sessionStorage.getItem('feedScrollPos');
-        if (scrollPos && feedRef.current) {
-          feedRef.current.scrollTop = parseInt(scrollPos, 10);
-          restored = true;
-        }
-      } catch (e) {}
-    };
-    // Restore scroll after stories are loaded and not in loading state
-    if (!loading && feedStories.length > 0) {
-      setTimeout(tryRestore, 100);
-    }
-    // Also restore on popstate (browser back)
-    window.addEventListener('popstate', tryRestore);
-
-    return () => {
-      window.removeEventListener('pagehide', saveScroll);
-      window.removeEventListener('popstate', saveScroll);
-      window.removeEventListener('popstate', tryRestore);
-    };
-  }, [feedStories.length, loading]);
-
-  // 🚀 INTERSECTION OBSERVER for automatic infinite scroll trigger
-  useEffect(() => {
-    if (!hasMore || isFetching) return;
-    const root = feedRef.current;
-    if (!root || !sentinelRef.current) return;
-
-    // Disconnect previous observer
-    if (observerRef.current) observerRef.current.disconnect();
-
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          // User has scrolled near the end - load more
-          handleFetchMore();
-        }
-      },
-      {
-        root: root,
-        // Trigger when sentinel is 300px away from viewport bottom
-        rootMargin: '300px',
-        threshold: 0.01
-      }
-    );
-
-    observerRef.current = io;
-    io.observe(sentinelRef.current);
-
-    return () => {
-      try { io.disconnect(); } catch (e) { /* ignore */ }
-      observerRef.current = null;
-    };
-  }, [hasMore, isFetching, handleFetchMore]);
-
-  // Pre-fetch next page as user scrolls (for smooth loading)
-  useEffect(() => {
-    if (!hasMore || isFetching) return;
-    const root = feedRef.current;
-    if (!root || !sentinelRef.current) return;
-
-    const prefetchObserver = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          // User is nearing the end - prefetch next page
-          try {
-            prefetchNext();
-          } catch (e) {
-            // Silently fail
-          }
-        }
-      },
-      {
-        root: root,
-        rootMargin: '600px', // Prefetch earlier than load trigger
-        threshold: 0.01
-      }
-    );
-
-    if (sentinelRef.current) {
-      prefetchObserver.observe(sentinelRef.current);
-    }
-
-    return () => {
-      try { prefetchObserver.disconnect(); } catch (e) { /* ignore */ }
-    };
-  }, [hasMore, isFetching, prefetchNext]);
-
-  // Listen for successful login/signup
-  useEffect(() => {
-    const handleAuthSuccess = () => {
-      setTimeout(() => {
-        refreshStories();
-      }, 150);
-    };
-
-    window.addEventListener('auth:success', handleAuthSuccess);
-    return () => window.removeEventListener('auth:success', handleAuthSuccess);
-  }, [refreshStories]);
-
-  // Handle tag option click with authentication check
-  const handleTagOptionClick = useCallback(async (tagName) => {
-    if (tagName === 'following' && !isAuthenticated) {
-      window.dispatchEvent(new CustomEvent('auth:open', { detail: { type: 'following', data: null } }));
-      return;
-    }
-
-    if (currentTag === tagName) {
-      if (feedRef.current) {
-        feedRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-      handleTagSwitch(tagName, { force: true });
-      return;
-    }
-
-    try {
-      const slug = encodeURIComponent(String(tagName).toLowerCase().replace(/\s+/g,'-'));
-      const newUrl = tagName === 'for-you' ? '/' : `/tags/${slug}/`;
-      window.history.pushState({}, '', newUrl);
-    } catch (e) {
-      // Ignore navigation errors
-    }
-
-    handleTagSwitch(tagName);
-  }, [currentTag, handleTagSwitch, isAuthenticated]);
-
-  // Listen for trending tag selection from Header
-  useEffect(() => {
-    const handleTrendingTagSelected = (e) => {
-      const tagName = e?.detail?.tagName;
-      if (tagName) {
-        handleTagOptionClick(tagName);
-      }
-    };
-
-    window.addEventListener('trending:tag_selected', handleTrendingTagSelected);
-    return () => window.removeEventListener('trending:tag_selected', handleTrendingTagSelected);
-  }, [handleTagOptionClick]);
-
-  // Listen for back/forward navigation
-  useEffect(() => {
-    const onPop = (e) => {
-      const m = window.location.pathname.match(/^\/tags\/([^\/]+)\/?$/);
-      const tag = m && m[1] ? decodeURIComponent(m[1]) : 'for-you';
-      // On popstate, do NOT scroll to top. Just switch tag and let scroll restoration logic handle position.
-      handleTagSwitch(tag);
-    };
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, [handleTagSwitch]);
-
-  // Listen for global tag switch events
-  useEffect(() => {
-    const onTagSwitchEvent = (e) => {
-      const tag = e?.detail?.tag || 'for-you';
-      const force = !!e?.detail?.force;
-      if (tag === 'following' && !isAuthenticated) {
-        window.dispatchEvent(new CustomEvent('auth:open', { detail: { type: 'following', data: null } }));
-        return;
-      }
-      if (feedRef.current) {
-        feedRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-      handleTagSwitch(tag, { force });
-    };
-
-    window.addEventListener('tag:switch', onTagSwitchEvent);
-    return () => window.removeEventListener('tag:switch', onTagSwitchEvent);
-  }, [handleTagSwitch, isAuthenticated]);
-
-
-
-  
-  // Create unique key for story cards
-  const getStoryKey = useCallback((story, index) => {
-    if (story.id && story.slug) {
-      return `${story.id}-${story.slug}`;
-    }
-    return `${story.id || 'story'}-${index}`;
-  }, []);
+  const handleTagOptionClick = (tagName) => {
+    setCurrentTag(tagName);
+  };
 
   return (
     <div className="min-h-screen">
-      <div 
-        ref={feedRef}
-        className={`image-feed ${currentDimension === 'verses_page' ? 'hidden' : ''}`} 
-        id="imageFeed"
-      >
-        {/* Custom scrollbar styling */}
-        <style jsx>{`
-          #imageFeed::-webkit-scrollbar {
-            display: none;
-          }
-        `}</style>
+      <div className="image-feed" id="imageFeed">
 
-        {/* Initial loading state - show skeleton loaders instead of "no stories" */}
-        {loading || feedStories.length === 0 ? (
-          loading ? (
-            <div className="flex justify-center items-center min-h-screen h-[70vh]">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent-orange"></div>
-            </div>
-          ) : (
-            // Show skeleton loaders while waiting for data on first load
-            <div className="space-y-4 px-4">
-              {[1, 2, 3].map((i) => (
-                <StoryCardSkeleton key={`skeleton-${i}`} />
-              ))}
-            </div>
-          )
-        ) : (
+        {/* Loading state */}
+        {loading && (
           <>
-            {/* Rendered story cards */}
-            {feedStories.map((story, index) => (
-              <div key={getStoryKey(story, index)}>
-                <StoryCard 
-                  story={story} 
-                  index={index} 
-                  viewType="feed"
-                  onFollowUser={handleFollowUser}
-                  onOpenStoryVerses={handleOpenStoryVerses}
-                  currentTag={currentTag}
-                  onTagSelect={handleTagOptionClick}
-                  isAuthenticated={isAuthenticated}
-                  openAuthModal={(type = null, data = null) => 
-                    window.dispatchEvent(new CustomEvent('auth:open', { detail: { type, data } }))
-                  }
-                />
-              </div>
-            ))}
-
-            {/* INFINITE SCROLL: Show skeleton loaders while fetching */}
-            {isFetching && (
-              <div className="space-y-4 px-4">
-                {/* Show 2-3 skeleton cards while loading */}
-                {[1, 2, 3].map((i) => (
-                  <StoryCardSkeleton key={`skeleton-${i}`} />
-                ))}
-              </div>
-            )}
-
-            {/* End of feed indicator */}
-            {!hasMore && (
-              <div className="text-center py-8">
-                <p className="text-gray-500 text-sm">You&apos;ve seen all stories</p>
-                <button
-                  onClick={() => handleTagSwitch('for-you', { force: true })}
-                  className="mt-4 px-4 py-2 text-accent-orange hover:underline text-sm"
-                >
-                  Refresh feed
-                </button>
-              </div>
-            )}
-
-            {/* Sentinel element for intersection observer */}
-            <div 
-              ref={sentinelRef} 
-              style={{ height: '2px', width: '100%' }} 
-              aria-hidden="true"
-              className="my-8"
-            />
-
-            {/* Error state with retry */}
-            {error && (
-              <div className="mx-4 p-4 bg-red-50 border border-red-200 rounded-lg mb-4">
-                <p className="text-red-700 text-sm mb-3">{error}</p>
-                <button 
-                  onClick={() => {
-                    handleFetchMore();
-                  }}
-                  className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
-                >
-                  Retry
-                </button>
-              </div>
-            )}
+            <StoryCardSkeleton />
+            <StoryCardSkeleton />
           </>
         )}
+
+        {/* Error state */}
+        {error && (
+          <div className="text-red-500 text-center my-4">{error}</div>
+        )}
+
+        {/* Rendered story cards */}
+        {!loading && !error && stories.length === 0 && (
+          <div className="text-center text-gray-400 my-8">No stories found.</div>
+        )}
+        {!loading && !error && stories.map((story, index) => (
+          <div key={`${story.id || story.slug || index}-${index}`}>
+            <StoryCard 
+              story={story} 
+              index={index} 
+              viewType="feed"
+              currentTag={currentTag}
+              onTagSelect={handleTagOptionClick}
+              isAuthenticated={false}
+              openAuthModal={() => {}}
+            />
+          </div>
+        ))}
+
+        {/* Sentinel element for future infinite scroll */}
+        <div 
+          style={{ height: '2px', width: '100%' }} 
+          aria-hidden="true"
+          className="my-8"
+        />
       </div>
 
       {/* Tag switcher navigation */}
       <div
         id="tagSwitcher"
-        className="fixed left-1/2  top-8 transform -translate-x-1/2 bg-black/50 rounded-full z-10 flex px-1 py-1"
+        className="fixed left-1/2 top-8 transform -translate-x-1/2 bg-black/50 rounded-full z-10 flex px-1 py-1"
         style={{ 
           width: '90%', 
           maxWidth: '500px',
@@ -351,7 +93,7 @@ export default function FeedClient({ initialState }) {
           { id: 'recent', name: 'recent', display_name: 'Recent' },
           { id: 'following', name: 'following', display_name: 'Following', requiresAuth: true }
         ].map(option => {
-          const isDisabled = option.requiresAuth && !isAuthenticated;
+          const isDisabled = option.requiresAuth;
           const isActive = currentTag === option.name;
           
           return (
@@ -367,7 +109,6 @@ export default function FeedClient({ initialState }) {
                     : 'text-white/80 hover:text-white hover:bg-white/10 opacity-60 hover:opacity-90'
               } rounded-full focus:outline-none focus:ring-2 focus:ring-neon-blue/50 truncate`}
               onClick={() => handleTagOptionClick(option.name)}
-              onMouseDown={(e) => e.preventDefault()}
             >
               {option.display_name}
               {isDisabled && ' (Login Required)'}
@@ -377,4 +118,4 @@ export default function FeedClient({ initialState }) {
       </div>
     </div>
   );
-} 
+}
