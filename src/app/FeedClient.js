@@ -102,7 +102,7 @@ export default function FeedClient({ initialTag = 'for-you' }) {
         {!loading && !error && stories.length === 0 && (
           <div className="text-center text-gray-400 my-8">No stories found.</div>
         )}
-        {/* {!loading && !error && stories.map((story, index) => (
+        {!loading && !error && stories.map((story, index) => (
           <div key={`${story.id || story.slug || index}-${index}`}>
             <StoryCard 
               story={story} 
@@ -114,7 +114,7 @@ export default function FeedClient({ initialTag = 'for-you' }) {
               openAuthModal={openAuthModal}
             />
           </div>
-        ))} */}
+        ))}
 
         {/* Load More button for pagination - appears after last story */}
         {!loading && nextCursor && (

@@ -8,7 +8,6 @@ import { formatNumber, formatTimeAgo, createBubbles } from '../../../lib/utils';
 import { absoluteUrl, storiesApi, userApi } from '../../../lib/api';
 
 // Import modular components
-
 import HologramIcons from './storycard/HologramIcons';
 import TitleSection from './storycard/TitleSection';
 import TagsSection from './storycard/TagsSection';
@@ -37,7 +36,8 @@ export default function StoryCard({
     currentTag,
     onTagSelect,
     isAuthenticated,
-    openAuthModal
+    openAuthModal,
+    onStoryUpdate // New prop from FeedClient
 }) {
     const { currentUser } = useAuth();
     const [isFollowing, setIsFollowing] = useState(story.isFollowing || story.is_following || false);
@@ -50,7 +50,6 @@ export default function StoryCard({
     const [isViewerOpening, setIsViewerOpening] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
     const [localCommentsCount, setLocalCommentsCount] = useState(story.comments_count || 0);
-    // Removed swipe-to-open states (gesture open was causing scroll issues)
     
     // Hologram icon modals
     const [showContributeModal, setShowContributeModal] = useState(false);
@@ -65,11 +64,7 @@ export default function StoryCard({
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [storyDeleted, setStoryDeleted] = useState(false);
-    // If opening the StoryFormModal to edit a single verse, store it here
     const [editingVerseForModal, setEditingVerseForModal] = useState(null);
-    
-    // State for current story to handle updates
-    const [currentStory, setCurrentStory] = useState(story);
     
     const cardRef = useRef(null);
     const hologramRef = useRef(null);
@@ -119,18 +114,7 @@ export default function StoryCard({
         }, 2000);
     }, []);
 
-    // Function to refetch story data - MUST be before first useEffect that calls it
-    const refetchStory = useCallback(async () => {
-        try {
-            const fullStory = await storiesApi.getStoryBySlug(story.slug);
-            setCurrentStory(fullStory);
-            setIsFollowing(fullStory.isFollowing || fullStory.is_following || false);
-        } catch (error) {
-
-        }
-    }, [story.slug]);
-
-    // Check if current user is the owner of the story (robust across different API shapes)
+    // Check if current user is the owner of the story
     const isOwner = (() => {
         if (!currentUser || !story) return false;
   
@@ -169,19 +153,6 @@ export default function StoryCard({
         const followingValue = story.isFollowing || story.is_following || false;
         setIsFollowing(followingValue);
         setLocalCommentsCount(story.comments_count || 0);
-        // IMPORTANT: Set currentStory immediately with the prop story (which has verses_count, tags from paginated endpoint)
-        // This ensures instant display without waiting for refetch
-        setCurrentStory(story);
-
-        // Only refetch if story is missing BOTH tag arrays AND tags count
-        // This handles cases where paginated endpoint doesn't include tags
-        const hasTagArray = Array.isArray(story.tags);
-        const hasTagCount = story.tags_count !== undefined && story.tags_count !== null;
-        const hasVerseArray = Array.isArray(story.verses);
-        const hasVerseCount = story.verses_count !== undefined && story.verses_count !== null;
-        
-        const needsRefetch = !hasTagArray && !hasTagCount && (!hasVerseArray && !hasVerseCount);
-
 
         // Create bubbles around the hologram
         const node = hologramRef.current;
@@ -201,19 +172,7 @@ export default function StoryCard({
                 existingBubbles.forEach(bubble => bubble.remove());
             }
         };
-    }, [story, refetchStory]);
-
-    // Keep a global reference used by the VerseViewer in sync so the viewer
-    // always reads the latest story even if it previously cached one on open.
-    useEffect(() => {
-        if (typeof window !== 'undefined' && currentStory) {
-            try {
-                window.__fullStoryForViewer = currentStory;
-            } catch (e) {
-                // ignore
-            }
-        }
-    }, [currentStory]);
+    }, [story]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -240,15 +199,11 @@ export default function StoryCard({
         }
 
         try {
-            // If a parent handler is provided, delegate to it so we don't call the
-            // API twice (some parents already call userApi.followUser).
+            // If a parent handler is provided, delegate to it
             if (typeof onFollowUser === 'function') {
                 // Optimistically update isFollowing immediately
                 setIsFollowing(prev => !prev);
                 
-                // Let parent perform the follow/unfollow action and update global state.
-                // The parent will update the stories array, which will trigger this component's
-                // useEffect to update isFollowing from the new story prop.
                 try {
                     await onFollowUser(username);
                 } catch (error) {
@@ -256,16 +211,22 @@ export default function StoryCard({
                     setIsFollowing(prev => !prev);
                     throw error;
                 }
-                // Parent's handleFollowUser will update stories, which triggers our useEffect([story])
-                // which will call setIsFollowing with the correct value from story.is_following
                 return;
             }
 
             // Fallback: perform the API call locally when no parent handler exists
             const response = await userApi.followUser(username);
             setIsFollowing(response.is_following);
+            
+            // Notify parent about the story update
+            if (onStoryUpdate) {
+                onStoryUpdate({
+                    ...story,
+                    is_following: response.is_following
+                });
+            }
         } catch (error) {
-
+            console.error("Follow error:", error);
         }
     };
 
@@ -274,20 +235,20 @@ export default function StoryCard({
             setIsViewerOpening(true);
             
             // IMPORTANT: Fetch fresh story data BEFORE opening the viewer
-            // This prevents showing stale/wrong verses from previous stories
             const fullStory = await storiesApi.getStoryBySlug(story.slug);
-            setCurrentStory(fullStory);
-            if (typeof window !== 'undefined') {
-                window.__fullStoryForViewer = fullStory;
+            
+            // Update the story in parent's state
+            if (onStoryUpdate) {
+                onStoryUpdate(fullStory);
             }
             
             // Only open the viewer AFTER data is ready
             setShowVerseViewer(true);
         } catch (e) {
-
+            console.error("Error opening verses:", e);
             setIsViewerOpening(false);
         }
-    }, [story.slug]);
+    }, [story.slug, onStoryUpdate]);
 
     const handleDeleteStory = async () => {
         setShowDeleteModal(false);
@@ -330,7 +291,7 @@ export default function StoryCard({
                 }
             }, 500);
         } catch (err) {
-
+            console.error("Delete error:", err);
             // Show error notification
             try {
               const event = new CustomEvent('notification:show', {
@@ -403,7 +364,6 @@ export default function StoryCard({
         return null;
     };
 
-    // FIXED: Improved getCoverImageUrl function to handle all image URL formats
     const getCoverImageUrl = () => {
         if (!story) return null;
         const cov = story.cover_image;
@@ -450,8 +410,7 @@ export default function StoryCard({
         return tag.id || tag.slug || tag.name;
     };
 
-    // Share data (guard window for SSR). If origin is not available on server,
-    // fall back to a relative URL so server render doesn't crash.
+    // Share data (guard window for SSR)
     const _origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
     const shareData = {
         title: story.title || 'StoryVermo',
@@ -461,7 +420,7 @@ export default function StoryCard({
 
     if (viewType === 'feed') {
         const coverImageUrl = getCoverImageUrl();
-        const creatorUsername = getCreatorUsername(); // Get the username once
+        const creatorUsername = getCreatorUsername();
         
         return (
             <div className="image-container" style={{ display: storyDeleted ? 'none' : 'block' }}>
@@ -481,35 +440,33 @@ export default function StoryCard({
                     data-story-id={story.id} 
                     data-creator={creatorUsername} 
                     data-story-slug={story.slug || ''}
-                    // Removed touch handlers to avoid blocking vertical scroll.
                 >
-                                        {coverImageUrl ? (
-                                                <div className="relative w-full h-full">
-                                                {/* Use LazyImage for offscreen images; keep priority for first item */}
-                                                {index === 0 ? (
-                                                    <Image
-                                                        src={coverImageUrl}
-                                                        alt={story.title || 'Story cover'}
-                                                        fill
-                                                        className="scene-bg w-full h-full"
-                                                        quality={60}
-                                                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
-                                                        priority
-                                                        fetchPriority="high"
-                                                        loading="eager"
-                                                    />
-                                                ) : (
-                                                    <LazyImage
-                                                        src={coverImageUrl}
-                                                        alt={story.title || 'Story cover'}
-                                                        fill
-                                                        className="scene-bg w-full h-full"
-                                                        quality={60}
-                                                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
-                                                    />
-                                                )}
-                                        </div>
-                                        ) : (
+                    {coverImageUrl ? (
+                        <div className="relative w-full h-full">
+                            {index === 0 ? (
+                                <Image
+                                    src={coverImageUrl}
+                                    alt={story.title || 'Story cover'}
+                                    fill
+                                    className="scene-bg w-full h-full"
+                                    quality={60}
+                                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
+                                    priority
+                                    fetchPriority="high"
+                                    loading="eager"
+                                />
+                            ) : (
+                                <LazyImage
+                                    src={coverImageUrl}
+                                    alt={story.title || 'Story cover'}
+                                    fill
+                                    className="scene-bg w-full h-full"
+                                    quality={60}
+                                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
+                                />
+                            )}
+                        </div>
+                    ) : (
                         <div className="scene-bg-placeholder bg-linear-to-br from-slate-800 to-slate-900 flex items-center justify-center">
                             <div className="text-slate-600 text-4xl">
                                 <i className="fas fa-image"></i>
@@ -518,7 +475,6 @@ export default function StoryCard({
                     )}
                     <div className="scene-overlay"></div>
                     
-                    {/* Updated hologram with fixed positioning */}
                     <div 
                         ref={hologramRef}
                         className="fixed-hologram absolute bottom-36  left-[5%] right-[5%] bg-black/60 backdrop-blur-[0.5px] border-2 border-[rgba(80,105,219,0.4)] rounded-2xl p-3 overflow-visible  "
@@ -530,14 +486,13 @@ export default function StoryCard({
                         }}
                     >
                         <HologramIcons 
-                            story={currentStory}
+                            story={story}
                             isOwner={isOwner}
                             isAuthenticated={isAuthenticated}
                             openAuthModal={openAuthModal}
                             setShowContributeModal={setShowContributeModal}
                             setShowRecommendModal={setShowRecommendModal}
                             setShowEnlargeModal={setShowEnlargeModal}
-                            // new handler: compute coords and open dropdown
                             onOpenDropdown={(btnEl) => {
                                 try {
                                     if (!btnEl || typeof btnEl.getBoundingClientRect !== 'function') {
@@ -556,7 +511,7 @@ export default function StoryCard({
                         />
                         
                         <TitleSection 
-                            story={currentStory}
+                            story={story}
                             index={index}
                             currentTag={currentTag}
                             titleExpanded={titleExpanded}
@@ -570,7 +525,7 @@ export default function StoryCard({
                         />
                         
                         <TagsSection 
-                            story={currentStory}
+                            story={story}
                             currentTag={currentTag}
                             onTagSelect={onTagSelect}
                             getTagName={getTagName}
@@ -578,18 +533,18 @@ export default function StoryCard({
                         />
                         
                         <ActionButtons 
-                            story={currentStory}
+                            story={story}
                             localCommentsCount={localCommentsCount}
                             setShowCommentModal={setShowCommentModal}
                             setShowShareModal={setShowShareModal}
                             isAuthenticated={isAuthenticated}
                             openAuthModal={openAuthModal}
-                            onStoryUpdate={refetchStory}
+                            onStoryUpdate={onStoryUpdate} // Pass the update function
                             onLikeBurst={triggerLikeBurst}
                         />
                         
                         <CreatorChip 
-                            story={currentStory}
+                            story={story}
                             isOwner={isOwner}
                             isFollowing={isFollowing}
                             handleFollow={handleFollow}
@@ -606,17 +561,28 @@ export default function StoryCard({
                 {/* Modals */}
                 <StoryFormModal
                     isOpen={showStoryFormModal}
-                    onClose={() => { setShowStoryFormModal(false); setEditingVerseForModal(null); }}
-                    editingStory={currentStory}
+                    onClose={() => { 
+                        setShowStoryFormModal(false); 
+                        setEditingVerseForModal(null); 
+                    }}
+                    editingStory={story}
                     editingVerse={editingVerseForModal}
                     mode="edit"
-                    onUpdateStory={refetchStory}
+                    onUpdateStory={(updatedStory) => {
+                        // Update the story in parent's state
+                        if (onStoryUpdate) {
+                            onStoryUpdate(updatedStory);
+                        }
+                    }}
                     onUpdateVerse={(updatedVerse) => {
-                        // update verse in local story state for immediate UI reflection
-                        setCurrentStory(prev => ({
-                            ...prev,
-                            verses: prev.verses ? prev.verses.map(v => v.id === updatedVerse.id ? updatedVerse : v) : prev.verses
-                        }));
+                        // Update verse in local story state for immediate UI reflection
+                        if (onStoryUpdate) {
+                            const updatedStory = {
+                                ...story,
+                                verses: story.verses ? story.verses.map(v => v.id === updatedVerse.id ? updatedVerse : v) : story.verses
+                            };
+                            onStoryUpdate(updatedStory);
+                        }
                     }}
                 />
                 
@@ -631,10 +597,19 @@ export default function StoryCard({
                             setShowCommentModal(false);
                         }, 0);
                     }}
-                    post={currentStory}
+                    post={story}
                     updateCommentCount={(slug, increment) => {
                         if (slug === story.slug) {
                             setLocalCommentsCount(prev => prev + increment);
+                            
+                            // Update the story in parent's state
+                            if (onStoryUpdate) {
+                                const updatedStory = {
+                                    ...story,
+                                    comments_count: localCommentsCount + increment
+                                };
+                                onStoryUpdate(updatedStory);
+                            }
                         }
                     }}
                 />
@@ -644,15 +619,13 @@ export default function StoryCard({
                     onClose={() => {
                         setShowVerseViewer(false);
                         setIsViewerOpening(false);
-                        // Clean up
-                        if (typeof window !== 'undefined') delete window.__fullStoryForViewer;
                     }}
-                    story={(typeof window !== 'undefined' && window.__fullStoryForViewer) ? window.__fullStoryForViewer : currentStory}
+                    story={story} // Use the story prop directly
                     initialVerseIndex={0}
                     onReady={() => setIsViewerOpening(false)}
                     isAuthenticated={isAuthenticated}
                     openAuthModal={openAuthModal}
-                    onStoryUpdate={refetchStory}
+                    onStoryUpdate={onStoryUpdate} // Pass the update function
                     onOpenStoryForm={(verse) => {
                         setEditingVerseForModal(verse);
                         setShowStoryFormModal(true);
@@ -670,14 +643,19 @@ export default function StoryCard({
                 <ContributeModal 
                     showContributeModal={showContributeModal}
                     setShowContributeModal={setShowContributeModal}
-                    story={currentStory}
-                    onStoryUpdated={refetchStory}
+                    story={story}
+                    onStoryUpdated={(updatedStory) => {
+                        // Update the story in parent's state
+                        if (onStoryUpdate) {
+                            onStoryUpdate(updatedStory);
+                        }
+                    }}
                 />
                 
                 <RecommendModal 
                     showRecommendModal={showRecommendModal}
                     setShowRecommendModal={setShowRecommendModal}
-                    story={currentStory}
+                    story={story}
                     isAuthenticated={isAuthenticated}
                     currentUser={currentUser}
                 />
@@ -685,14 +663,14 @@ export default function StoryCard({
                 <EnlargeModal 
                     showEnlargeModal={showEnlargeModal}
                     setShowEnlargeModal={setShowEnlargeModal}
-                    story={currentStory}
+                    story={story}
                     getCoverImageUrl={getCoverImageUrl}
                 />
                 
                 <DeleteModal 
                     showDeleteModal={showDeleteModal}
                     setShowDeleteModal={setShowDeleteModal}
-                    story={currentStory}
+                    story={story}
                     handleDeleteStory={handleDeleteStory}
                     isDeleting={isDeleting}
                 />
@@ -725,13 +703,11 @@ export default function StoryCard({
                                     document.execCommand('copy');
                                     alert('Link copied to clipboard!');
                                 } catch (err) {
-
                                     alert('Unable to copy link. Please copy manually.');
                                 }
                                 document.body.removeChild(textArea);
                             }
                         } catch (error) {
-
                             alert('Failed to copy link. Please try again.');
                         }
                     }}
@@ -739,12 +715,11 @@ export default function StoryCard({
                     handleShareStory={() => setShowShareModal(true)}
                     dropdownRef={dropdownRef}
                     coords={dropdownCoords}
-                    creatorUsername={creatorUsername} // Pass the username to the dropdown
+                    creatorUsername={creatorUsername}
                 />
             </div>
         );
     }
-    
     
     return null;
 }
