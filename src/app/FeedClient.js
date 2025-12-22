@@ -108,12 +108,12 @@ export default function FeedClient({ initialTag = 'for-you' }) {
               story={story} 
               index={index} 
               viewType="feed"
-              currentTag={currentTag}
-              onTagSelect={handleTagOptionClick}
-              isAuthenticated={isAuthenticated}
-              openAuthModal={openAuthModal}
+              // currentTag={currentTag}
+              // onTagSelect={handleTagOptionClick}
+              // isAuthenticated={isAuthenticated}
+              // openAuthModal={openAuthModal}
             />
-          </div>
+           </div>
         ))}
 
         {/* Load More button for pagination - appears after last story */}
