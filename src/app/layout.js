@@ -166,7 +166,7 @@ export default function RootLayout({ children }) {
             {children}
           </main>
           
-          <CommentModal />
+          {/* <CommentModal /> */}
           
           {/* 🔥 OPTIMIZED: Service Worker Registration (deferred) */}
           <Script id="sw-register" strategy="lazyOnload">

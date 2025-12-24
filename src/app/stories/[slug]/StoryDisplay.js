@@ -83,8 +83,7 @@ export default function StoryDisplay({ initialStory, slug }) {
   // Refetch story client-side ONLY if we need to update like/save state
   // Skip if story already has user interaction data (newer than 5 minutes)
   useEffect(() => {
-    // Only refetch if we have a slug and user just authenticated/changed
-    // Skip refetch if story is brand new (server just rendered it)
+
     if (slug && isAuthenticated) {
       // Debounce refetch to avoid constant updates
       const timer = setTimeout(() => {

@@ -1,5 +1,4 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
-import Link from 'next/link';
 import dynamic from 'next/dynamic';
 
 const TitleSection = ({ 
@@ -100,44 +99,34 @@ const TitleSection = ({
     return (
         <>
             <div className="title-container" id={`title-container-${index}`}> 
-                <Link 
-                    href={currentTag ? `/stories/${story.slug}/?tag=${encodeURIComponent(currentTag)}` : `/stories/${story.slug}/`} 
-                    className="block"
-                    onMouseEnter={(e) => {
-                        if (e.currentTarget.prefetch) {
-                            e.currentTarget.prefetch();
+                <h2 
+                    ref={titleRef}
+                    className={`scene-title text-2xl md:text-3xl font-bold mb-0 flex items-center flex-wrap ${
+                        titleExpanded ? '' : 'line-clamp-2'
+                    }`}
+                    id={`title-${index}`}
+                    onClick={(e) => {
+                        if (wasTitleTruncated && !titleExpanded) {
+                            e.preventDefault();
+                            toggleTitle();
                         }
                     }}
+                    style={index === 0 ? {
+                        // For the first story, render synchronously for LCP
+                        display: '-webkit-box',
+                        WebkitBoxOrient: 'vertical',
+                        WebkitLineClamp: titleExpanded ? 'unset' : 2,
+                        overflow: titleExpanded ? 'visible' : 'hidden',
+                        containIntrinsicSize: 'auto 2em',
+                    } : {
+                        display: '-webkit-box',
+                        WebkitBoxOrient: 'vertical',
+                        WebkitLineClamp: titleExpanded ? 'unset' : 2,
+                        overflow: titleExpanded ? 'visible' : 'hidden'
+                    }}
                 >
-                    <h2 
-                        ref={titleRef}
-                        className={`scene-title text-2xl md:text-3xl font-bold mb-0 hover:underline flex items-center flex-wrap ${
-                            titleExpanded ? '' : 'line-clamp-2'
-                        }`}
-                        id={`title-${index}`}
-                        onClick={(e) => {
-                            if (wasTitleTruncated && !titleExpanded) {
-                                e.preventDefault();
-                                toggleTitle();
-                            }
-                        }}
-                        style={index === 0 ? {
-                            // For the first story, render synchronously for LCP
-                            display: '-webkit-box',
-                            WebkitBoxOrient: 'vertical',
-                            WebkitLineClamp: titleExpanded ? 'unset' : 2,
-                            overflow: titleExpanded ? 'visible' : 'hidden',
-                            containIntrinsicSize: 'auto 2em',
-                        } : {
-                            display: '-webkit-box',
-                            WebkitBoxOrient: 'vertical',
-                            WebkitLineClamp: titleExpanded ? 'unset' : 2,
-                            overflow: titleExpanded ? 'visible' : 'hidden'
-                        }}
-                    >
-                        {renderTitleWithEmojis(story.title)}
-                    </h2>
-                </Link>
+                    {renderTitleWithEmojis(story.title)}
+                </h2>
                 {wasTitleTruncated && (
                     <span 
                         className="text-cyan-400 ml-1 cursor-pointer text-sm font-medium hover:text-cyan-300 transition-colors"

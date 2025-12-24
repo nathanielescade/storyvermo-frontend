@@ -1,27 +1,19 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
 import { storiesApi, versesApi, momentsApi } from '../../../lib/api';
-
-// Import components
-import ConfirmationDialog from './storyformmodal/ConfirmationDialog';
-import DeleteVerseConfirmation from './storyformmodal/DeleteVerseConfirmation';
-import VerseItem from './storyformmodal/VerseItem';
-import TagInput from './storyformmodal/TagInput';
-import ModalHeader from './storyformmodal/ModalHeader';
-import ImageUploadArea from './storyformmodal/ImageUploadArea';
-import VerseList from './storyformmodal/VerseList';
-import SubmitButtons from './storyformmodal/SubmitButtons';
+import Image from 'next/image';
+import { buildImageUrl } from '@/utils/cdn';
 
 // Default tags as fallback
 const DEFAULT_TAGS = ['Fantasy', 'Adventure', 'Mystery', 'Romance', 'Sci-Fi', 
                       'Horror', 'Thriller', 'Poetry', 'Life', 'Travel',
                       'Food', 'Technology', 'Art', 'Music', 'History'];
 
-// Title emoji quick-bar (moved 😞 to 7th position)
+// Title emoji quick-bar
 const TITLE_EMOJI_BAR = ['🔥','💯','🎉','😀','😍','🙌','😞','🌌'];
 
 // Description character limit
@@ -40,6 +32,574 @@ const getCsrfToken = () => {
 const generateUniqueId = () => {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 };
+
+// --- Sub-components (Previously modularized, now inline) ---
+
+const ConfirmationDialog = ({ isOpen, title, message, onConfirm, onCancel }) => {
+  if (!isOpen) return null;
+  
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[10200] flex items-center justify-center p-4">
+      <div className="bg-gradient-to-br from-slate-900 to-indigo-900 border border-purple-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl shadow-purple-500/20">
+        <h3 className="text-xl font-bold text-white mb-3">{title}</h3>
+        <p className="text-gray-300 mb-6">{message}</p>
+        <div className="flex justify-end gap-3">
+          <button 
+            onClick={onCancel}
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors"
+          >
+            Go Back
+          </button>
+          <button 
+            onClick={onConfirm}
+            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg transition-colors"
+          >
+            Continue Anyway
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const DeleteVerseConfirmation = ({ isOpen, verseNumber, onConfirm, onCancel }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[10200] flex items-center justify-center p-4">
+      <div className="bg-gradient-to-br from-slate-900 to-indigo-900 border border-red-500/30 rounded-2xl p-6 max-w-md w-full shadow-2xl shadow-red-500/20">
+        <h3 className="text-xl font-bold text-white mb-3 flex items-center gap-2">
+          <span className="fas fa-exclamation-triangle text-red-400"></span> Delete Verse?
+        </h3>
+        <p className="text-gray-300 mb-6">
+          Are you sure you want to delete Verse #{verseNumber}? This action cannot be undone.
+        </p>
+        <div className="flex justify-end gap-3">
+          <button 
+            onClick={onCancel}
+            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors"
+          >
+            Cancel
+          </button>
+          <button 
+            onClick={onConfirm}
+            className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors shadow-lg shadow-red-500/30"
+          >
+            Delete Verse
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const VerseItem = memo(({ 
+  verse, 
+  index, 
+  onImageUpload,
+  onDeleteVerseClick,
+  onVerseContentChange,
+  onRemoveImage,
+  onDeleteMoment,
+  isEditingVerse,
+  title
+}) => {
+  const textareaRef = useRef(null);
+  const isExisting = verse.isExisting;
+
+  const handleVerseContentChange = useCallback((e) => {
+    const newValue = e.target.value;
+    onVerseContentChange(verse.id, newValue);
+    
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      const newHeight = Math.min(textareaRef.current.scrollHeight, 200); 
+      textareaRef.current.style.height = newHeight + 'px';
+    }
+  }, [verse.id, onVerseContentChange]);
+  
+  return (
+    <div className={`verse-item bg-gradient-to-b ${isExisting ? 'from-slate-900/60 to-indigo-900/60' : 'from-slate-900/80 to-black/80'} border ${isExisting ? 'border-purple-500/40' : 'border-blue-900/30'} rounded-2xl p-8 mb-8`} id={`verse-${index}`}>
+      <div className="flex justify-between items-center mb-6">
+        <h4 className="text-xl font-semibold text-white flex items-center gap-2">
+          <span className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500/30 to-indigo-500/30 flex items-center justify-center text-purple-400 text-sm font-bold">
+            {index + 1}
+          </span>
+          Verse #{index + 1} {isExisting && <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded">Existing</span>}
+        </h4>
+        {!isEditingVerse && (
+          <button 
+            onClick={() => onDeleteVerseClick(verse.id, index + 1)}
+            className="w-10 h-10 rounded-full bg-red-500/30 hover:bg-red-500/40 flex items-center justify-center text-red-400 transition-all duration-300 border border-red-500/30"
+            title="Remove verse"
+          >
+            <span className="fas fa-times"></span>
+          </button>
+        )}
+      </div>
+      
+      <div className="space-y-4 mb-6">
+        <label className="block text-sm font-medium text-gray-300 flex items-center gap-2">
+          <span className="fas fa-pen text-purple-400"></span> Verse Content
+        </label>
+        <p className="text-xs text-gray-500 mb-2">You can add images/moments without text.</p>
+        <div className="relative">
+          <textarea 
+            ref={textareaRef}
+            placeholder="Describe your verse..."
+            value={verse.content || ''}
+            onChange={handleVerseContentChange}
+            rows={2}
+            className="w-full px-5 py-4 bg-slate-900/60 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 transition-all duration-300 resize-none text-lg overflow-hidden"
+          ></textarea>
+        </div>
+      </div>
+      
+      <div className="space-y-4">
+        <label className="block text-sm font-medium text-gray-300 flex items-center gap-2">
+          <span className="fas fa-images text-purple-400"></span> Verse Moments (Images)
+        </label>
+        
+        {verse.imageIds && verse.imageIds.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {verse.imageIds.map((image, imgIndex) => (
+              <div key={`verse-${verse.id || index}-img-${imgIndex}`} className="relative group">
+                {typeof image === 'string' ? (
+                  <div className="relative w-full h-36">
+                    <Image
+                      src={buildImageUrl(image, { w: 1080, fmt: 'webp' })}
+                      alt={title ? `${title} - Moment ${imgIndex + 1}` : `Moment ${imgIndex + 1}`}
+                      fill
+                      sizes="(max-width: 768px) 50vw, 33vw"
+                      className="object-cover rounded-xl border border-gray-700"
+                    />
+                  </div>
+                ) : (
+                  <div className="relative w-full h-36">
+                    <Image
+                      src={image.preview || image.url || image.file_url || (image.file ? URL.createObjectURL(image.file) : '')}
+                      alt={title ? `${title} - Moment ${imgIndex + 1}` : `Moment ${imgIndex + 1}`}
+                      fill
+                      sizes="(max-width: 768px) 50vw, 33vw"
+                      className="object-cover rounded-xl border border-gray-700"
+                    />
+                  </div>
+                )}
+                <button 
+                  onClick={() => {
+                    const imageToDelete = verse.imageIds[imgIndex];
+                    if (imageToDelete && imageToDelete.public_id) {
+                      onDeleteMoment(imageToDelete.public_id);
+                    }
+                    onRemoveImage(verse.id, imgIndex);
+                  }}
+                  className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500/80 hover:bg-red-600 flex items-center justify-center text-white text-xs transition-opacity"
+                  title="Delete this image"
+                >
+                  <span className="fas fa-trash"></span>
+                </button>
+                <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                  {imgIndex + 1}
+                </div>
+              </div>
+            ))}
+            
+            <div className="relative h-36 rounded-xl overflow-hidden border-2 border-dashed border-gray-700 hover:border-purple-500/60 transition-all duration-300 cursor-pointer group">
+              <input 
+                type="file" 
+                className="hidden" 
+                multiple 
+                accept="image/*" 
+                id={`verse-image-input-${verse.id}`}
+                onChange={(e) => onImageUpload(verse.id, e)}
+              />
+              <label 
+                htmlFor={`verse-image-input-${verse.id}`}
+                className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-slate-900/70 to-indigo-900/70 group-hover:from-slate-900/90 group-hover:to-indigo-900/90 transition-all duration-300 cursor-pointer"
+              >
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500/30 to-indigo-500/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300 border border-purple-500/30">
+                  <span className="fas fa-plus text-purple-400 text-xl"></span>
+                </div>
+                <p className="text-gray-300 text-sm">Add images</p>
+              </label>
+            </div>
+          </div>
+        ) : (
+          <div className="relative h-36 rounded-xl overflow-hidden border-2 border-dashed border-gray-700 hover:border-purple-500/60 transition-all duration-300 cursor-pointer group">
+            <input 
+              type="file" 
+              className="hidden" 
+              multiple 
+              accept="image/*" 
+              id={`verse-image-input-${index}`}
+              onChange={(e) => onImageUpload(verse.id, e)}
+            />
+            <label 
+              htmlFor={`verse-image-input-${index}`}
+              className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-slate-900/70 to-indigo-900/70 group-hover:from-slate-900/90 group-hover:to-indigo-900/90 transition-all duration-300 cursor-pointer"
+            >
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500/30 to-indigo-500/30 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300 border border-purple-500/30">
+                <span className="fas fa-images text-purple-400 text-xl"></span>
+              </div>
+              <p className="text-gray-300 text-sm">Add images</p>
+            </label>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+const VerseList = ({ 
+  verses, 
+  handleVerseImageUpload, 
+  handleDeleteVerseClick, 
+  handleVerseContentChange,
+  handleAddVerse,
+  setDeletedMoments,
+  setVerses,
+  validationErrors, 
+  editingVerse, 
+  title
+}) => {
+  return (
+    <div className="mb-10">
+      <div className="flex items-center gap-4 mb-8">
+        <div className="h-px bg-gradient-to-r from-transparent via-purple-500/60 to-transparent flex-1"></div>
+        <h3 className="text-2xl font-semibold text-purple-400 px-4 flex items-center gap-2">
+          <span className="fas fa-scroll"></span> Story Verses
+        </h3>
+        <div className="h-px bg-gradient-to-r from-transparent via-purple-500/60 to-transparent flex-1"></div>
+      </div>
+      
+      <div className="verses-container" id="versesContainer">
+        {verses.map((verse, index) => (
+          <VerseItem 
+            key={`verse-${verse.id || `temp-${index}`}`}
+            verse={verse}
+            index={index}
+            onImageUpload={handleVerseImageUpload}
+            onDeleteVerseClick={handleDeleteVerseClick}
+            onVerseContentChange={handleVerseContentChange}
+            onRemoveImage={(verseId, imgIndex) => {
+              setVerses(prevVerses => 
+                prevVerses.map(v => {
+                  if (v.id === verseId) {
+                    const newImageIds = [...v.imageIds];
+                    const removed = newImageIds.splice(imgIndex, 1);
+                    try {
+                      if (removed && removed[0] && removed[0].preview && typeof removed[0].preview === 'string' && removed[0].preview.startsWith('blob:')) {
+                        URL.revokeObjectURL(removed[0].preview);
+                      }
+                    } catch (e) {}
+                    return { ...v, imageIds: newImageIds };
+                  }
+                  return v;
+                })
+              );
+            }}
+            onDeleteMoment={(momentId) => setDeletedMoments(prev => [...prev, momentId])}
+            validationErrors={validationErrors}
+            isEditingVerse={!!editingVerse}
+            title={title}
+          />
+        ))}
+      </div>
+      
+      {!editingVerse && (
+        <div className="flex justify-center mt-8">
+          <button 
+            onClick={handleAddVerse}
+            className="px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-2xl font-medium flex items-center gap-3 transition-all duration-300 transform hover:scale-105 shadow-lg shadow-purple-500/30 border border-purple-500/30"
+          >
+            <span className="fas fa-plus text-xl"></span> Add Verse
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const TagInput = memo(({ 
+  tagInput, 
+  selectedTags, 
+  availableTags,
+  tagsLoading,
+  tagsError,
+  onTagInputChange,
+  onAddTag,
+  onAddTagByValue,
+  onRemoveTag
+}) => {
+  return (
+    <div className="mb-8">
+      <label className="block text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
+        <span className="fas fa-tags text-cyan-400"></span> Tags
+      </label>
+      <div className="flex flex-wrap gap-3 mb-4">
+        {selectedTags.map((tag, index) => (
+          <div key={index} className="flex items-center bg-gradient-to-r from-cyan-500/30 to-blue-500/30 rounded-xl px-4 py-2 border border-cyan-500/30">
+            <span className="text-cyan-400 text-sm">{tag}</span>
+            <button 
+              type="button"
+              onClick={() => onRemoveTag(tag)}
+              className="ml-2 text-cyan-400 hover:text-red-400 transition-colors"
+            >
+              <span className="fas fa-times text-xs"></span>
+            </button>
+          </div>
+        ))}
+      </div>
+      <div className="relative">
+        <input 
+          type="text" 
+          placeholder="Add tags (press Enter or comma to add)"
+          value={tagInput}
+          onChange={onTagInputChange}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ',') {
+              e.preventDefault();
+              onAddTag();
+            }
+          }}
+          className="w-full px-5 py-4 bg-slate-900/60 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 text-lg"
+        />
+        <button 
+          type="button"
+          onClick={onAddTag}
+          className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg px-3 py-1 text-sm font-medium"
+        >
+          Add
+        </button>
+      </div>
+      <div className="mt-4">
+        <p className="text-gray-400 text-sm mb-3 flex items-center gap-2">
+          <span>Popular tags:</span>
+          {tagsLoading && (
+            <span className="fas fa-spinner fa-spin text-xs"></span>
+          )}
+        </p>
+        
+        {tagsError ? (
+          <div className="text-red-400 text-sm mb-2">{tagsError}</div>
+        ) : null}
+        
+        <div className="flex flex-wrap gap-2">
+          {availableTags.slice(0, 8).map((tag, index) => (
+            <button
+              key={index}
+              type="button"
+              onClick={() => onAddTagByValue(tag)}
+              className={`${
+                selectedTags.includes(tag)
+                  ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white'
+                  : 'bg-slate-800 hover:bg-slate-700 text-gray-300 hover:text-white'
+              } rounded-lg px-3 py-1 text-sm transition-colors flex items-center gap-1`}
+            >
+              {tag}
+              {index < 3 && (
+                <span className="text-xs bg-yellow-500/20 text-yellow-300 rounded-full w-4 h-4 flex items-center justify-center">
+                  {index + 1}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+});
+
+const ModalHeader = ({ success, editingStory, editingVerse, clearForm, onClose }) => {
+  const getModalTitle = () => {
+    if (editingStory) return 'EDIT STORY';
+    if (editingVerse) return 'EDIT VERSE';
+    return 'CREATE NEW STORY';
+  };
+  
+  return (
+    <div className="relative z-10 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md border-b border-cyan-500/30 px-6 py-4">
+      {success && (
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-green-500/20 border border-green-500/50 rounded-lg px-4 py-2 text-green-300 flex items-center gap-2 z-50 animate-fade-in-down">
+          <span className="fas fa-check-circle"></span>
+          {success}
+        </div>
+      )}
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/30 to-blue-600/30 flex items-center justify-center shadow-lg shadow-cyan-500/40 border border-cyan-500/30">
+            <span className="fas fa-book text-cyan-400 text-lg"></span>
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500">
+              {getModalTitle()}
+            </h2>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button 
+            type="button"
+            title="Clear form"
+            className="w-9 h-9 rounded-lg bg-gray-900/60 hover:bg-gray-800/60 flex items-center justify-center text-gray-400 hover:text-white transition-all duration-300 border border-gray-700/50 hover:border-cyan-500/50"
+            onClick={clearForm}
+          >
+            <span className="fas fa-sync-alt text-sm"></span>
+          </button>
+          <button 
+            onClick={onClose}
+            className="w-9 h-9 rounded-lg bg-gray-900/60 hover:bg-gray-800/60 flex items-center justify-center text-gray-400 hover:text-white transition-all duration-300 border border-gray-700/50 hover:border-cyan-500/50"
+          >
+            <span className="fas fa-times text-sm"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ImageUploadArea = ({ imagePreview, title, setImageFile, setImagePreview, setError }) => {
+  const fileInputRef = useRef(null);
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    const inputElement = e.target;
+    
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file');
+        inputElement.value = '';
+        return;
+      }
+      
+      if (file.size > 50 * 1024 * 1024) {
+        setError('Image file must be less than 50MB');
+        inputElement.value = '';
+        return;
+      }
+      
+      try {
+        setError(null);
+        const preview = URL.createObjectURL(file);
+        setImagePreview(preview);
+        setImageFile(file);
+        inputElement.value = '';
+      } catch (err) {
+        setError(`Failed to process image: ${err.message}`);
+        inputElement.value = '';
+      }
+    }
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current.click();
+  };
+
+  const removeImage = () => {
+    try {
+      if (imagePreview && typeof imagePreview === 'string' && imagePreview.startsWith('blob:')) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    } catch (e) {}
+    setImagePreview(null);
+    setImageFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  return (
+    <div className="mb-8">
+      <label className="block text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
+        <span className="fas fa-image text-cyan-400"></span> Cover Image
+      </label>
+      <div className="relative w-full h-72 rounded-2xl overflow-hidden border-2 border-dashed border-gray-700 hover:border-cyan-500/60 transition-all duration-300 cursor-pointer group" onClick={triggerFileInput}>
+        <input 
+          type="file" 
+          ref={fileInputRef}
+          className="hidden" 
+          accept="image/*" 
+          onChange={handleFileChange}
+        />
+        {imagePreview ? (
+          <>
+            <div className="relative w-full h-full">
+              <img 
+                src={imagePreview} 
+                alt={title ? `${title} - Cover image` : 'Cover image'} 
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-center pb-6 gap-4">
+              <button 
+                type="button"
+                className="px-5 py-2.5 bg-cyan-500/30 hover:bg-cyan-500/40 text-cyan-400 rounded-xl font-medium transition-all duration-300 border border-cyan-500/30"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  triggerFileInput();
+                }}
+              >
+                <span className="fas fa-sync-alt mr-2"></span> Change
+              </button>
+              <button 
+                type="button"
+                className="px-5 py-2.5 bg-red-500/30 hover:bg-red-500/40 text-red-400 rounded-xl font-medium transition-all duration-300 border border-red-500/30"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeImage();
+                }}
+              >
+                <span className="fas fa-trash mr-2"></span> Remove
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-slate-900/70 to-indigo-900/70 group-hover:from-slate-900/90 group-hover:to-indigo-900/90 transition-all duration-300">
+            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500/30 to-blue-600/30 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300 border border-cyan-500/30">
+              <span className="fas fa-cloud-upload-alt text-cyan-400 text-3xl"></span>
+            </div>
+            <p className="text-gray-300 font-medium text-lg">Click to upload cover image</p>
+            <p className="text-gray-500 text-sm mt-2">JPG, PNG, GIF up to 50MB</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const SubmitButtons = ({ onClose, handlePublish, loading, editingStory, editingVerse }) => {
+  const isEditing = editingStory || editingVerse;
+  
+  return (
+    <div className="relative z-10 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md border-t border-gray-800/50 px-8 py-4">
+      <div className="flex justify-end gap-4">
+        <button 
+          onClick={onClose}
+          className="px-8 py-3 bg-gray-800/60 hover:bg-gray-700/60 text-gray-300 rounded-2xl font-medium transition-all duration-300 border border-gray-700/50 hover:border-gray-600/50"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handlePublish}
+          disabled={loading}
+          className="px-8 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white rounded-2xl font-medium flex items-center gap-3 transition-all duration-300 transform hover:scale-105 shadow-lg shadow-cyan-500/30 border border-cyan-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? (
+            <>
+              <span className="fas fa-spinner animate-spin"></span>
+              {isEditing ? 'Updating...' : 'Publishing...'}
+            </>
+          ) : (
+            <>
+              <span className="fas fa-rocket text-xl"></span>
+              {isEditing ? 'Update' : 'Publish Story'}
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// --- Main Component ---
 
 const StoryFormModal = ({ 
   isOpen = false, 
@@ -60,7 +620,6 @@ const StoryFormModal = ({
     setIsClient(true);
   }, []);
 
-  // Prevent background scrolling when modal is open and restore on close
   useEffect(() => {
     const originalOverflow = typeof document !== 'undefined' ? document.body.style.overflow : '';
     if (isOpen && typeof document !== 'undefined') {
@@ -125,17 +684,14 @@ const StoryFormModal = ({
     versesRef.current = verses;
   }, [verses]);
   
-  // Fetch popular tags from API
   const fetchPopularTags = useCallback(async () => {
     setTagsLoading(true);
     setTagsError(null);
     
     try {
-      // Try to fetch popular tags from API via route handler (don't expose backend URL)
       const response = await fetch(`/api/tags/popular/`);
       if (response.ok) {
         const data = await response.json();
-        // Sort by usage count (most popular first)
         const sortedTags = data.sort((a, b) => b.usage_count - a.usage_count).map(tag => tag.name);
         setAvailableTags(sortedTags);
       } else {
@@ -143,22 +699,18 @@ const StoryFormModal = ({
       }
     } catch (err) {
       setTagsError('Failed to load popular tags');
-      
-      // Fallback to default tags if API fails
       setAvailableTags(DEFAULT_TAGS);
     } finally {
       setTagsLoading(false);
     }
   }, []);
   
-  // Fetch tags when modal opens
   useEffect(() => {
     if (isOpen) {
       fetchPopularTags();
     }
   }, [isOpen, fetchPopularTags]);
   
-  // Initialize form when editing a story
   useEffect(() => {
     if (editingStory) {
       setTitle(editingStory.title || '');
@@ -168,12 +720,10 @@ const StoryFormModal = ({
       setSelectedTags((editingStory.tags || []).map(tag => (typeof tag === 'string' ? tag : (tag && (tag.name || tag.slug) ? (tag.name || tag.slug) : String(tag)))));
       setAllowContributions(editingStory.allow_contributions || false);
       
-      // Fetch full story data if verses are missing or empty
       const hasVerses = editingStory.verses && editingStory.verses.length > 0;
       const hasVerseImages = hasVerses && editingStory.verses.some(v => v.moments && v.moments.length > 0);
       
       if (!hasVerses || !hasVerseImages) {
-        // Fetch the full story with verses and moments
         (async () => {
           try {
             const fullStory = await storiesApi.getStoryBySlug(editingStory.slug);
@@ -193,7 +743,6 @@ const StoryFormModal = ({
           } catch (err) {
           }
           
-          // Fallback: use provided data
           if (editingStory.verses && editingStory.verses.length > 0) {
             setVerses(editingStory.verses.map(verse => ({
               id: verse.slug || generateUniqueId(),
@@ -210,7 +759,6 @@ const StoryFormModal = ({
           }
         })();
       } else {
-        // Use provided data if verses and images are already loaded
         setVerses(editingStory.verses.map(verse => ({
           id: verse.slug || generateUniqueId(),
           content: verse.content || '',
@@ -225,7 +773,6 @@ const StoryFormModal = ({
     }
   }, [editingStory]);
 
-  // Insert emoji into title textarea without forcing focus (keeps mobile keyboard visible)
   const insertTitleEmoji = (emoji) => {
     try {
       const ta = titleTextareaRef.current;
@@ -252,7 +799,6 @@ const StoryFormModal = ({
     }
   };
   
-  // Check if all verses are empty (no images)
   const areAllVersesEmpty = useCallback(() => {
     return verses.every(verse => {
       const hasImages = verse.imageIds && verse.imageIds.length > 0;
@@ -261,7 +807,6 @@ const StoryFormModal = ({
     });
   }, [verses]);
   
-  // Validation function - now only validates title, not verses
   const validateForm = () => {
     const errors = {};
     let firstErrorField = null;
@@ -275,7 +820,6 @@ const StoryFormModal = ({
     return { isValid: Object.keys(errors).length === 0, firstErrorField };
   };
   
-  // Scroll to the first error field
   const scrollToFirstError = useCallback((firstErrorField) => {
     if (firstErrorField) {
       const element = document.getElementById(firstErrorField);
@@ -285,13 +829,11 @@ const StoryFormModal = ({
           block: 'center' 
         });
         
-        // Highlight the field briefly
         element.classList.add('ring-2', 'ring-red-500');
         setTimeout(() => {
           element.classList.remove('ring-2', 'ring-red-500');
         }, 2000);
         
-        // Focus on the field if it's an input
         if (element.tagName === 'INPUT' || element.tagName === 'TEXTAREA') {
           element.focus();
         }
@@ -299,7 +841,6 @@ const StoryFormModal = ({
     }
   }, []);
 
-  // Helper function to generate preview from file
   const generatePreview = useCallback((file) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -385,12 +926,10 @@ const StoryFormModal = ({
         
         if (invalidFiles.length > 0) {
           setError(`Invalid files: ${invalidFiles.join(', ')}`);
-          // Reset the input value so user can select again
           inputElement.value = '';
           return;
         }
 
-        // Generate previews for all files
         const itemsWithPreviews = await Promise.all(
           validFiles.map(async (f) => {
             const preview = await generatePreview(f.file);
@@ -403,7 +942,6 @@ const StoryFormModal = ({
           })
         );
 
-        // Add items to verse
         setVerses(prevVerses => 
           prevVerses.map(verse => 
             verse.id === verseId 
@@ -412,13 +950,11 @@ const StoryFormModal = ({
           )
         );
 
-        // Reset input
         inputElement.value = '';
       }
     }
   }, [generatePreview]);
   
-  // Handle verse content change
   const handleVerseContentChange = useCallback((verseId, content) => {
     setVerses(prevVerses => 
       prevVerses.map(verse => 
@@ -427,12 +963,10 @@ const StoryFormModal = ({
     );
   }, []);
   
-  // Handle tag input
   const handleTagInputChange = useCallback((e) => {
     setTagInput(e.target.value);
   }, []);
   
-  // Add tag
   const addTag = useCallback(() => {
     if (tagInput.trim() && !selectedTags.includes(tagInput.trim())) {
       setSelectedTags([...selectedTags, tagInput.trim()]);
@@ -440,32 +974,26 @@ const StoryFormModal = ({
     }
   }, [tagInput, selectedTags]);
   
-  // Add tag directly by value (for popular tags)
   const addTagByValue = useCallback((tagValue) => {
     if (tagValue.trim() && !selectedTags.includes(tagValue.trim())) {
       setSelectedTags([...selectedTags, tagValue.trim()]);
     }
   }, [selectedTags]);
   
-  // Remove tag
   const removeTag = useCallback((tagToRemove) => {
     setSelectedTags(selectedTags.filter(tag => tag !== tagToRemove));
   }, [selectedTags]);
   
-  // Add new verse
   const addNewVerse = useCallback(() => {
     setVerses(prevVerses => [...prevVerses, { id: generateUniqueId(), content: '', isExisting: false, imageIds: [] }]);
   }, []);
   
-  // Remove verse
   const removeVerse = useCallback((verseId) => {
     const verseToRemove = verses.find(v => v.id === verseId);
     
     if (verseToRemove && verseToRemove.isExisting && verseToRemove.slug) {
-      // Track this existing verse for deletion
       setDeletedVerses(prev => [...prev, verseToRemove.slug]);
       
-      // Also track all moments (images) from this verse for deletion
       const moments = verseToRemove.imageIds || [];
       const momentsToDelete = moments.filter(m => m.public_id).map(m => m.public_id);
       if (momentsToDelete.length > 0) {
@@ -478,13 +1006,11 @@ const StoryFormModal = ({
     }
   }, [verses]);
 
-  // Handle verse delete button click - show confirmation
   const handleDeleteVerseClick = useCallback((verseId, verseNumber) => {
     setVerseToDelete({ id: verseId, number: verseNumber });
     setShowDeleteVerseConfirmation(true);
   }, []);
 
-  // Confirm verse deletion
   const handleConfirmVerseDelete = useCallback(() => {
     if (verseToDelete) {
       removeVerse(verseToDelete.id);
@@ -493,19 +1019,16 @@ const StoryFormModal = ({
     }
   }, [verseToDelete, removeVerse]);
 
-  // Cancel verse deletion
   const handleCancelVerseDelete = useCallback(() => {
     setShowDeleteVerseConfirmation(false);
     setVerseToDelete(null);
   }, []);
   
-  // Scroll to verses section
   const scrollToVerses = useCallback(() => {
     const versesSection = document.getElementById('versesContainer');
     if (versesSection) {
       versesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
       
-      // Focus on the first verse's content input
       setTimeout(() => {
         const firstVerse = document.getElementById('verse-0');
         if (firstVerse) {
@@ -518,7 +1041,6 @@ const StoryFormModal = ({
     }
   }, []);
   
-  // Handle publish/update post and verses
   const handlePublish = async () => {
     const { isValid, firstErrorField } = validateForm();
     
@@ -528,7 +1050,6 @@ const StoryFormModal = ({
       return;
     }
 
-    // Check if all verses are empty and show confirmation if needed
     if (areAllVersesEmpty()) {
       setShowEmptyVerseConfirmation(true);
       return;
@@ -537,12 +1058,10 @@ const StoryFormModal = ({
     await proceedWithPublish();
   };
 
-  // Optimized upload function with progress tracking
   const uploadImageWithProgress = async (file, onProgress) => {
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       
-      // Progress tracking
       xhr.upload.addEventListener('progress', (event) => {
         if (event.lengthComputable && onProgress) {
           const percentComplete = (event.loaded / event.total) * 100;
@@ -550,7 +1069,6 @@ const StoryFormModal = ({
         }
       });
       
-      // Handle response
       xhr.addEventListener('load', () => {
         if (xhr.status >= 200 && xhr.status < 300) {
           try {
@@ -564,38 +1082,28 @@ const StoryFormModal = ({
           try {
             const errorResponse = JSON.parse(xhr.responseText);
             errorMessage = errorResponse.error || errorMessage;
-          } catch (e) {
-            // Ignore parsing errors
-          }
+          } catch (e) {}
           reject(new Error(errorMessage));
         }
       });
       
-      // Handle errors
       xhr.addEventListener('error', () => {
         reject(new Error('Network error during upload'));
       });
       
-      // Prepare form data
       const formData = new FormData();
       formData.append('file', file);
       formData.append('alt_text', file.name || '');
       
-      // Get auth token
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
       
-      // Open request
       xhr.open('POST', '/api/images/', true);
       
-      // Set headers
       if (token) {
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
       }
       
-      // Include credentials
       xhr.withCredentials = true;
-      
-      // Send request
       xhr.send(formData);
     });
   };
@@ -606,26 +1114,20 @@ const StoryFormModal = ({
     setError(null);
 
     try {
-      // Check authentication
       if (!isAuthenticated || !currentUser) {
         throw new Error('You must be logged in to perform this action');
       }
 
-      // Prepare all images for upload (cover and verse images)
       const allImagesToUpload = [];
       
-      // Add cover image if exists
       if (imageFile) {
         allImagesToUpload.push({
           file: imageFile,
           type: 'cover',
-          onProgress: (percent) => {
-            // Update UI with progress if needed
-          }
+          onProgress: (percent) => {}
         });
       }
       
-      // Add verse images
       verses.forEach((verse, verseIndex) => {
         (verse.imageIds || []).forEach((img, imgIndex) => {
           if (img && (img.file instanceof File || img instanceof File)) {
@@ -635,43 +1137,35 @@ const StoryFormModal = ({
               type: 'verse',
               verseIndex,
               imgIndex,
-              onProgress: (percent) => {
-                // Update UI with progress if needed
-              }
+              onProgress: (percent) => {}
             });
           }
         });
       });
 
-      // Upload all images in parallel with progress tracking
       const uploadPromises = allImagesToUpload.map(img => 
         uploadImageWithProgress(img.file, img.onProgress)
       );
       
       const uploadResults = await Promise.all(uploadPromises);
       
-      // Process upload results and map to original images
       let resultIndex = 0;
       let finalCoverImageId = coverImageId;
       
-      // Process cover image result
       if (imageFile) {
         finalCoverImageId = uploadResults[resultIndex].public_id;
         resultIndex++;
       }
       
-      // Process verse images and update verses with uploaded image IDs
       const updatedVerses = verses.map(verse => {
         const uploadedImageIds = [];
         
-        // Copy existing image IDs (strings or objects with public_id)
         (verse.imageIds || []).forEach(img => {
           if (typeof img === 'string') {
             uploadedImageIds.push(img);
           } else if (img && img.public_id) {
             uploadedImageIds.push(img.public_id);
           } else if (img && (img.file instanceof File || img instanceof File)) {
-            // This is a newly uploaded file
             if (resultIndex < uploadResults.length) {
               uploadedImageIds.push(uploadResults[resultIndex].public_id);
               resultIndex++;
@@ -685,7 +1179,6 @@ const StoryFormModal = ({
         };
       });
 
-      // Prepare story payload
       const storyPayload = {
         title: title.trim(),
         description: description.trim(),
@@ -694,12 +1187,10 @@ const StoryFormModal = ({
         creator: currentUser.id || currentUser.pk || currentUser.username
       };
 
-      // Add cover image to payload if we have one
       if (finalCoverImageId) {
         storyPayload.cover_image_public_id = finalCoverImageId;
       }
 
-      // Create or update story
       let savedStory;
       if (editingStory) {
         savedStory = await storiesApi.updateStory(editingStory.slug, storyPayload);
@@ -707,30 +1198,22 @@ const StoryFormModal = ({
         savedStory = await storiesApi.createStory(storyPayload);
       }
 
-      // Handle deletions of verses and moments
       if (deletedMoments.length > 0) {
         const momentDeletePromises = deletedMoments.map(momentId => 
-          momentsApi.deleteMoment(momentId).catch(err => {
-            // Don't throw - continue with other deletions
-          })
+          momentsApi.deleteMoment(momentId).catch(err => {})
         );
         await Promise.all(momentDeletePromises);
       }
 
       if (deletedVerses.length > 0) {
         const verseDeletePromises = deletedVerses.map(verseSlug => 
-          versesApi.deleteVerse(verseSlug).catch(err => {
-            // Don't throw - continue with other deletions
-          })
+          versesApi.deleteVerse(verseSlug).catch(err => {})
         );
         await Promise.all(verseDeletePromises);
       }
 
-      // Prepare verses for creation/update
       const storyIdentifier = savedStory?.public_id || savedStory?.id || savedStory?.slug;
       
-      // Create/update verses in parallel
-      // Skip verses that are completely empty (no images and no content)
       const versesToProcess = updatedVerses.filter(verse => {
         const hasImages = (verse.uploadedImageIds || []).length > 0;
         const hasContent = verse.content && verse.content.trim() !== '';
@@ -747,16 +1230,12 @@ const StoryFormModal = ({
 
         let verseResponse;
         
-        // Check if this is an existing verse or a new one
         if (verse.slug && editingStory) {
-          // This is an existing verse, update it
           verseResponse = await versesApi.updateVerse(verse.slug, verseData);
         } else {
-          // This is a new verse, create it
           verseResponse = await versesApi.createVerse(verseData);
         }
 
-        // Create moments for each image in parallel
         const imageIds = verse.uploadedImageIds || [];
         if (imageIds.length > 0) {
           const momentPromises = imageIds.map((imageId, m) => 
@@ -773,16 +1252,12 @@ const StoryFormModal = ({
         return verseResponse;
       });
 
-      // Wait for all verses to be created/updated
       const createdVerses = await Promise.all(versePromises);
 
-      // Attach created verses to savedStory for immediate UI update
       if (createdVerses.length > 0) {
         try {
           savedStory.verses = createdVerses;
-        } catch (e) {
-          // ignore
-        }
+        } catch (e) {}
       }
 
       setSuccess(editingStory ? 'Story updated successfully!' : 'Story created successfully!');
@@ -790,11 +1265,9 @@ const StoryFormModal = ({
         onUpdateStory(savedStory, !editingStory);
       }
 
-      // Reset deletion tracking after successful publish
       setDeletedVerses([]);
       setDeletedMoments([]);
 
-      // Notify server-side proxy to trigger revalidation and indexing
       try {
         const csrf = getCsrfToken();
         fetch('/api/publish-proxy', {
@@ -806,23 +1279,19 @@ const StoryFormModal = ({
           },
           body: JSON.stringify({ slug: savedStory?.slug })
         })
-      } catch (e) {
-      }
+      } catch (e) {}
 
       setTimeout(() => {
         onClose();
         setSuccess(null);
-        // Redirect to story slug after update
         if (savedStory.slug) {
           router.push(`/stories/${savedStory.slug}`);
         } else if (editingStory && editingStory.slug) {
-          // Fallback to editingStory.slug if savedStory doesn't have slug
           router.push(`/stories/${editingStory.slug}`);
         }
-      }, 1500); // Reduced timeout for faster feedback
+      }, 1500);
     } catch (err) {
       
-      // Provide user-friendly error messages
       let errorMessage = 'An error occurred while saving the story. Please try again.';
       
       if (err.message.includes('permission denied') || err.message.includes('403')) {
@@ -841,13 +1310,11 @@ const StoryFormModal = ({
     }
   };
   
-  // Cancel publishing and go back to verses
   const cancelPublish = () => {
     setShowEmptyVerseConfirmation(false);
     scrollToVerses();
   };
   
-  // Clear form
   const clearForm = useCallback(() => {
     setTitle('');
     setDescription('');
@@ -863,10 +1330,8 @@ const StoryFormModal = ({
     setDeletedMoments([]);
   }, []);
   
-  // Set up refs for each verse
   verseRefs.current = verses.map((_, i) => verseRefs.current[i] ?? React.createRef());
   
-  // Function to scroll to a verse and focus its title input
   const scrollToVerse = useCallback((index) => {
     if (verseRefs.current[index] && verseRefs.current[index].current) {
       verseRefs.current[index].current.scrollIntoView({ 
@@ -874,7 +1339,6 @@ const StoryFormModal = ({
         block: 'start' 
       });
       
-      // Focus on the content input
       const contentInput = verseRefs.current[index].current.querySelector('textarea');
       if (contentInput) {
         setTimeout(() => {
@@ -884,74 +1348,17 @@ const StoryFormModal = ({
     }
   }, []);
   
-  // Function to handle adding a new verse and scrolling to it
   const handleAddVerse = useCallback(() => {
     addNewVerse();
-    // Scroll to the new verse after a short delay to allow DOM to update
     setTimeout(() => {
       scrollToVerse(verses.length);
     }, 100);
   }, [addNewVerse, scrollToVerse, verses.length]);
   
-  // Handle image preview for verse images
-  const handleImagePreview = useCallback((file) => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target.result);
-      reader.readAsDataURL(file);
-    });
-  }, []);
-  
-  const handleVerseImageFileChange = useCallback(async (verseId, e) => {
-    const files = Array.from(e.target.files);
-    if (files.length > 0) {
-      const validFiles = [];
-      const invalidFiles = [];
-      
-      for (const file of files) {
-        if (file.size > 50 * 1024 * 1024) {
-          invalidFiles.push(`${file.name} is too large (>50MB)`);
-        } else if (!file.type.startsWith('image/')) {
-          invalidFiles.push(`${file.name} is not a valid image`);
-        } else {
-          validFiles.push(file);
-        }
-      }
-      
-      if (invalidFiles.length > 0) {
-        setError(`Invalid files: ${invalidFiles.join(', ')}`);
-        return;
-      }
-
-      // Generate previews for all files
-      try {
-        const itemsWithPreviews = await Promise.all(
-          validFiles.map(async (file) => {
-            const preview = await generatePreview(file);
-            return {
-              file: file,
-              preview: preview,
-              name: file.name,
-              tempId: `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-            };
-          })
-        );
-
-        // Add items to verse
-        handleVerseImageUpload(verseId, itemsWithPreviews);
-      } catch (error) {
-        setError(`Failed to process images: ${error.message}`);
-      }
-    }
-  }, [generatePreview, handleVerseImageUpload]);
-  
   const modal = (
     <>
-      {/* Outer container - handles backdrop and positioning */}
       <div className={`fixed inset-0 bg-black/90 backdrop-blur-xl z-[10100] ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'} transition-opacity duration-300`}>
-        {/* Inner container - handles transform animation */}
         <div className={`flex flex-col h-full transform transition-transform duration-500 ${isOpen ? 'translate-y-0' : 'translate-y-full'}`}>
-          {/* Animated neon border effect */}
           <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
             <div className="absolute inset-0 rounded-3xl border-2 border-cyan-500/30 animate-pulse"></div>
             <div className="absolute inset-0 rounded-3xl border-2 border-purple-500/20 animate-pulse" style={{ animationDelay: '0.5s' }}></div>
@@ -967,7 +1374,6 @@ const StoryFormModal = ({
             onClose={onClose}
           />
           
-          {/* Content area - now properly scrollable */}
           <div className="flex-1 overflow-y-auto touch-auto overscroll-contain modal-scroll">
             <div className="p-8">
               {error && (
@@ -976,7 +1382,6 @@ const StoryFormModal = ({
                 </div>
               )}
               
-              {/* Story Details Section */}
               <div className="mb-10" id="storyDetailsSection">
                 <div className="flex items-center gap-4 mb-8">
                   <div className="h-px bg-gradient-to-r from-transparent via-cyan-500/60 to-transparent flex-1"></div>
@@ -994,7 +1399,6 @@ const StoryFormModal = ({
                   setError={setError}
                 />
                 
-                {/* Title */}
                 <div className="mb-8">
                   <label className="block text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
                     <span className="fas fa-heading text-cyan-400"></span> Title <span className="text-red-400">*</span>
@@ -1022,20 +1426,17 @@ const StoryFormModal = ({
                       ref={titleTextareaRef}
                       value={title}
                       onChange={(e) => {
-                        // Enforce 150 character limit
                         if (e.target.value.length <= 150) {
                           setTitle(e.target.value);
                           if (validationErrors.title) {
                             setValidationErrors(prev => ({...prev, title: null}));
                           }
                         }
-                        // Auto-expand textarea (same behavior as comment textarea)
                         const textarea = e.target;
                         textarea.style.height = 'auto';
                         const MAX_TITLE_HEIGHT = 120;
-                        const newHeight = Math.min(textarea.scrollHeight, MAX_TITLE_HEIGHT); // allow multi-line expansion up to ~120px
+                        const newHeight = Math.min(textarea.scrollHeight, MAX_TITLE_HEIGHT);
                         textarea.style.height = newHeight + 'px';
-                        // Allow vertical scrolling when we've hit the max height
                         textarea.style.overflowY = newHeight >= MAX_TITLE_HEIGHT ? 'auto' : 'hidden';
                       }}
                       rows={1}
@@ -1065,7 +1466,6 @@ const StoryFormModal = ({
                   )}
                 </div>
                 
-                {/* Description */}
                 <div className="mb-8">
                   <label className="block text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
                     <span className="fas fa-align-left text-cyan-400"></span> Description
@@ -1075,13 +1475,11 @@ const StoryFormModal = ({
                       placeholder="Share your story, thoughts, or experiences..."
                       value={description}
                       onChange={(e) => {
-                        // enforce max length
                         const nextVal = e.target.value.slice(0, DESCRIPTION_CHAR_LIMIT);
                         setDescription(nextVal);
-                        // Auto-expand textarea
                         const textarea = e.target;
                         textarea.style.height = 'auto';
-                        const newHeight = Math.min(textarea.scrollHeight, 200); // 200px ≈ 5 lines
+                        const newHeight = Math.min(textarea.scrollHeight, 200); 
                         textarea.style.height = newHeight + 'px';
                       }}
                       rows={2}
@@ -1106,7 +1504,6 @@ const StoryFormModal = ({
                   onRemoveTag={removeTag}
                 />
                 
-                {/* Allow contributions toggle - PROMINENT FEATURE */}
                 {!editingVerse && (
                   <div className="mb-8 p-6 rounded-3xl bg-slate-900/30 border-2 border-blue-500/40 shadow-lg relative overflow-hidden">
                     <div className="relative z-10">
@@ -1149,7 +1546,6 @@ const StoryFormModal = ({
               <VerseList 
                 verses={verses}
                 handleVerseImageUpload={handleVerseImageUpload}
-                removeVerse={removeVerse}
                 setDeletedMoments={setDeletedMoments}
                 setVerses={setVerses}
                 handleDeleteVerseClick={handleDeleteVerseClick}
@@ -1170,7 +1566,6 @@ const StoryFormModal = ({
             editingVerse={editingVerse}
           />
           
-          {/* Gradient borders */}
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-70"></div>
           <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-70"></div>
         </div>
@@ -1192,7 +1587,6 @@ const StoryFormModal = ({
       />
       
       <style jsx>{`
-        /* Custom scrollbar for the modal content */
         .flex-1.overflow-y-auto::-webkit-scrollbar {
           width: 8px;
         }
@@ -1211,12 +1605,10 @@ const StoryFormModal = ({
           background: linear-gradient(to bottom, rgba(6, 182, 212, 0.7), rgba(59, 130, 246, 0.7));
         }
         
-        /* Enhanced focus states */
         input:focus, textarea:focus {
           box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.2);
         }
         
-        /* Enhanced button hover effects */
         button {
           position: relative;
           overflow: hidden;
@@ -1237,7 +1629,6 @@ const StoryFormModal = ({
           left: 100%;
         }
         
-        /* Enhanced verse item styling */
         .verse-item {
           position: relative;
           overflow: hidden;
@@ -1260,7 +1651,6 @@ const StoryFormModal = ({
           opacity: 1;
         }
 
-        /* Success message animation */
         @keyframes fadeInDown {
           from {
             opacity: 0;
@@ -1275,7 +1665,7 @@ const StoryFormModal = ({
         .animate-fade-in-down {
           animation: fadeInDown 0.3s ease-out forwards;
         }
-        /* Enable smooth momentum scrolling on iOS/touch devices for the modal content */
+
         .modal-scroll {
           -webkit-overflow-scrolling: touch;
         }

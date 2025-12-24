@@ -14,17 +14,15 @@ import TagsSection from './storycard/TagsSection';
 import ActionButtons from './storycard/ActionButtons';
 import CreatorChip from './storycard/CreatorChip';
 import dynamic from 'next/dynamic';
+
 const ContributeModal = dynamic(() => import('./storycard/ContributeModal'), { ssr: false });
+const StoryFormModal = dynamic(() => import('./StoryFormModal'), { ssr: false });
+
 import RecommendModal from './storycard/RecommendModal';
 import EnlargeModal from './storycard/EnlargeModal';
 import DeleteModal from './storycard/DeleteModal';
 import DropdownMenu from './storycard/DropdownModal';
-
-// Import additional modals that were missing
-const StoryFormModal = dynamic(() => import('./StoryFormModal'), { ssr: false });
-import CommentModal from './CommentModal';
 import VerseViewer from './VerseViewer';
-import ShareModal from './ShareModal';
 
 export default function StoryCard({ 
     story, 
@@ -235,11 +233,11 @@ export default function StoryCard({
             setIsViewerOpening(true);
             
             // IMPORTANT: Fetch fresh story data BEFORE opening the viewer
-            const fullStory = await storiesApi.getStoryBySlug(story.slug);
+            // const fullStory = await storiesApi.getStoryBySlug(story.slug);
             
             // Update the story in parent's state
             if (onStoryUpdate) {
-                onStoryUpdate(fullStory);
+                // onStoryUpdate(fullStory);
             }
             
             // Only open the viewer AFTER data is ready
@@ -558,35 +556,44 @@ export default function StoryCard({
                     </div>
                 </div>
                 
-                {/* Modals */}
-                <StoryFormModal
-                    isOpen={showStoryFormModal}
-                    onClose={() => { 
-                        setShowStoryFormModal(false); 
-                        setEditingVerseForModal(null); 
-                    }}
-                    editingStory={story}
-                    editingVerse={editingVerseForModal}
-                    mode="edit"
-                    onUpdateStory={(updatedStory) => {
-                        // Update the story in parent's state
-                        if (onStoryUpdate) {
-                            onStoryUpdate(updatedStory);
-                        }
-                    }}
-                    onUpdateVerse={(updatedVerse) => {
-                        // Update verse in local story state for immediate UI reflection
-                        if (onStoryUpdate) {
-                            const updatedStory = {
-                                ...story,
-                                verses: story.verses ? story.verses.map(v => v.id === updatedVerse.id ? updatedVerse : v) : story.verses
-                            };
-                            onStoryUpdate(updatedStory);
-                        }
-                    }}
-                />
+                {/* 
+                   ✅ CRITICAL FIX: Conditional Rendering of Modals
+                   Wrapping these in conditions ensures they ONLY mount when the user 
+                   actually opens them (by clicking a button). This prevents the 
+                   N+1 request waterfall issue where every card triggers 
+                   API calls for all its children.
+                */}
                 
-                <CommentModal
+                {showStoryFormModal && (
+                    <StoryFormModal
+                        isOpen={showStoryFormModal}
+                        onClose={() => { 
+                            setShowStoryFormModal(false); 
+                            setEditingVerseForModal(null); 
+                        }}
+                        editingStory={story}
+                        editingVerse={editingVerseForModal}
+                        mode="edit"
+                        onUpdateStory={(updatedStory) => {
+                            // Update the story in parent's state
+                            if (onStoryUpdate) {
+                                onStoryUpdate(updatedStory);
+                            }
+                        }}
+                        onUpdateVerse={(updatedVerse) => {
+                            // Update verse in local story state for immediate UI reflection
+                            if (onStoryUpdate) {
+                                const updatedStory = {
+                                    ...story,
+                                    verses: story.verses ? story.verses.map(v => v.id === updatedVerse.id ? updatedVerse : v) : story.verses
+                                };
+                                onStoryUpdate(updatedStory);
+                            }
+                        }}
+                    />
+                )}
+                
+                {/* <CommentModal
                     isOpen={showCommentModal}
                     onClose={(e) => {
                         if (e) {
@@ -612,111 +619,123 @@ export default function StoryCard({
                             }
                         }
                     }}
-                />
+                /> */}
                 
-                <VerseViewer
-                    isOpen={showVerseViewer}
-                    onClose={() => {
-                        setShowVerseViewer(false);
-                        setIsViewerOpening(false);
-                    }}
-                    story={story} // Use the story prop directly
-                    initialVerseIndex={0}
-                    onReady={() => setIsViewerOpening(false)}
-                    isAuthenticated={isAuthenticated}
-                    openAuthModal={openAuthModal}
-                    onStoryUpdate={onStoryUpdate} // Pass the update function
-                    onOpenStoryForm={(verse) => {
-                        setEditingVerseForModal(verse);
-                        setShowStoryFormModal(true);
-                    }}
-                />
+                {showVerseViewer && (
+                    <VerseViewer
+                        isOpen={showVerseViewer}
+                        onClose={() => {
+                            setShowVerseViewer(false);
+                            setIsViewerOpening(false);
+                        }}
+                        story={story} // Use the story prop directly
+                        initialVerseIndex={0}
+                        onReady={() => setIsViewerOpening(false)}
+                        isAuthenticated={isAuthenticated}
+                        openAuthModal={openAuthModal}
+                        onStoryUpdate={onStoryUpdate} // Pass the update function
+                        onOpenStoryForm={(verse) => {
+                            setEditingVerseForModal(verse);
+                            setShowStoryFormModal(true);
+                        }}
+                    />
+                )}
                 
-                <ShareModal
+                {/* <ShareModal
                     isOpen={showShareModal}
                     onClose={() => setShowShareModal(false)}
                     shareData={shareData}
                     imageUrl={getCoverImageUrl()}
                     isVerse={false}
-                />
+                /> */}
                 
-                <ContributeModal 
-                    showContributeModal={showContributeModal}
-                    setShowContributeModal={setShowContributeModal}
-                    story={story}
-                    onStoryUpdated={(updatedStory) => {
-                        // Update the story in parent's state
-                        if (onStoryUpdate) {
-                            onStoryUpdate(updatedStory);
-                        }
-                    }}
-                />
-                
-                <RecommendModal 
-                    showRecommendModal={showRecommendModal}
-                    setShowRecommendModal={setShowRecommendModal}
-                    story={story}
-                    isAuthenticated={isAuthenticated}
-                    currentUser={currentUser}
-                />
-                
-                <EnlargeModal 
-                    showEnlargeModal={showEnlargeModal}
-                    setShowEnlargeModal={setShowEnlargeModal}
-                    story={story}
-                    getCoverImageUrl={getCoverImageUrl}
-                />
-                
-                <DeleteModal 
-                    showDeleteModal={showDeleteModal}
-                    setShowDeleteModal={setShowDeleteModal}
-                    story={story}
-                    handleDeleteStory={handleDeleteStory}
-                    isDeleting={isDeleting}
-                />
-                
-                <DropdownMenu 
-                    showDropdown={showDropdown}
-                    setShowDropdown={(v) => {
-                        setShowDropdown(v);
-                        if (!v) setDropdownCoords(null);
-                    }}
-                    isOwner={isOwner}
-                    isFollowing={isFollowing}
-                    handleFollow={handleFollow}
-                    handleEditStory={() => setShowStoryFormModal(true)}
-                    handleDeleteStory={() => setShowDeleteModal(true)}
-                    handleCopyLink={async () => {
-                        const storyUrl = `${window.location.origin}/stories/${story.slug}/`;
-                        try {
-                            if (navigator.clipboard) {
-                                await navigator.clipboard.writeText(storyUrl);
-                                alert('Link copied to clipboard!');
-                            } else {
-                                // Fallback for older browsers
-                                const textArea = document.createElement('textarea');
-                                textArea.value = storyUrl;
-                                document.body.appendChild(textArea);
-                                textArea.focus();
-                                textArea.select();
-                                try {
-                                    document.execCommand('copy');
-                                    alert('Link copied to clipboard!');
-                                } catch (err) {
-                                    alert('Unable to copy link. Please copy manually.');
-                                }
-                                document.body.removeChild(textArea);
+                {showContributeModal && (
+                    <ContributeModal 
+                        showContributeModal={showContributeModal}
+                        setShowContributeModal={setShowContributeModal}
+                        story={story}
+                        onStoryUpdated={(updatedStory) => {
+                            // Update the story in parent's state
+                            if (onStoryUpdate) { 
+                                onStoryUpdate(updatedStory);
                             }
-                        } catch (error) {
-                            alert('Failed to copy link. Please try again.');
-                        }
-                    }}
-                    handleReportStory={() => alert('Report functionality would open here')}
-                    handleShareStory={() => setShowShareModal(true)}
-                    dropdownRef={dropdownRef}
-                    coords={dropdownCoords}
-                    creatorUsername={creatorUsername}
-                />
+                        }}
+                    />
+                )}
+                
+                {showRecommendModal && (
+                    <RecommendModal 
+                        showRecommendModal={showRecommendModal}
+                        setShowRecommendModal={setShowRecommendModal}
+                        story={story}
+                        isAuthenticated={isAuthenticated}
+                        currentUser={currentUser}
+                    />
+                )}
+                
+                {showEnlargeModal && (
+                    <EnlargeModal 
+                        showEnlargeModal={showEnlargeModal}
+                        setShowEnlargeModal={setShowEnlargeModal}
+                        story={story}
+                        getCoverImageUrl={getCoverImageUrl}
+                    />
+                )}
+                
+                {showDeleteModal && (
+                    <DeleteModal 
+                        showDeleteModal={showDeleteModal}
+                        setShowDeleteModal={setShowDeleteModal}
+                        story={story}
+                        handleDeleteStory={handleDeleteStory}
+                        isDeleting={isDeleting}
+                    />
+                )}
+                
+                {showDropdown && (
+                    <DropdownMenu 
+                        showDropdown={showDropdown}
+                        setShowDropdown={(v) => {
+                            setShowDropdown(v);
+                            if (!v) setDropdownCoords(null);
+                        }}
+                        isOwner={isOwner}
+                        isFollowing={isFollowing}
+                        handleFollow={handleFollow}
+                        handleEditStory={() => setShowStoryFormModal(true)}
+                        handleDeleteStory={() => setShowDeleteModal(true)}
+                        handleCopyLink={async () => {
+                            const storyUrl = `${window.location.origin}/stories/${story.slug}/`;
+                            try {
+                                if (navigator.clipboard) {
+                                    await navigator.clipboard.writeText(storyUrl);
+                                    alert('Link copied to clipboard!');
+                                } else {
+                                    // Fallback for older browsers
+                                    const textArea = document.createElement('textarea');
+                                    textArea.value = storyUrl;
+                                    document.body.appendChild(textArea);
+                                    textArea.focus();
+                                    textArea.select();
+                                    try {
+                                        document.execCommand('copy');
+                                        alert('Link copied to clipboard!');
+                                    } catch (err) {
+                                        alert('Unable to copy link. Please copy manually.');
+                                    }
+                                    document.body.removeChild(textArea);
+                                }
+                            } catch (error) {
+                                alert('Failed to copy link. Please try again.');
+                            }
+                        }}
+                        handleReportStory={() => alert('Report functionality would open here')}
+                        handleShareStory={() => setShowShareModal(true)}
+                        dropdownRef={dropdownRef}
+                        coords={dropdownCoords}
+                        creatorUsername={creatorUsername}
+                    />
+                )}
             </div>
         );
     }

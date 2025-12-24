@@ -8,20 +8,105 @@ import ContributeModal from './storycard/ContributeModal';
 import { useRouter } from 'next/navigation';
 import ShareModal from './ShareModal';
 import { createPortal } from 'react-dom';
+import Image from 'next/image';
 
-// Import modular components
-import VerseHeader from './verseviewer/VerseHeader';
-import MomentsCarousel from './verseviewer/MomentCarousel';
-import VerseContent from './verseviewer/VerseContent';
-import VerseFooter from './verseviewer/VerseFooter';
-import { 
-  getMomentImageUrl, 
-  getAuthorDisplayName, 
-  getAuthorProfileImageUrl, 
-  getAuthorInitial, 
-  getAuthorUsername, 
-  getUserId 
-} from './verseviewer/utils';
+// Helper functions (previously in utils.js)
+const getMomentImageUrl = (moment) => {
+  if (!moment) return null;
+  if (typeof moment === 'string') return absoluteUrl(moment);
+  if (moment.image) {
+    if (typeof moment.image === 'string') return absoluteUrl(moment.image);
+    if (Array.isArray(moment.image) && moment.image.length > 0) {
+      const im = moment.image[0];
+      if (!im) return null;
+      if (typeof im === 'string') return absoluteUrl(im);
+      return absoluteUrl(im.file_url || im.url || im);
+    }
+    if (moment.image.file_url) return absoluteUrl(moment.image.file_url);
+    if (moment.image.url) return absoluteUrl(moment.image.url);
+    if (moment.image.file) {
+      if (typeof moment.image.file === 'string') return absoluteUrl(moment.image.file);
+      if (moment.image.file.url) return absoluteUrl(moment.image.file.url);
+    }
+  }
+  if (moment.file_url) return absoluteUrl(moment.file_url);
+  if (moment.url) return absoluteUrl(moment.url);
+  if (moment.images && Array.isArray(moment.images) && moment.images.length > 0) {
+    const im = moment.images[0];
+    if (!im) return null;
+    if (typeof im === 'string') return absoluteUrl(im);
+    return absoluteUrl(im.file_url || im.url || im);
+  }
+  return null;
+};
+
+const getAuthor = (verse) => {
+  return verse?.author || null;
+};
+
+const getAuthorDisplayName = (verse) => {
+  const a = getAuthor(verse);
+  if (!a) return 'Poster Name';
+
+  if (a.account_type === 'brand' && a.brand_name) {
+    return a.brand_name;
+  }
+
+  const full = a.get_full_name || a.full_name || a.display_name || a.name;
+  if (full) return full;
+
+  const first = a.first_name || a.firstname || '';
+  const last = a.last_name || a.lastname || '';
+  if (first || last) return `${first} ${last}`.trim();
+
+  return a.username || a.public_id || 'Poster Name';
+};
+
+const getAuthorProfileImageUrl = (verse) => {
+  const a = getAuthor(verse);
+  if (!a) return null;
+  if (a.profile_image_url) return absoluteUrl(a.profile_image_url);
+  const maybe = a.profile_image || a.image || a.avatar || a.photo || a.picture || (a.profile && (a.profile.image || a.profile.avatar));
+  if (!maybe) return null;
+  if (typeof maybe === 'string') return absoluteUrl(maybe);
+  if (maybe.url) return absoluteUrl(maybe.url);
+  if (maybe.file_url) return absoluteUrl(maybe.file_url);
+  return null;
+};
+
+const getAuthorInitial = (verse) => {
+  const name = getAuthorDisplayName(verse) || getAuthorUsername(verse) || 'P';
+  return (name && name.charAt && name.charAt(0).toUpperCase()) || 'P';
+};
+
+const getAuthorUsername = (verse) => {
+  if (!verse) return null;
+  const a = verse.author;
+  if (!a) return verse.author_name || verse.author_username || null;
+  if (typeof a === 'string') return a;
+  if (a.username) return a.username;
+  if (a.user && a.user.username) return a.user.username;
+  if (a.profile && a.profile.username) return a.profile.username;
+  return verse.author_name || verse.author_username || null;
+};
+
+const getUserId = (user) => {
+  if (!user) return null;
+  
+  if (typeof user === 'number' || typeof user === 'string') {
+    return user;
+  }
+  
+  if (user.id !== undefined) {
+    return user.id;
+  }
+  
+  if (user.public_id !== undefined) {
+    return user.public_id;
+  }
+  
+  return null;
+};
 
 // Match ContributeModal theme exactly
 const defaultTheme = {
@@ -34,6 +119,449 @@ const defaultTheme = {
   shadow: 'shadow-2xl shadow-cyan-900/30',
 };
 
+// VerseHeader Component (previously modular)
+const VerseHeader = ({ 
+  story, 
+  currentVerseIndex, 
+  onClose, 
+  focusMode,
+  hasMoments,
+  currentMomentIndex,
+  currentVerse
+}) => {
+  if (focusMode) return null;
+  
+  return (
+    <div className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-gray-950/95 to-indigo-950/95 backdrop-blur-md border-b border-cyan-400/20 p-4 transition-opacity duration-500 shadow-lg shadow-cyan-900/10">
+      <div className="flex justify-between items-center">
+        <div className="text-white font-medium flex items-center gap-2 min-w-0">
+          <div className="w-3 h-3 rounded-full bg-cyan-400 animate-pulse"></div>
+          <span className="bg-gradient-to-r from-cyan-300 via-blue-200 to-purple-300 bg-clip-text text-transparent truncate block max-w-[60vw] font-bold tracking-wide drop-shadow-lg" title={`${story.title} - Verse ${currentVerseIndex + 1} of ${story.verses.length}`}>
+            {story.title} <span className="opacity-60 font-normal">- Verse {currentVerseIndex + 1} of {story.verses.length}</span>
+          </span>
+        </div>
+        
+        <div className="flex items-center gap-4 mr-2">
+          <div className="flex flex-col gap-0.5">
+            {currentVerseIndex > 0 && (
+              <div className="text-cyan-400 text-lg opacity-70 animate-pulse">↑</div>
+            )}
+            {currentVerseIndex < story.verses.length - 1 && (
+              <div className="text-cyan-400 text-lg opacity-70 animate-pulse">↓</div>
+            )}
+          </div>
+          
+          {hasMoments && (
+            <div className="flex gap-2">
+              {currentMomentIndex > 0 && (
+                <div className="text-purple-400 text-lg opacity-70 animate-pulse">←</div>
+              )}
+              {currentMomentIndex < currentVerse.moments.length - 1 && (
+                <div className="text-purple-400 text-lg opacity-70 animate-pulse">→</div>
+              )}
+            </div>
+          )}
+        </div>
+        
+        <button 
+          className="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-black/60 transition-all border border-cyan-400/20 shadow"
+          onClick={onClose}
+        >
+          <i className="fas fa-times"></i>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// MomentsCarousel Component (previously modular)
+const MomentsCarousel = ({ 
+  moments, 
+  currentMomentIndex, 
+  setCurrentMomentIndex,
+  toggleFocusMode,
+  focusMode
+}) => {
+  const touchStartRef = useRef(0);
+  const touchEndRef = useRef(0);
+  const touchStartYRef = useRef(0);
+  
+  const hasMultipleMoments = moments && moments.length > 1;
+  
+  const handleMomentTouchStart = (e) => {
+    touchStartRef.current = e.touches[0].clientX;
+    touchStartYRef.current = e.touches[0].clientY;
+    touchEndRef.current = e.touches[0].clientX;
+  };
+
+  const handleMomentTouchMove = (e) => {
+    if (!touchStartRef.current) return;
+    
+    const touch = e.touches[0];
+    touchEndRef.current = touch.clientX;
+    
+    const deltaX = Math.abs(touch.clientX - touchStartRef.current);
+    const deltaY = Math.abs(touch.clientY - touchStartYRef.current);
+    
+    if (deltaX > deltaY * 1.5 && deltaX > 5) {
+      e.preventDefault();
+    }
+  };
+
+  const handleMomentTouchEnd = (e) => {
+    const start = touchStartRef.current;
+    const end = touchEndRef.current;
+    
+    if (!start || !end || start === end) return;
+    
+    const deltaX = start - end;
+    const deltaY = Math.abs(e.changedTouches[0].clientY - touchStartYRef.current);
+    
+    if (Math.abs(deltaX) > 50 && Math.abs(deltaX) > deltaY * 1.5) {
+      if (deltaX > 0) {
+        goToNextMoment();
+      } else {
+        goToPreviousMoment();
+      }
+    }
+  };
+
+  const goToPreviousMoment = () => {
+    if (currentMomentIndex <= 0) return;
+    setCurrentMomentIndex(prev => prev - 1);
+  };
+
+  const goToNextMoment = () => {
+    if (!moments || currentMomentIndex >= moments.length - 1) return;
+    setCurrentMomentIndex(prev => prev + 1);
+  };
+
+  return (
+    <div className="w-full h-full flex items-center justify-center bg-black/10 cursor-pointer relative" onClick={toggleFocusMode}>
+      {!focusMode && hasMultipleMoments && currentMomentIndex > 0 && (
+        <button 
+          className="absolute left-4 z-10 bg-black/50 backdrop-blur-lg rounded-full p-3 animate-pulse hover:bg-black/70 transition-all"
+          style={{ top: '28%' }}
+          onClick={(e) => {
+            e.stopPropagation();
+            goToPreviousMoment();
+          }}
+        >
+          <i className="fas fa-chevron-left text-white"></i>
+        </button>
+      )}
+      
+      {!focusMode && hasMultipleMoments && currentMomentIndex < moments.length - 1 && (
+        <button 
+          className="absolute right-4 z-10 bg-black/50 backdrop-blur-lg rounded-full p-3 animate-pulse hover:bg-black/70 transition-all"
+          style={{ top: '28%' }}
+          onClick={(e) => {
+            e.stopPropagation();
+            goToNextMoment();
+          }}
+        >
+          <i className="fas fa-chevron-right text-white"></i>
+        </button>
+      )}
+      
+      <div 
+        className="w-full h-full relative overflow-hidden"
+        style={{ touchAction: 'pan-y' }}
+        onTouchStart={handleMomentTouchStart}
+        onTouchMove={handleMomentTouchMove}
+        onTouchEnd={handleMomentTouchEnd}
+      >
+        {moments.map((moment, momentIndex) => {
+          const imageUrl = getMomentImageUrl(moment);
+          const momentKey = moment && (moment.id || `moment-${momentIndex}`);
+          return (
+            <div 
+              key={momentKey} 
+              className={`absolute inset-0 transition-opacity duration-300 ${momentIndex === currentMomentIndex ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+            >
+              {imageUrl ? (
+                <div className="relative w-full h-full flex items-center justify-center">
+                  <Image
+                    src={imageUrl}
+                    alt={`Verse moment ${momentIndex + 1}`}
+                    width={1080}
+                    height={1440}
+                    className="max-w-full max-h-full object-contain mx-auto my-auto"
+                    quality={75}
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                </div>
+              ) : moment && moment.content ? (
+                <div className="w-full h-full flex items-center justify-center p-8">
+                  <div className="text-white text-3xl text-center font-light max-w-3xl">
+                    {moment.content}
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full h-full flex items-center justify-center p-8">
+                  <div className="text-gray-300 text-sm text-center">No moment available</div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      
+      {!focusMode && (
+        <div className="absolute bottom-32 left-0 right-0 flex justify-center space-x-2 z-60">
+          {moments.map((_, momentIndex) => (
+            <div 
+              key={`indicator-${momentIndex}`}
+              className={`w-2 h-2 rounded-full transition-all duration-300 shadow-lg ${momentIndex === currentMomentIndex ? 'bg-white w-8' : 'bg-white/30'}`}
+            ></div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// VerseContent Component (previously modular)
+const VerseContent = ({ 
+  content, 
+  fontSize, 
+  setFontSize, 
+  toggleFocusMode 
+}) => {
+  return (
+    <div className="w-full h-full flex justify-center bg-black/10 cursor-pointer relative" onClick={toggleFocusMode}>
+      <div className="absolute top-20 right-3 z-20 flex flex-row gap-2 items-end">
+        <button
+          className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-200/50 to-blue-500/50 text-white shadow-lg flex items-center justify-center hover:scale-110 transition-transform border border-cyan-400/40 text-2xl font-bold"
+          onClick={e => { e.stopPropagation(); setFontSize(f => Math.min(f + 4, 80)); }}
+          title="Zoom In"
+          tabIndex={0}
+        >
+          +
+        </button>
+        <button
+          className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500/50 to-blue-500/50 text-white shadow-lg flex items-center justify-center hover:scale-110 transition-transform border border-cyan-400/40 text-2xl font-bold"
+          onClick={e => { e.stopPropagation(); setFontSize(f => Math.max(f - 4, 12)); }}
+          title="Zoom Out"
+          tabIndex={0}
+        >
+          −
+        </button>
+      </div>
+      <div className="w-full max-w-3xl h-full relative">
+        <div className="overflow-y-auto px-6 py-8" style={{ maxHeight: 'calc(100vh - 160px)', minHeight: '120px', marginTop: '64px', marginBottom: '80px' }}>
+          <div className="text-white font-light" style={{ whiteSpace: 'pre-line', textAlign: 'left', fontSize: fontSize, transition: 'font-size 0.2s' }}>
+            {content || 'No content for this verse'}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// VerseFooter Component (previously modular)
+const VerseFooter = ({ 
+  story, 
+  currentVerse, 
+  isLiked, 
+  isSaved, 
+  likeCount, 
+  saveCount, 
+  isLikeLoading, 
+  isSaveLoading,
+  handleLike, 
+  handleSave, 
+  handleShare, 
+  handleOpenContribute,
+  isAuthenticated,
+  currentUser,
+  openAuthModal,
+  isFollowing,
+  setIsFollowing,
+  focusMode,
+  showVerseOptions,
+  setShowVerseOptions,
+  isContribution
+}) => {
+  const router = useRouter();
+  
+  if (focusMode) return null;
+  
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-black/60 backdrop-blur-lg to-transparent p-4">
+      <div className="flex justify-between items-center max-w-3xl mx-auto">
+        <div className="flex items-center gap-4">
+          <div className="relative flex-shrink-0" style={{ width: '3rem', height: '3rem' }}>
+            <a
+              href={`/${encodeURIComponent(getAuthorUsername(currentVerse) || '')}`}
+              className="block w-full h-full"
+              onClick={(e) => {
+                e.preventDefault();
+                const u = getAuthorUsername(currentVerse);
+                if (u) router.push(`/${encodeURIComponent(u)}`);
+              }}
+            >
+              <div className="w-full h-full rounded-full bg-gradient-to-r from-accent-orange to-neon-pink flex items-center justify-center font-bold text-base flex-shrink-0 cursor-pointer overflow-hidden">
+                {getAuthorProfileImageUrl(currentVerse) ? (
+                  <Image 
+                    src={getAuthorProfileImageUrl(currentVerse)} 
+                    alt={`${getAuthorDisplayName(currentVerse)}'s profile`} 
+                    width={80}
+                    height={80}
+                    className="w-full h-full object-cover" 
+                    quality={75}
+                    onError={e => {
+                      e.currentTarget.style.display = 'none';
+                      const fallback = e.currentTarget.parentNode.querySelector('.author-initial-fallback');
+                      if (fallback) fallback.style.display = 'block';
+                    }}
+                  />
+                ) : null}
+                <span className="text-white author-initial-fallback" style={{display: getAuthorProfileImageUrl(currentVerse) ? 'none' : 'block'}}>
+                  {getAuthorInitial(currentVerse)}
+                </span>
+              </div>
+            </a>
+            
+            {getAuthorUsername(currentVerse) && getAuthorUsername(currentVerse) !== 'anonymous' && !isFollowing && 
+             String(getUserId(currentVerse?.author || story?.creator || '')) !== String(currentUser?.public_id) && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const username = getAuthorUsername(currentVerse);
+                  setIsFollowing(true);
+                  if (!isAuthenticated) {
+                    if (typeof openAuthModal === 'function') openAuthModal('follow', username);
+                    return;
+                  }
+                  // Follow API call would go here
+                }}
+                className="follow-button absolute bottom-0 right-0 rounded-full flex items-center justify-center shadow-lg transition-all hover:bg-blue-600 bg-transparent border-2 border-white w-6 h-6"
+                aria-label="Follow"
+                title="Follow"
+              >
+                <i className="fas fa-plus text-white font-extrabold text-xl"></i>
+              </button>
+            )}
+          </div>
+
+          <div className="text-white min-w-0 flex items-center gap-3">
+            <div>
+              <a
+                href={`/${encodeURIComponent(getAuthorUsername(currentVerse) || '')}`}
+                className="block min-w-0"
+                onClick={(e) => {
+                  e.preventDefault();
+                  const u = getAuthorUsername(currentVerse);
+                  if (u) router.push(`/${encodeURIComponent(u)}`);
+                }}
+              >
+                <span className="font-semibold text-sm truncate block max-w-[18rem]" title={getAuthorDisplayName(currentVerse)}>
+                  {getAuthorDisplayName(currentVerse)}
+                </span>
+              </a>
+              <div className={`text-xs ${isContribution ? 'text-orange-400' : 'text-cyan-300'}`}>
+                {isContribution ? 'Contributed' : 'Creator'}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="absolute bottom-4 right-4 flex flex-col items-center gap-6 z-50">
+          {isAuthenticated && currentUser && (() => {
+            const currentUserId = String(currentUser?.public_id || currentUser?.id);
+            const verseAuthorId = String(getUserId(currentVerse?.author) || '');
+            const storyCreatorId = String(getUserId(story?.creator) || '');
+            return currentUserId && (currentUserId === verseAuthorId || currentUserId === storyCreatorId);
+          })() && (
+            <div className="relative">
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowVerseOptions(!showVerseOptions);
+                }}
+                className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer transition-all duration-200 ease-in-out relative border border-white/20 hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110"
+                title="Options"
+              >
+                <i className="fas fa-ellipsis-v text-[18px] text-white"></i>
+              </button>
+            </div>
+          )}
+
+          <div className="flex flex-col items-center">
+            <button 
+              className={`w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer relative ${isLiked ? 'bg-accent-orange/10 border-2 border-accent-orange' : 'border border-white/20'} hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110 ${isLikeLoading ? 'transition-none' : 'transition-all duration-200 ease-in-out'}`}
+              onClick={handleLike}
+              disabled={isLikeLoading}
+            >
+              <div className="relative">
+                <i className={`${isLiked ? 'fas' : 'far'} fa-heart text-[18px] ${isLiked ? 'text-accent-orange' : 'text-white'}`}></i>
+                {isLiked && (
+                  <div className="absolute inset-0 rounded-full bg-accent-orange animate-ping opacity-40"></div>
+                )}
+              </div>
+            </button>
+            <span className={`text-xs mt-1 ${isLiked ? 'text-accent-orange' : 'text-white'}`}>{likeCount}</span>
+          </div>
+          
+          <button 
+            className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer transition-all duration-200 ease-in-out relative border border-white/20 hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110"
+            onClick={handleShare}
+          >
+            <i className="fas fa-share text-[18px] text-white"></i>
+          </button>
+          
+          <div className="flex flex-col items-center">
+            <button 
+              className={`w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer relative ${isSaved ? 'bg-accent-orange/10 border-2 border-accent-orange' : 'border border-white/20'} hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110 ${isSaveLoading ? 'transition-none' : 'transition-all duration-200 ease-in-out'}`}
+              onClick={handleSave}
+              disabled={isSaveLoading}
+            >
+              <div className="relative">
+                <i className={`${isSaved ? 'fas' : 'far'} fa-bookmark text-[18px] ${isSaved ? 'text-accent-orange' : 'text-white'}`}></i>
+                {isSaved && (
+                  <div className="absolute inset-0 rounded-full bg-accent-orange animate-ping opacity-40"></div>
+                )}
+              </div>
+            </button>
+            <span className={`text-xs mt-1 ${isSaved ? 'text-accent-orange' : 'text-white'}`}>{saveCount}</span>
+          </div>
+          
+          {story.allow_contributions ? (
+            <button
+              title="Contribute verse"
+              onClick={handleOpenContribute}
+              className="w-14 h-14 rounded-full flex items-center justify-center transition-all hover:scale-110 relative group"
+              style={{ 
+                background: 'linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%)', 
+                border: '3px solid #ff6b35', 
+                boxShadow: '0 4px 15px rgba(255, 107, 53, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)',
+                animation: 'pulse 2s infinite'
+              }}
+            >
+              <i className="fas fa-users text-white text-2xl font-bold relative z-10"></i>
+            </button>
+          ) : (
+            <div
+              className="w-14 h-14 rounded-full flex items-center justify-center bg-gray-700/40 text-gray-400 cursor-not-allowed relative group border-4 border-gray-400/20 shadow-xl"
+              title="Contributions are disabled for this story."
+            >
+              <span className="absolute inset-0 rounded-full bg-white/5"></span>
+              <i className="fas fa-plus text-2xl relative z-10"></i>
+              <span className="absolute bottom-[-2.2rem] left-1/2 -translate-x-1/2 bg-black/90 text-xs text-white rounded px-2 py-1 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
+                Contributions are disabled for this story.
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Main VerseViewer Component
 const VerseViewer = ({ 
   isOpen, 
   onClose, 
