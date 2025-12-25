@@ -307,7 +307,7 @@ const MomentsCarousel = ({
       </div>
       
       {!focusMode && (
-        <div className="absolute bottom-32 left-0 right-0 flex justify-center space-x-2 z-60">
+        <div className="absolute bottom-48 left-0 right-0 flex justify-center space-x-2 z-[9999]">
           {moments.map((_, momentIndex) => (
             <div 
               key={`indicator-${momentIndex}`}
@@ -1268,7 +1268,7 @@ const VerseViewer = ({
       
       {/* Fixed Content Area with glassmorphism */}
       {!focusMode && isTextVisible && hasMoments && (
-        <div className="fixed bottom-20 left-0 right-0 z-40 bg-gradient-to-t from-black/60 backdrop-blur-lg to-transparent p-6">
+        <div className="fixed bottom-20 left-0 right-0 z-40 bg-gradient-to-t from-black/60 backdrop-blur-lg to-transparent p-2">
           <div className="max-w-3xl mx-auto">
             {currentVerse?.content && (
               <div className="text-white">

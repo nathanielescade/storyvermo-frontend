@@ -657,13 +657,13 @@ export default function ProfileClient({ username, initialProfile = null }) {
             <div className="flex gap-4 mb-6 items-end">
               {/* Profile Picture */}
               <div className="relative flex-shrink-0 group">
-                <div className="w-28 h-28 rounded-full border-4 border-cyan-400/50 overflow-hidden shadow-2xl shadow-cyan-500/30 bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center text-5xl font-bold cursor-pointer hover:border-cyan-300 transition-all" onClick={() => setImageModal({ visible: true, url: user.profile_image_url, type: 'profile' })}>
+                <div className="w-28 h-28 rounded-full border-4 border-cyan-400/50 shadow-2xl shadow-cyan-500/30 bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center text-5xl font-bold cursor-pointer hover:border-cyan-300 transition-all" onClick={() => setImageModal({ visible: true, url: user.profile_image_url, type: 'profile' })}>
                   {user.profile_image_url ? (
                     <SmartImg
                       src={absoluteUrl(user.profile_image_url) || ''}
                       alt={user.username}
                       fill
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain rounded-full"
                     />
                   ) : (
                     <span className="text-cyan-400">{getInitial(user?.username, '')}</span>
@@ -771,13 +771,13 @@ export default function ProfileClient({ username, initialProfile = null }) {
             <div className="flex gap-8 items-end">
               {/* Profile Picture */}
               <div className="relative flex-shrink-0 group">
-                <div className="w-56 h-56 rounded-full border-4 border-cyan-400/50 overflow-hidden shadow-2xl shadow-cyan-500/30 bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center text-8xl font-bold cursor-pointer hover:border-cyan-300 transition-all" onClick={() => setImageModal({ visible: true, url: user.profile_image_url, type: 'profile' })}>
+                <div className="w-56 h-56 rounded-full border-4 border-cyan-400/50 shadow-2xl shadow-cyan-500/30 bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center text-8xl font-bold cursor-pointer hover:border-cyan-300 transition-all" onClick={() => setImageModal({ visible: true, url: user.profile_image_url, type: 'profile' })}>
                   {user.profile_image_url ? (
                     <SmartImg
                       src={absoluteUrl(user.profile_image_url) || ''}
                       alt={user.username}
                       fill
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain rounded-full"
                     />
                   ) : (
                     <span className="text-cyan-400">{getInitial(user?.username, '')}</span>
