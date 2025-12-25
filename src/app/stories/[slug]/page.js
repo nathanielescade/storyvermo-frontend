@@ -109,18 +109,3 @@ export default async function StoryPage({ params }) {
     notFound();
   }
 }
-        }
-      },
-      description: story.description || undefined,
-    };
-
-    return (
-      <>
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
-        <StoryDisplay initialStory={story} slug={slug} />
-      </>
-    );
-  } catch (error) {
-    notFound();
-  }
-}

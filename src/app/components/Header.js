@@ -16,7 +16,6 @@ const TrendingTagsModal = dynamic(() => import('./storycard/TrendingTagsModal'),
 const Header = ({ openAuthModal }) => {
   const { isAuthenticated } = useAuth();
   const [showMobileSearch, setShowMobileSearch] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showTrendingTags, setShowTrendingTags] = useState(false);
   const mobileSearchBarRef = useRef(null);
@@ -88,7 +87,6 @@ const Header = ({ openAuthModal }) => {
             setShowMobileSearch(!showMobileSearch);
             // Close other panels when opening search
             if (!showMobileSearch) {
-              setShowNotifications(false);
               setShowUserMenu(false);
             }
           }}
@@ -96,15 +94,7 @@ const Header = ({ openAuthModal }) => {
           <i className="fas fa-search text-white text-xl"></i>
         </button>
         
-        <NotificationBell 
-          isOpen={showNotifications}
-          onOpen={() => {
-            setShowNotifications(true);
-            setShowMobileSearch(false);
-            setShowUserMenu(false);
-          }}
-          onClose={() => setShowNotifications(false)}
-        />
+        <NotificationBell />
         
         {/* User menu or login button */}
         <UserMenu 
@@ -113,7 +103,6 @@ const Header = ({ openAuthModal }) => {
           onOpen={() => {
             setShowUserMenu(true);
             setShowMobileSearch(false);
-            setShowNotifications(false);
           }}
           onClose={() => setShowUserMenu(false)}
         />
