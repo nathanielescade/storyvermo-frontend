@@ -101,13 +101,13 @@ const TitleSection = ({
             <div className="title-container" id={`title-container-${index}`}> 
                 <h2 
                     ref={titleRef}
-                    className={`scene-title text-2xl md:text-3xl font-bold mb-0 flex items-center flex-wrap ${
+                    className={`scene-title text-2xl md:text-3xl font-bold mb-0 flex items-center flex-wrap cursor-pointer hover:opacity-80 transition-opacity ${
                         titleExpanded ? '' : 'line-clamp-2'
                     }`}
                     id={`title-${index}`}
                     onClick={(e) => {
-                        if (wasTitleTruncated && !titleExpanded) {
-                            e.preventDefault();
+                        e.preventDefault();
+                        if (wasTitleTruncated) {
                             toggleTitle();
                         }
                     }}
@@ -127,7 +127,7 @@ const TitleSection = ({
                 >
                     {renderTitleWithEmojis(story.title)}
                 </h2>
-                {wasTitleTruncated && (
+                {wasTitleTruncated && titleExpanded && (
                     <span 
                         className="text-cyan-400 ml-1 cursor-pointer text-sm font-medium hover:text-cyan-300 transition-colors"
                         onClick={(e) => {
@@ -136,14 +136,14 @@ const TitleSection = ({
                             toggleTitle();
                         }}
                     >
-                        {titleExpanded ? 'Read less' : ''}
+                        Read less
                     </span>
                 )}
             </div>
             <div className="desc-container" id={`desc-container-${index}`}> 
                 {index === 0 ? (
                     <div
-                        className="scene-description line-clamp-3"
+                        className="scene-description line-clamp-3 cursor-pointer hover:opacity-80 transition-opacity"
                         id={`desc-${index}`}
                         style={{
                             display: '-webkit-box',
@@ -159,10 +159,15 @@ const TitleSection = ({
                     <>
                         <div 
                             ref={descRef}
-                            className={`scene-description  ${
+                            className={`scene-description cursor-pointer hover:opacity-80 transition-opacity ${
                                 descExpanded ? '' : 'line-clamp-3'
                             }`}
                             id={`desc-${index}`}
+                            onClick={() => {
+                                if (wasDescTruncated) {
+                                    toggleDescription();
+                                }
+                            }}
                             style={{
                                 display: '-webkit-box',
                                 WebkitBoxOrient: 'vertical',
@@ -172,13 +177,17 @@ const TitleSection = ({
                         >
                             {story.description || 'No description available.'}
                         </div>
-                        {wasDescTruncated && (
+                        {wasDescTruncated && descExpanded && (
                             <span 
                                 className="text-cyan-400 cursor-pointer text-sm font-medium hover:text-cyan-300 transition-colors mt-1 inline-block"
                                 id={`readmore-${index}`}
-                                onClick={toggleDescription}
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    toggleDescription();
+                                }}
                             >
-                                {descExpanded ? 'Read less' : 'Read more'}
+                                Read less
                             </span>
                         )}
                     </>

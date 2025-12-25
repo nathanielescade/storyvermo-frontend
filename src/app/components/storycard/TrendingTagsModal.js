@@ -165,7 +165,7 @@ const TrendingTagsModal = ({ isOpen, onClose, onTagSelect }) => {
                                 }}
                             >
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-                                    <span style={{ fontSize: '11px' }}>🔥</span>
+                                    <i className="fas fa-tag" style={{ color: '#06b6d4', fontSize: '12px' }}></i>
                                     <div>
                                         <div style={{ fontWeight: '500', color: '#ffffff' }}>{tag.name || tag}</div>
                                         {tag.count && (

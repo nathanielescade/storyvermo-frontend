@@ -23,6 +23,9 @@ import EnlargeModal from './storycard/EnlargeModal';
 import DeleteModal from './storycard/DeleteModal';
 import DropdownMenu from './storycard/DropdownModal';
 import VerseViewer from './VerseViewer';
+import ShareModal from './ShareModal';
+import CommentModal from './CommentModal';
+
 
 export default function StoryCard({ 
     story, 
@@ -48,6 +51,7 @@ export default function StoryCard({
     const [isViewerOpening, setIsViewerOpening] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
     const [localCommentsCount, setLocalCommentsCount] = useState(story.comments_count || 0);
+    const [fullStoryForViewer, setFullStoryForViewer] = useState(story); // Store full story data for VerseViewer
     
     // Hologram icon modals
     const [showContributeModal, setShowContributeModal] = useState(false);
@@ -233,12 +237,16 @@ export default function StoryCard({
             setIsViewerOpening(true);
             
             // IMPORTANT: Fetch fresh story data BEFORE opening the viewer
-            // const fullStory = await storiesApi.getStoryBySlug(story.slug);
+            // On homepage, verses may have stripped/incomplete data, so we need full verse content and images
+            const fullStory = await storiesApi.getStoryBySlug(story.slug);
             
-            // Update the story in parent's state
+            // Update the story in parent's state with full data
             if (onStoryUpdate) {
-                // onStoryUpdate(fullStory);
+                onStoryUpdate(fullStory);
             }
+            
+            // Update state with full story so VerseViewer gets complete data
+            setFullStoryForViewer(fullStory);
             
             // Only open the viewer AFTER data is ready
             setShowVerseViewer(true);
@@ -593,33 +601,35 @@ export default function StoryCard({
                     />
                 )}
                 
-                {/* <CommentModal
-                    isOpen={showCommentModal}
-                    onClose={(e) => {
-                        if (e) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                        }
-                        setTimeout(() => {
-                            setShowCommentModal(false);
-                        }, 0);
-                    }}
-                    post={story}
-                    updateCommentCount={(slug, increment) => {
-                        if (slug === story.slug) {
-                            setLocalCommentsCount(prev => prev + increment);
-                            
-                            // Update the story in parent's state
-                            if (onStoryUpdate) {
-                                const updatedStory = {
-                                    ...story,
-                                    comments_count: localCommentsCount + increment
-                                };
-                                onStoryUpdate(updatedStory);
+                {showCommentModal && (
+                    <CommentModal
+                        isOpen={showCommentModal}
+                        onClose={(e) => {
+                            if (e) {
+                                e.preventDefault();
+                                e.stopPropagation();
                             }
-                        }
-                    }}
-                /> */}
+                            setTimeout(() => {
+                                setShowCommentModal(false);
+                            }, 0);
+                        }}
+                        post={story}
+                        updateCommentCount={(slug, increment) => {
+                            if (slug === story.slug) {
+                                setLocalCommentsCount(prev => prev + increment);
+                                
+                                // Update the story in parent's state
+                                if (onStoryUpdate) {
+                                    const updatedStory = {
+                                        ...story,
+                                        comments_count: localCommentsCount + increment
+                                    };
+                                    onStoryUpdate(updatedStory);
+                                }
+                            }
+                        }}
+                    />
+                )}
                 
                 {showVerseViewer && (
                     <VerseViewer
@@ -628,12 +638,15 @@ export default function StoryCard({
                             setShowVerseViewer(false);
                             setIsViewerOpening(false);
                         }}
-                        story={story} // Use the story prop directly
+                        story={fullStoryForViewer} // Use full story data with complete verse content
                         initialVerseIndex={0}
                         onReady={() => setIsViewerOpening(false)}
                         isAuthenticated={isAuthenticated}
                         openAuthModal={openAuthModal}
-                        onStoryUpdate={onStoryUpdate} // Pass the update function
+                        onStoryUpdate={(updatedStory) => {
+                            setFullStoryForViewer(updatedStory);
+                            if (onStoryUpdate) onStoryUpdate(updatedStory);
+                        }}
                         onOpenStoryForm={(verse) => {
                             setEditingVerseForModal(verse);
                             setShowStoryFormModal(true);
@@ -641,13 +654,15 @@ export default function StoryCard({
                     />
                 )}
                 
-                {/* <ShareModal
-                    isOpen={showShareModal}
-                    onClose={() => setShowShareModal(false)}
-                    shareData={shareData}
-                    imageUrl={getCoverImageUrl()}
-                    isVerse={false}
-                /> */}
+                {showShareModal && (
+                    <ShareModal
+                        isOpen={showShareModal}
+                        onClose={() => setShowShareModal(false)}
+                        shareData={shareData}
+                        imageUrl={getCoverImageUrl()}
+                        isVerse={false}
+                    />
+                )}
                 
                 {showContributeModal && (
                     <ContributeModal 

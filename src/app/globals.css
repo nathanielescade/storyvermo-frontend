@@ -19,7 +19,7 @@
 
 .image-container {
     position: relative;
-    width: 100vw;
+    width: 100%;
     height: 100vh;
     overflow: hidden;
     scroll-snap-align: start;
@@ -34,6 +34,7 @@
 .image-feed {
     height: 100vh;
     overflow-y: scroll;
+    overflow-x: hidden;
     scroll-snap-type: y mandatory;
     scrollbar-width: none;
     -ms-overflow-style: none;
@@ -47,6 +48,7 @@
         .scene-card {
             position: relative;
             width: 100%;
+            max-width: 100%;
             height: 100vh;
             overflow: hidden;
             scroll-snap-align: start;
@@ -267,6 +269,10 @@
                 margin: 0 auto;
             }
             
+            .scene-card {
+                max-width: 100%;
+                overflow: hidden;
+            }
    
  
         }
@@ -278,13 +284,37 @@
   
         
         /* Tag Switcher Adjustments */
+        .tag-switcher-wrapper {
+            pointer-events: none;
+        }
+        
+        .tag-switcher-wrapper #tagSwitcher {
+            pointer-events: auto;
+        }
+        
         #tagSwitcher {
             top: 80px;
         }
         
         @media (min-width: 769px) {
-            #tagSwitcher {
-                top: 80px;
+            .tag-switcher-wrapper {
+                position: fixed;
+                left: 50%;
+                top: 0;
+                width: 500px;
+                margin-left: 110px;
+                pointer-events: none;
+                z-index: 10;
+            }
+            
+            .tag-switcher-wrapper #tagSwitcher {
+                position: absolute !important;
+                left: 50% !important;
+                top: 80px !important;
+                transform: translateX(-50%) !important;
+                width: 90% !important;
+                max-width: none !important;
+                pointer-events: auto;
             }
         }
         
@@ -437,6 +467,18 @@
             100% {
                 transform: scale(1);
                 box-shadow: 0 6px 18px rgba(255,107,53,0.4);
+            }
+        }
+
+        @keyframes collab-aura {
+            0% {
+                box-shadow: 0 4px 15px rgba(255, 107, 53, 0.4), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 20px rgba(255, 107, 53, 0.2);
+            }
+            50% {
+                box-shadow: 0 4px 15px rgba(255, 107, 53, 0.5), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 40px rgba(255, 107, 53, 0.5);
+            }
+            100% {
+                box-shadow: 0 4px 15px rgba(255, 107, 53, 0.4), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 20px rgba(255, 107, 53, 0.2);
             }
         }
         

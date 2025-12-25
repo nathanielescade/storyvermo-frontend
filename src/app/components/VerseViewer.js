@@ -1,4 +1,3 @@
-// components/verseviewer/VerseViewer.jsx
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
@@ -592,7 +591,7 @@ const VerseViewer = ({
   
   // Update story ref when story prop changes
   useEffect(() => {
-    if (story && story.verses) {
+    if (story && Array.isArray(story.verses)) {
       const mergedVerses = story.verses.map(verse => {
         const cachedMetadata = verseMetadataRef.current[verse.id];
         if (cachedMetadata) {
@@ -611,15 +610,17 @@ const VerseViewer = ({
         verses: mergedVerses
       };
     } else {
-      storyRef.current = story;
+      // Ensure storyRef is always set to something to prevent undefined errors
+      storyRef.current = story || { verses: [] };
     }
   }, [story]);
 
   const currentVerse = useMemo(() => {
-    if (!storyRef.current?.verses || currentVerseIndex >= storyRef.current.verses.length) {
+    const verses = storyRef.current?.verses;
+    if (!verses || !Array.isArray(verses) || currentVerseIndex >= verses.length) {
       return null;
     }
-    return storyRef.current.verses[currentVerseIndex];
+    return verses[currentVerseIndex];
   }, [currentVerseIndex, storyRef.current?.verses]);
 
   const getVerseInitialState = (verse) => {
@@ -643,8 +644,7 @@ const VerseViewer = ({
   const [focusMode, setFocusMode] = useState(false);
   const [readingProgress, setReadingProgress] = useState(0);
   const [isTextVisible, setIsTextVisible] = useState(true);
-  const [showScrollHint, setShowScrollHint] = useState(false);
-  const [pullDownProgress, setPullDownProgress] = useState(0);
+  const [showScrollIndicator, setShowScrollIndicator] = useState(false);
   
   const [isLikeLoading, setIsLikeLoading] = useState(false);
   const [isSaveLoading, setIsSaveLoading] = useState(false);
@@ -718,25 +718,27 @@ const VerseViewer = ({
     }
   }, [storyRef.current?.verses, currentVerse?.id]);
 
-  // Effect for scroll hint
+
+
+  // Effect for scroll indicator
   useEffect(() => {
     if (!isOpen || !story?.verses || story.verses.length <= 1) {
-      setShowScrollHint(false);
+      setShowScrollIndicator(false);
       return;
     }
 
     if (currentVerseIndex >= story.verses.length - 1) {
-      setShowScrollHint(false);
+      setShowScrollIndicator(false);
       return;
     }
 
     const showTimer = setTimeout(() => {
-      setShowScrollHint(true);
+      setShowScrollIndicator(true);
     }, 1000);
 
     const hideTimer = setTimeout(() => {
-      setShowScrollHint(false);
-    }, 4000);
+      setShowScrollIndicator(false);
+    }, 5000);
 
     return () => {
       clearTimeout(showTimer);
@@ -744,11 +746,19 @@ const VerseViewer = ({
     };
   }, [isOpen, story?.verses, currentVerseIndex]);
 
-  // Effect for hiding scroll hint when user scrolls
+  // Effect for updating reading progress on scroll
   useEffect(() => {
     const handleScroll = () => {
       userScrolledRef.current = true;
-      setShowScrollHint(false);
+      setShowScrollIndicator(false);
+      
+      // Calculate reading progress
+      if (containerRef.current) {
+        const scrollTop = containerRef.current.scrollTop;
+        const scrollHeight = containerRef.current.scrollHeight - containerRef.current.clientHeight;
+        const progress = scrollHeight > 0 ? (scrollTop / scrollHeight) * 100 : 0;
+        setReadingProgress(Math.min(progress, 100));
+      }
     };
 
     const containerElement = containerRef.current;
@@ -760,72 +770,7 @@ const VerseViewer = ({
     }
   }, [isOpen]);
 
-  // Effect for auto-nudge scroll
-  useEffect(() => {
-    if (!isOpen) return;
-    const verses = storyRef.current?.verses || story?.verses || [];
-    if (!Array.isArray(verses) || verses.length <= 1) return;
-    if (currentVerseIndex >= verses.length - 1) return;
 
-    const el = containerRef.current;
-    if (!el) return;
-
-    userScrolledRef.current = false;
-
-    const nudgeTimeout = setTimeout(() => {
-      if (userScrolledRef.current) return;
-
-      const nudge = Math.min(60, Math.round(el.clientHeight * 0.06));
-
-      const prevSnap = el.style.scrollSnapType || '';
-      try { el.style.scrollSnapType = 'none'; } catch (e) {}
-
-      const onUserScrollDuring = () => {
-        userScrolledRef.current = true;
-      };
-      el.addEventListener('scroll', onUserScrollDuring, { passive: true });
-
-      try {
-        el.scrollBy({ top: nudge, behavior: 'smooth' });
-      } catch (e) {
-        el.scrollTop = Math.min(el.scrollHeight, el.scrollTop + nudge);
-      }
-
-      const backDelay = 1200;
-      const returnTimer = setTimeout(() => {
-        if (!userScrolledRef.current) {
-          try {
-            el.scrollBy({ top: -nudge, behavior: 'smooth' });
-          } catch (e) {
-            el.scrollTop = Math.max(0, el.scrollTop - nudge);
-          }
-        }
-        try { el.style.scrollSnapType = prevSnap; } catch (e) {}
-        try { el.removeEventListener('scroll', onUserScrollDuring); } catch (e) {}
-      }, backDelay);
-
-      const restoreTimer = setTimeout(() => {
-        try { el.style.scrollSnapType = prevSnap; } catch (e) {}
-        try { el.removeEventListener('scroll', onUserScrollDuring); } catch (e) {}
-      }, backDelay + 600);
-
-      const clearAll = () => {
-        try { clearTimeout(returnTimer); } catch (e) {}
-        try { clearTimeout(restoreTimer); } catch (e) {}
-        try { el.removeEventListener('scroll', onUserScrollDuring); } catch (e) {}
-        try { el.style.scrollSnapType = prevSnap; } catch (e) {}
-      };
-
-      el.__nudgeClear = clearAll;
-
-    }, 2000);
-
-    return () => {
-      try { clearTimeout(nudgeTimeout); } catch (e) {}
-      try { if (containerRef.current && typeof containerRef.current.__nudgeClear === 'function') containerRef.current.__nudgeClear(); } catch (e) {}
-      userScrolledRef.current = false;
-    };
-  }, [isOpen, currentVerseIndex, story]);
 
   // Navigation helpers
   const scrollToVerseIndex = (targetIndex) => {
@@ -854,6 +799,7 @@ const VerseViewer = ({
       setFocusMode(false);
       setIsTextVisible(true);
       
+      // Calculate initial reading progress based on which verse we're viewing
       if (story?.verses && story.verses.length > 0) {
         const initialVerse = story.verses[initialVerseIndex] || story.verses[0];
         if (initialVerse) {
@@ -863,6 +809,10 @@ const VerseViewer = ({
           setIsSaved(initial.isSaved);
           setSaveCount(initial.saveCount);
         }
+        
+        // Set initial progress based on verse index
+        const progress = ((initialVerseIndex + 1) / story.verses.length) * 100;
+        setReadingProgress(progress);
       }
     }
     
@@ -1195,7 +1145,10 @@ const VerseViewer = ({
   const [shareData, setShareData] = useState(null);
   const [shareImage, setShareImage] = useState(null);
 
-  if (!isOpen || !story) return null;
+  // FIX: Return null if story or verses are not available
+  if (!isOpen || !story || !story.verses || story.verses.length === 0) {
+    return null;
+  }
 
   const viewer = (
     <div className={`fixed inset-0 z-[10100] bg-gradient-to-br ${defaultTheme.gradient} ${defaultTheme.shadow} transition-all duration-1000 rounded-3xl border ${defaultTheme.border}`} style={{overflow: 'hidden'}}>
@@ -1213,18 +1166,18 @@ const VerseViewer = ({
       </div>
 
       {/* Reading progress indicator */}
-      <div className="fixed top-0 left-0 right-0 h-2 z-[9999] bg-black/30 pointer-events-none rounded-b-2xl">
+      <div className="fixed top-0 left-0 right-0 h-2 z-[99999] bg-black/30 pointer-events-none rounded-b-2xl">
         <div
           className="h-full bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 transition-all duration-300 ease-out rounded-b-2xl shadow-lg shadow-cyan-400/20"
           style={{ width: `${readingProgress}%` }}
         ></div>
       </div>
 
-      {/* Scroll hint */}
-      {showScrollHint && story?.verses && story.verses.length > 1 && (
+      {/* Scroll down indicator */}
+      {showScrollIndicator && story?.verses && story.verses.length > 1 && currentVerseIndex < story.verses.length - 1 && (
         <div className="fixed bottom-32 left-0 right-0 flex justify-center z-50 pointer-events-none">
           <div className="animate-bounce">
-            <i className="fas fa-chevron-down text-4xl bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent animate-pulse drop-shadow-lg"></i>
+            <i className="fas fa-chevron-down text-5xl bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent animate-pulse drop-shadow-lg"></i>
           </div>
         </div>
       )}
@@ -1291,23 +1244,6 @@ const VerseViewer = ({
                 willChange: 'transform',
               }}
             >
-              {/* Pull-down hint */}
-              {verseIndex === 0 && story.verses.length > 1 && (
-                <div 
-                  className="absolute top-0 left-0 right-0 z-40 flex justify-center pt-8 pointer-events-none"
-                  style={{
-                    opacity: Math.max(0, pullDownProgress * 2),
-                    transform: `translateY(${Math.min(pullDownProgress * 40, 30)}px)`,
-                    transition: pullDownProgress === 0 ? 'all 0.3s ease-out' : 'none'
-                  }}
-                >
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="text-4xl text-cyan-400 animate-bounce" style={{ animationDelay: '0s', opacity: Math.max(0, pullDownProgress * 2) }}>↓</div>
-                    <span className="text-cyan-300 text-sm font-medium whitespace-nowrap">Scroll for more verses</span>
-                  </div>
-                </div>
-              )}
-              
               {/* Moments or content */}
               {verse.moments && verse.moments.length > 0 ? (
                 <MomentsCarousel 

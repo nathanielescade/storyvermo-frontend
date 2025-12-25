@@ -53,7 +53,8 @@ const TagsSection = ({
                             onClick={(e) => {
                                 e.preventDefault();
                                 if (onTagSelect) {
-                                    onTagSelect(tagName);
+                                    // Pass empty string for Untagged to backend
+                                    onTagSelect(tagName === DEFAULT_TAG_NAME ? '' : tagName);
                                 }
                             }}
                         >

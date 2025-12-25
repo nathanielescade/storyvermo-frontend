@@ -2,7 +2,6 @@
 import { notFound } from 'next/navigation';
 import { storiesApi } from '../../../../lib/api';
 import StoryDisplay from './StoryDisplay';
-import { generateMetadata } from './metadata';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://storyvermo.com';
 
@@ -11,8 +10,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://storyvermo.com';
 // Then revalidates in background, so next visitor gets fresh data
 export const revalidate = 10;
 
-// Export metadata function
-export { generateMetadata };
+// Metadata is now handled in layout.js for faster generation (single API call instead of duplicate)
 
 // Server Component - no 'use client'
 export default async function StoryPage({ params }) {
@@ -23,8 +21,6 @@ export default async function StoryPage({ params }) {
     if (!story) {
       notFound();
     }
-
-
 
     // Build JSON-LD Article structured data for crawlers (image-first hints)
     const resolveMomentImageUrl = (moment) => {
@@ -98,6 +94,21 @@ export default async function StoryPage({ params }) {
           url: `${SITE_URL}/logo.png`,
           width: 512,
           height: 512
+        }
+      },
+      description: story.description || undefined,
+    };
+
+    return (
+      <>
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
+        <StoryDisplay initialStory={story} slug={slug} />
+      </>
+    );
+  } catch (error) {
+    notFound();
+  }
+}
         }
       },
       description: story.description || undefined,

@@ -451,6 +451,14 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
     return out;
   };
 
+  // Handle social login
+  const handleSocialLogin = (provider) => {
+    // Show a message that it's coming soon
+    setErrors({ general: `${provider.charAt(0).toUpperCase() + provider.slice(1)} login is coming soon. Please use email/password for now.` });
+    // In the future, redirect to OAuth endpoints:
+    // window.location.href = `/auth/oauth/${provider}/`;
+  };
+
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -586,9 +594,9 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
       <div className="bg-gradient-to-br from-gray-900 to-black border border-neon-blue/30 rounded-2xl w-full max-w-md overflow-hidden transform transition-all duration-300 scale-100 my-8">
         {/* Modal Header */}
         <div className="p-6 border-b border-transparent bg-gradient-to-r from-transparent via-blue-900/30 to-transparent">
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center mb-4">
             <h2 id="authModalTitle" className="text-2xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent font-orbitron">
-              {isLoginMode ? 'LOGIN TO STORYVERMO' : 'SIGN UP FOR STORYVERMO'}
+              STORYVERMO
             </h2>
             <button 
               id="closeAuthModal"
@@ -596,6 +604,34 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
               onClick={onClose}
             >
               <i className="fas fa-times text-white text-xl"></i>
+            </button>
+          </div>
+          
+          {/* Tab Buttons */}
+          <div className="flex gap-3">
+            <button 
+              type="button"
+              onClick={() => setIsLoginMode(true)}
+              className={`flex-1 py-2.5 px-4 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
+                isLoginMode 
+                  ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/30'
+                  : 'bg-gray-800/50 text-gray-300 border border-gray-700 hover:text-white hover:bg-gray-700/50'
+              }`}
+            >
+              <i className="fas fa-sign-in-alt"></i>
+              <span>Login</span>
+            </button>
+            <button 
+              type="button"
+              onClick={() => setIsLoginMode(false)}
+              className={`flex-1 py-2.5 px-4 rounded-lg font-semibold transition-all flex items-center justify-center gap-2 ${
+                !isLoginMode 
+                  ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg shadow-blue-500/30'
+                  : 'bg-gray-800/50 text-gray-300 border border-gray-700 hover:text-white hover:bg-gray-700/50'
+              }`}
+            >
+              <i className="fas fa-user-plus"></i>
+              <span>Sign Up</span>
             </button>
           </div>
         </div>
@@ -985,7 +1021,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
                       {errors.username}
                     </div>
                   )}
-                  <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">Username</label>
+                  <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">Username or Email</label>
                   <input
                     type="text"
                     name="username"
@@ -994,7 +1030,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
                     onChange={handleChange}
                     autoComplete="username"
                     className="w-full bg-gradient-to-b from-gray-800 to-black border border-blue-900/50 rounded-xl py-3 px-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 transition-all"
-                    placeholder="username"
+                    placeholder="Enter your username or email"
                   />
                 </div>
 
@@ -1057,6 +1093,29 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
                   <i id="authSpinner" className="fas fa-spinner animate-spin text-white"></i>
                 )}
               </button>
+            </div>
+
+            {/* Social Login Options */}
+            <div className="mt-6 pt-6 border-t border-gray-800">
+              <p className="text-center text-sm text-gray-400 mb-4">Or continue with</p>
+              <div className="flex gap-3">
+                <button 
+                  type="button"
+                  onClick={() => handleSocialLogin('google')}
+                  className="flex-1 py-3 px-4 rounded-lg bg-gray-800/50 hover:bg-gray-700 border border-gray-700 text-white transition-all flex items-center justify-center gap-2 hover:border-gray-600"
+                >
+                  <i className="fab fa-google"></i>
+                  <span className="hidden sm:inline">Google</span>
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => handleSocialLogin('facebook')}
+                  className="flex-1 py-3 px-4 rounded-lg bg-gray-800/50 hover:bg-gray-700 border border-gray-700 text-white transition-all flex items-center justify-center gap-2 hover:border-gray-600"
+                >
+                  <i className="fab fa-facebook"></i>
+                  <span className="hidden sm:inline">Facebook</span>
+                </button>
+              </div>
             </div>
           </form>
           

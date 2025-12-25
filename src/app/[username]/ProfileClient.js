@@ -284,10 +284,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
       formData.append('type', type);
       
       // Upload the image
-      await userApi.updateProfileImage(username, formData);
-      
-      // After successful upload, fetch the updated profile to get the real URL from server
-      const updatedProfile = await userApi.getProfile(username);
+      const uploadResponse = await userApi.updateProfileImage(username, formData);
       
       // Add a cache-busting query param so browsers and CDNs will fetch the
       // newest image instead of serving a cached copy
@@ -300,6 +297,13 @@ export default function ProfileClient({ username, initialProfile = null }) {
           return u;
         }
       };
+
+      // Use the response from the upload if available, otherwise fetch fresh data
+      let updatedProfile = uploadResponse || {};
+      if (!uploadResponse || !uploadResponse.profile_image_url) {
+        // After successful upload, fetch the updated profile to get the real URL from server
+        updatedProfile = await userApi.getProfile(username);
+      }
       
       // Recompute full name for the updated profile
       const uFirst = updatedProfile.first_name || updatedProfile.creator_first_name || updatedProfile.given_name || '';
@@ -326,8 +330,14 @@ export default function ProfileClient({ username, initialProfile = null }) {
       // Clean up the temporary blob URL
       URL.revokeObjectURL(objectUrl);
     } catch (error) {
+      console.error('Error uploading image:', error);
+      // Revert the blob URL on error
+      setUser(prev => ({
+        ...prev,
+        [type === 'profile' ? 'profile_image_url' : 'cover_image_url']: type === 'profile' ? user.profile_image_url : user.cover_image_url
+      }));
     }
-  }, [username]);
+  }, [username, user]);
 
   // Handle story card click
   const handleStoryClick = (e, index) => {
@@ -594,173 +604,341 @@ export default function ProfileClient({ username, initialProfile = null }) {
 
   return (
     <>
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 overflow-y-auto">
-      {/* Cover Image Section */}
-      <div className="relative h-[200px] md:h-[315px] bg-gradient-to-br from-slate-900/60 to-indigo-900/60 overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-gray-950 via-slate-950 to-slate-950">
+      {/* Cover Photo Section */}
+      <div className="relative w-full h-64 md:h-80 bg-gradient-to-br from-slate-900 to-slate-800 overflow-hidden group cursor-pointer" onClick={() => user.cover_image_url && setImageModal({ visible: true, url: user.cover_image_url, type: 'cover' })}>
         {user.cover_image_url ? (
           <SmartImg
             src={absoluteUrl(user.cover_image_url) || ''}
             alt="Cover"
             fill
-            className="object-cover object-center opacity-70 cursor-pointer"
-            onClick={() => setImageModal({ visible: true, url: user.cover_image_url, type: 'cover' })}
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-6xl text-cyan-500/20">
-              <i className="fas fa-image"></i>
+          <div className="w-full h-full bg-gradient-to-br from-blue-900/30 via-slate-800 to-slate-900 flex items-center justify-center">
+            <div className="text-center">
+              <i className="fas fa-image text-slate-600 text-6xl opacity-30 mb-4"></i>
+              <p className="text-slate-500 text-sm">No cover photo</p>
             </div>
           </div>
         )}
-        {currentUser?.username === username && (
+        
+        {/* Overlay Gradient */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black/80"></div>
+        
+        {/* Cover Photo Upload Button (Only for own profile) */}
+        {currentUser && currentUser.username === username && (
           <button 
-            onClick={triggerCoverImageUpload}
-            className="absolute bottom-6 right-6 w-14 h-14 rounded-full bg-slate-900/60 flex items-center justify-center text-cyan-500 cursor-pointer hover:bg-cyan-500/20 transition-colors z-10 border border-cyan-500/30"
+            onClick={(e) => { e.stopPropagation(); triggerCoverImageUpload(); }}
+            className="absolute bottom-6 right-6 w-12 h-12 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-bold text-xl shadow-lg shadow-cyan-500/30 transition-all duration-300 flex items-center justify-center z-20 hover:scale-110"
           >
-            <i className="fas fa-camera text-2xl"></i>
-            <input 
-              ref={coverFileInputRef}
-              type="file" 
-              className="hidden" 
-              accept="image/*"
-              onChange={(e) => {
-                if (e.target.files[0]) {
-                  handleImageUpload(e.target.files[0], 'cover');
-                }
-              }}
-            />
+            <i className="fas fa-plus"></i>
           </button>
         )}
+        <input 
+          ref={coverFileInputRef}
+          type="file" 
+          accept="image/*" 
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files[0]) {
+              handleImageUpload(e.target.files[0], 'cover');
+            }
+          }}
+        />
       </div>
 
-      {/* Profile Info Section */}
-      <div className="container mx-auto px-4 relative">
-        <div className="flex gap-6 mb-6">
-          {/* Profile Image - Positioned to overlap cover photo */}
-          <div className="relative -mt-16 z-20 shrink-0">
-            {user.profile_image_url ? (
-              <SmartImg
-                src={absoluteUrl(user.profile_image_url) || ''}
-                alt={user.username}
-                width={130}
-                height={130}
-                className="rounded-full object-cover border-4 border-cyan-500/30 shadow-lg cursor-pointer w-32 h-32"
-                style={{ objectFit: 'cover' }}
-                onClick={() => setImageModal({ visible: true, url: user.profile_image_url, type: 'profile' })}
-              />
-            ) : (
-                <div className="w-32 h-32 rounded-full border-4 border-cyan-500/30 shadow-lg flex items-center justify-center bg-gradient-to-br from-cyan-500/30 to-blue-500/30">
-                <span className="text-4xl font-bold text-cyan-500">
-                  {getInitial(user?.username, '')}
-                </span>
-              </div>
-            )}
-            {currentUser?.username === username && (
-              <button 
-                onClick={triggerProfileImageUpload}
-                className="absolute bottom-1 right-1 w-12 h-12 rounded-full bg-slate-900/80 flex items-center justify-center text-cyan-500 cursor-pointer hover:bg-cyan-500/40 transition-colors border border-cyan-500/50 shadow-lg"
-              >
-                <i className="fas fa-camera text-lg"></i>
+      {/* Profile Header */}
+      <div className="relative -mt-24 px-4 md:px-8 z-10">
+        <div className="max-w-6xl mx-auto">
+          {/* Mobile Layout */}
+          <div className="md:hidden">
+            {/* Profile Picture with Name, Username, and Follow Button */}
+            <div className="flex gap-4 mb-6 items-end">
+              {/* Profile Picture */}
+              <div className="relative flex-shrink-0 group">
+                <div className="w-28 h-28 rounded-full border-4 border-cyan-400/50 overflow-hidden shadow-2xl shadow-cyan-500/30 bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center text-5xl font-bold cursor-pointer hover:border-cyan-300 transition-all" onClick={() => setImageModal({ visible: true, url: user.profile_image_url, type: 'profile' })}>
+                  {user.profile_image_url ? (
+                    <SmartImg
+                      src={absoluteUrl(user.profile_image_url) || ''}
+                      alt={user.username}
+                      fill
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-cyan-400">{getInitial(user?.username, '')}</span>
+                  )}
+                </div>
+                <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-green-500 border-4 border-slate-950 shadow-lg"></div>
+                
+                {/* Profile Picture Upload Button (Only for own profile) */}
+                {currentUser && currentUser.username === username && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); triggerProfileImageUpload(); }}
+                    className="absolute bottom-0 right-0 w-9 h-9 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-bold text-sm shadow-lg shadow-cyan-500/30 transition-all duration-300 flex items-center justify-center hover:scale-110 z-10"
+                  >
+                    <i className="fas fa-plus"></i>
+                  </button>
+                )}
                 <input 
                   ref={profileFileInputRef}
                   type="file" 
-                  className="hidden" 
-                  accept="image/*"
+                  accept="image/*" 
+                  className="hidden"
                   onChange={(e) => {
                     if (e.target.files[0]) {
                       handleImageUpload(e.target.files[0], 'profile');
                     }
                   }}
                 />
-              </button>
-            )}
-          </div>
-          
-          {/* Profile Details - Aligned with middle of profile picture */}
-          <div className="flex-1 text-left min-w-0">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-1 text-white break-words pr-4">{getDisplayName(user)}</h1>
-            <p className="text-sm sm:text-base text-gray-400 mb-2 break-words">@{user.username}</p>
-            {user.bio && (
-              <p className="mb-4 max-w-2xl text-gray-300 text-sm sm:text-base">{user.bio}</p>
-            )}
-            <div className="flex items-center gap-3">
-              {/* Action Buttons */}
-              {currentUser && currentUser.username === username ? (
-                <Link
-                  href="/settings/profile"
-                  className="px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-400 border border-cyan-500/30 hover:border-cyan-500/50 hover:from-cyan-500/30 hover:to-blue-500/30 transition-all flex items-center gap-2"
-                >
-                  <i className="fas fa-pencil-alt text-xs"></i>
-                  Edit Profile
-                </Link>
-              ) : null}
+              </div>
 
-              {/* Follow / Unfollow button when viewing someone else's profile */}
-              {currentUser && currentUser.username !== username && (
-                <button
-                  onClick={handleToggleFollow}
-                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${isFollowing ? 'bg-cyan-500 text-slate-900 hover:opacity-90' : 'bg-transparent border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10'}`}
-                >
-                  <i className={`fas ${isFollowing ? 'fa-check' : 'fa-user-plus'} text-sm`} />
-                  {isFollowing ? 'Following' : 'Follow'}
-                </button>
+              {/* Name, Username, and Follow Button */}
+              <div className="flex-1 flex flex-col gap-2 ml-2 pb-1">
+                <div>
+                  <h1 className="text-xl font-bold text-white leading-tight">
+                    {getDisplayName(user)}
+                  </h1>
+                  <p className="text-cyan-400 font-semibold text-sm mt-1">@{user.username}</p>
+                </div>
+
+                {/* Mobile Follow/Edit/Share Button */}
+                <div className="flex gap-1 items-center">
+                  {currentUser && currentUser.username === username ? (
+                    <>
+                      <button onClick={() => router.push('/settings/profile')} className="px-3 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold rounded-lg transition-all duration-300 flex items-center gap-1 shadow-lg shadow-cyan-500/30 text-sm w-fit">
+                        <i className="fas fa-edit"></i>
+                        Edit
+                      </button>
+                      <button 
+                        onClick={() => {}}
+                        className="px-3 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold rounded-lg transition-all duration-300 flex items-center gap-1 shadow-lg shadow-cyan-500/30 text-sm w-fit"
+                      >
+                        <i className="fas fa-share-alt"></i>
+                        Share
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button 
+                        onClick={handleToggleFollow}
+                        className={`px-3 py-2 font-semibold rounded-lg transition-all duration-300 flex items-center gap-1 shadow-lg text-sm w-fit ${isFollowing ? 'bg-blue-500/90 hover:bg-blue-600 text-white shadow-blue-500/30' : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white shadow-cyan-500/30'}`}
+                      >
+                        <i className={`fas ${isFollowing ? 'fa-check' : 'fa-plus'}`}></i>
+                        <span className="follow-btn-text">{isFollowing ? 'Following' : 'Follow'}</span>
+                      </button>
+                      <button 
+                        onClick={() => {}}
+                        className="px-3 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold rounded-lg transition-all duration-300 flex items-center gap-1 shadow-lg shadow-cyan-500/30 text-sm w-fit"
+                      >
+                        <i className="fas fa-share-alt"></i>
+                        Share
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Bio and Details for Mobile */}
+            {user.bio && (
+              <p className="text-slate-300 mb-4 text-sm line-clamp-2">{user.bio}</p>
+            )}
+
+            <div className="flex flex-wrap gap-3 text-xs text-slate-400 mb-4">
+              {user.location && (
+                <div className="flex items-center gap-2">
+                  <i className="fas fa-map-marker-alt text-cyan-400"></i>
+                  <span>{user.location}</span>
+                </div>
               )}
+              {user.website && (
+                <div className="flex items-center gap-2">
+                  <i className="fas fa-link text-cyan-400"></i>
+                  <a href={user.website} target="_blank" className="hover:text-cyan-400 transition">{user.website.length > 30 ? user.website.substring(0, 30) + '...' : user.website}</a>
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <i className="fas fa-calendar-alt text-cyan-400"></i>
+                <span>Joined {new Date(user.date_joined || Date.now()).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Desktop Layout */}
+          <div className="hidden md:flex md:flex-col md:gap-8">
+            {/* Profile Picture and Name Row */}
+            <div className="flex gap-8 items-end">
+              {/* Profile Picture */}
+              <div className="relative flex-shrink-0 group">
+                <div className="w-56 h-56 rounded-full border-4 border-cyan-400/50 overflow-hidden shadow-2xl shadow-cyan-500/30 bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center text-8xl font-bold cursor-pointer hover:border-cyan-300 transition-all" onClick={() => setImageModal({ visible: true, url: user.profile_image_url, type: 'profile' })}>
+                  {user.profile_image_url ? (
+                    <SmartImg
+                      src={absoluteUrl(user.profile_image_url) || ''}
+                      alt={user.username}
+                      fill
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-cyan-400">{getInitial(user?.username, '')}</span>
+                  )}
+                </div>
+                <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-green-500 border-4 border-slate-950 shadow-lg"></div>
+                
+                {/* Profile Picture Upload Button (Only for own profile) */}
+                {currentUser && currentUser.username === username && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); triggerProfileImageUpload(); }}
+                    className="absolute bottom-2 right-2 w-12 h-12 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-bold text-lg shadow-lg shadow-cyan-500/30 transition-all duration-300 flex items-center justify-center hover:scale-110 z-10"
+                  >
+                    <i className="fas fa-plus"></i>
+                  </button>
+                )}
+                <input 
+                  ref={profileFileInputRef}
+                  type="file" 
+                  accept="image/*" 
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files[0]) {
+                      handleImageUpload(e.target.files[0], 'profile');
+                    }
+                  }}
+                />
+              </div>
+
+              {/* Name, Username, and Follow Button */}
+              <div className="flex-1 flex flex-col gap-2 pb-1">
+                <div>
+                  <h1 className="text-3xl font-bold text-white">
+                    {getDisplayName(user)}
+                  </h1>
+                  <p className="text-cyan-400 font-semibold text-lg mt-1">@{user.username}</p>
+                </div>
+
+                {/* Desktop Follow/Edit/Share Button */}
+                <div className="flex gap-2 items-center">
+                  {currentUser && currentUser.username === username ? (
+                    <>
+                      <button onClick={() => router.push('/settings/profile')} className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold rounded-lg transition-all duration-300 flex items-center gap-2 shadow-lg shadow-cyan-500/30 w-fit">
+                        <i className="fas fa-edit"></i>
+                        Edit Profile
+                      </button>
+                      <button 
+                        onClick={() => {}}
+                        className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold rounded-lg transition-all duration-300 flex items-center gap-2 shadow-lg shadow-cyan-500/30 w-fit"
+                      >
+                        <i className="fas fa-share-alt"></i>
+                        Share Profile
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button 
+                        onClick={handleToggleFollow}
+                        className={`px-4 py-2 font-semibold rounded-lg transition-all duration-300 flex items-center gap-2 shadow-lg w-fit ${isFollowing ? 'bg-blue-500/90 hover:bg-blue-600 text-white shadow-blue-500/30' : 'bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white shadow-cyan-500/30'}`}
+                      >
+                        <i className={`fas ${isFollowing ? 'fa-check' : 'fa-plus'}`}></i>
+                        <span className="follow-btn-text">{isFollowing ? 'Following' : 'Follow'}</span>
+                      </button>
+                      <button 
+                        onClick={() => {}}
+                        className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-400 hover:to-blue-400 text-white font-semibold rounded-lg transition-all duration-300 flex items-center gap-2 shadow-lg shadow-cyan-500/30 w-fit"
+                      >
+                        <i className="fas fa-share-alt"></i>
+                        Share Profile
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Bio and Details Section */}
+            <div>
+              {user.bio && (
+                <p className="text-slate-300 mb-4 max-w-2xl line-clamp-2">{user.bio}</p>
+              )}
+
+              {/* Location & Details */}
+              <div className="flex flex-wrap gap-4 text-sm text-slate-400">
+                {user.location && (
+                  <div className="flex items-center gap-2">
+                    <i className="fas fa-map-marker-alt text-cyan-400"></i>
+                    <span>{user.location}</span>
+                  </div>
+                )}
+                {user.website && (
+                  <div className="flex items-center gap-2">
+                    <i className="fas fa-link text-cyan-400"></i>
+                    <a href={user.website} target="_blank" className="hover:text-cyan-400 transition">{user.website.length > 30 ? user.website.substring(0, 30) + '...' : user.website}</a>
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <i className="fas fa-calendar-alt text-cyan-400"></i>
+                  <span>Joined {new Date(user.date_joined || Date.now()).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Stats */}
-        <div className="flex justify-center md:justify-start gap-8 mb-8">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-cyan-500">{stories.length}</div>
-            <div className="text-sm text-gray-400">Stories</div>
-          </div>
+      {/* Stats Section - Followers/Following Only (KEPT FROM ORIGINAL) */}
+      <div className="max-w-6xl mx-auto px-4 md:px-8 my-5 flex gap-4 flex-wrap md:flex-nowrap">
+        {/* Followers Card */}
+        <button
+          onClick={() => setFollowModal({ visible: true, tab: 'followers' })}
+          className="bg-gradient-to-br from-slate-900/50 to-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl px-3 py-1 flex items-center gap-2 cursor-pointer hover:border-cyan-400/50 transition"
+        >
+          <p className="text-xl font-bold text-blue-400">{followersCount}</p>
+          <p className="text-slate-400 text-xs">Followers</p>
+        </button>
 
-          <button
-            onClick={() => setFollowModal({ visible: true, tab: 'followers' })}
-            className="text-center"
-          >
-            <div className="text-2xl font-bold text-cyan-500">{followersCount}</div>
-            <div className="text-sm text-gray-400">Followers</div>
-          </button>
+        {/* Following Card */}
+        <button
+          onClick={() => setFollowModal({ visible: true, tab: 'following' })}
+          className="bg-gradient-to-br from-slate-900/50 to-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-xl px-3 py-1 flex items-center gap-2 cursor-pointer hover:border-cyan-400/50 transition"
+        >
+          <p className="text-xl font-bold text-blue-400">{followingCount}</p>
+          <p className="text-slate-400 text-xs">Following</p>
+        </button>
+      </div>
 
-          <button
-            onClick={() => setFollowModal({ visible: true, tab: 'following' })}
-            className="text-center"
-          >
-            <div className="text-2xl font-bold text-cyan-500">{followingCount}</div>
-            <div className="text-sm text-gray-400">Following</div>
-          </button>
-        </div>
-
+      {/* Container for Tabs and Content */}
+      <div className="container mx-auto px-4 relative">
         {/* Content Tabs */}
         <div className="border-b border-gray-800 mb-6">
-          <div className="flex gap-6">
+          <div className="flex gap-8 justify-between md:justify-start">
             <button 
               onClick={() => setActiveTab('posts')}
-              className={`pb-2 px-1 ${activeTab === 'posts' ? 'text-cyan-500 border-b-2 border-cyan-500' : 'text-gray-400'}`}
+              className={`pb-2 px-2 flex flex-col items-center gap-1 ${activeTab === 'posts' ? 'text-cyan-500 border-b-2 border-cyan-500' : 'text-gray-400'}`}
             >
-              <i className="fas fa-th mr-2"></i>Stories
+              <i className="fas fa-th text-lg"></i>
+              <span className="text-xs">Stories ({stories.length})</span>
             </button>
             <button 
               onClick={() => setActiveTab('verses')}
-              className={`pb-2 px-1 ${activeTab === 'verses' ? 'text-cyan-500 border-b-2 border-cyan-500' : 'text-gray-400'}`}
+              className={`pb-2 px-2 flex flex-col items-center gap-1 ${activeTab === 'verses' ? 'text-cyan-500 border-b-2 border-cyan-500' : 'text-gray-400'}`}
             >
-              <i className="fas fa-align-left mr-2"></i>Verses
+              <i className="fas fa-align-left text-lg"></i>
+              <span className="text-xs">Verses ({verses.length})</span>
             </button>
             <button 
               onClick={() => setActiveTab('contributions')}
-              className={`pb-2 px-1 ${activeTab === 'contributions' ? 'text-cyan-500 border-b-2 border-cyan-500' : 'text-gray-400'}`}
+              className={`pb-2 px-2 flex flex-col items-center gap-1 ${activeTab === 'contributions' ? 'text-cyan-500 border-b-2 border-cyan-500' : 'text-gray-400'}`}
             >
-              <i className="fas fa-handshake mr-2"></i>Contributions
+              <i className="fas fa-handshake text-lg"></i>
+              <span className="text-xs">Contrib ({(() => { const contributedVerses = verses.filter(verse => { const storyCreatorId = verse.story_creator_id || (verse.story_data?.creator_id); const currentUserId = user?.id || user?.public_id; if (!storyCreatorId || !currentUserId) return false; return String(storyCreatorId) !== String(currentUserId); }); return contributedVerses.length; })()})</span>
             </button>
             {/* Only show Saved tab if viewing current user's profile */}
             {currentUser?.username === username && (
               <button 
                 onClick={() => setActiveTab('saved')}
-                className={`pb-2 px-1 ${activeTab === 'saved' ? 'text-cyan-500 border-b-2 border-cyan-500' : 'text-gray-400'}`}
+                className={`pb-2 px-2 flex flex-col items-center gap-1 ${activeTab === 'saved' ? 'text-cyan-500 border-b-2 border-cyan-500' : 'text-gray-400'}`}
               >
-                <i className="fas fa-bookmark mr-2"></i>Saved
+                <i className="fas fa-bookmark text-lg"></i>
+                <span className="text-xs">Saved ({savedStories.length})</span>
               </button>
             )}
           </div>
@@ -807,10 +985,13 @@ export default function ProfileClient({ username, initialProfile = null }) {
                         >
                           {story.title}
                         </h3>
-                        <div className="flex gap-3 text-sm text-gray-400">
+                        <div className="flex gap-3 text-sm text-gray-400 mb-1">
                           <span><i className="fas fa-heart mr-1 text-cyan-500"></i>{story.likes_count || 0}</span>
                           <span><i className="fas fa-comment mr-1 text-purple-500"></i>{story.comments_count || 0}</span>
                           <span><i className="fas fa-share mr-1 text-blue-500"></i>{story.shares_count || 0}</span>
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          <span>Verses: {story.verses_count || story.verses?.length || 0}</span>
                         </div>
                       </div>
                     </div>
@@ -1102,10 +1283,13 @@ export default function ProfileClient({ username, initialProfile = null }) {
                           >
                             {story.title}
                           </h3>
-                          <div className="flex gap-3 text-sm text-gray-400">
+                          <div className="flex gap-3 text-sm text-gray-400 mb-1">
                             <span><i className="fas fa-heart mr-1 text-cyan-500"></i>{story.likes_count || 0}</span>
                             <span><i className="fas fa-comment mr-1 text-purple-500"></i>{story.comments_count || 0}</span>
                             <span><i className="fas fa-share mr-1 text-blue-500"></i>{story.shares_count || 0}</span>
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            <span>Verses: {story.verses_count || story.verses?.length || 0}</span>
                           </div>
                         </div>
                       </div>
@@ -1135,8 +1319,9 @@ export default function ProfileClient({ username, initialProfile = null }) {
             </div>
           )}
         </div>
+      </div>
 
-        {/* Story Feed Modal - TikTok Style (use homepage feed layout but keep StoryCard styles unchanged) */}
+      {/* Story Feed Modal - TikTok Style (use homepage feed layout but keep StoryCard styles unchanged) */}
         {storyFeedModal.visible && (
           <div className="fixed inset-0 z-[9999] bg-black">
             {/* Close button */}
@@ -1246,7 +1431,7 @@ export default function ProfileClient({ username, initialProfile = null }) {
         )}
 
         {imageModal.visible && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+          <div className="fixed inset-0 z-[10100] flex items-center justify-center bg-black/80">
             <div className="bg-gradient-to-br from-gray-950 via-slate-950 to-indigo-950 rounded-3xl border border-cyan-500/40 shadow-2xl p-6 flex flex-col items-center max-w-3xl w-full">
               {imageModal.url ? (
                 <SmartImg
@@ -1273,7 +1458,6 @@ export default function ProfileClient({ username, initialProfile = null }) {
           </div>
         )}
       </div>
-    </div>
 
     <style jsx global>{`
       @keyframes bounce-in {

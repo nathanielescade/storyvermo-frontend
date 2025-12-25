@@ -18,6 +18,8 @@ export default function FeedClient({ initialTag = 'for-you' }) {
   const [refreshCount, setRefreshCount] = useState(0);
   const [nextCursor, setNextCursor] = useState(null);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [shouldRestoreScroll, setShouldRestoreScroll] = useState(false);
+  const loadedTagsRef = React.useRef(new Set()); // Track which tags have been loaded in this session
 
   // Sync currentTag with initialTag if it changes (e.g., direct URL navigation)
   React.useEffect(() => {
@@ -25,25 +27,73 @@ export default function FeedClient({ initialTag = 'for-you' }) {
   }, [initialTag]);
 
   useEffect(() => {
+    const tagKey = `feed-scroll-${currentTag}`;
+    const hasScrollData = sessionStorage.getItem(tagKey) !== null;
+    const hasBeenLoaded = loadedTagsRef.current.has(currentTag);
+
+    // If we have scroll data AND haven't forced a refresh, skip the fetch and restore directly
+    if (hasScrollData && !refreshCount && hasBeenLoaded) {
+      setLoading(false);
+      setShouldRestoreScroll(true);
+      return;
+    }
+
+    // Otherwise, fetch the tag's data
     setLoading(true);
     setError(null);
+    
+    // Pass the tag as-is to the API (empty string for untagged)
     storiesApi.getPaginatedStories({ tag: currentTag })
       .then((data) => {
         setStories(data.results || data);
         setNextCursor(data.next_cursor || null);
         setLoading(false);
+        setShouldRestoreScroll(true);
+        loadedTagsRef.current.add(currentTag); // Mark this tag as loaded
       })
       .catch((err) => {
         setError('Failed to load stories.');
         setLoading(false);
+        loadedTagsRef.current.add(currentTag); // Mark as loaded even on error to avoid repeated attempts
       });
   }, [currentTag, refreshCount]);
+
+  // Restore scroll position after stories load
+  useEffect(() => {
+    if (shouldRestoreScroll && !loading) {
+      const timer = setTimeout(() => {
+        const feedEl = document.getElementById('imageFeed');
+        if (feedEl) {
+          const savedScroll = sessionStorage.getItem(`feed-scroll-${currentTag}`);
+          if (savedScroll) {
+            feedEl.scrollTop = parseInt(savedScroll, 10);
+          }
+        }
+        setShouldRestoreScroll(false);
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [shouldRestoreScroll, loading, currentTag]);
+
+  // Save scroll position when scrolling
+  useEffect(() => {
+    const feedEl = document.getElementById('imageFeed');
+    if (!feedEl) return;
+
+    const handleScroll = () => {
+      sessionStorage.setItem(`feed-scroll-${currentTag}`, feedEl.scrollTop.toString());
+    };
+
+    feedEl.addEventListener('scroll', handleScroll);
+    return () => feedEl.removeEventListener('scroll', handleScroll);
+  }, [currentTag]);
 
   const handleLoadMore = async () => {
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true);
     setError(null);
     try {
+      // Pass the tag as-is to the API (empty string for untagged)
       const data = await storiesApi.getPaginatedStories({ tag: currentTag, cursor: nextCursor });
       setStories(prev => [...prev, ...(data.results || [])]);
       setNextCursor(data.next_cursor || null);
@@ -87,11 +137,11 @@ export default function FeedClient({ initialTag = 'for-you' }) {
       <div className="image-feed" id="imageFeed">
 
         {/* Loading state */}
-        {/* {loading && (
+        {loading && (
           <>
             <StoryCardSkeleton />
           </>
-        )} */}
+        )}
 
         {/* Error state */}
         {error && (
@@ -108,10 +158,10 @@ export default function FeedClient({ initialTag = 'for-you' }) {
               story={story} 
               index={index} 
               viewType="feed"
-              // currentTag={currentTag}
-              // onTagSelect={handleTagOptionClick}
-              // isAuthenticated={isAuthenticated}
-              // openAuthModal={openAuthModal}
+              currentTag={currentTag}
+              onTagSelect={handleTagOptionClick}
+              isAuthenticated={isAuthenticated}
+              openAuthModal={openAuthModal}
             />
            </div>
         ))}
@@ -130,47 +180,49 @@ export default function FeedClient({ initialTag = 'for-you' }) {
         )}
       </div>
 
-      {/* Tag switcher navigation */}
-      <div
-        id="tagSwitcher"
-        className="fixed left-1/2 top-8 transform -translate-x-1/2 bg-black/50 rounded-full z-10 flex px-1 py-1"
-        style={{ 
-          width: '90%', 
-          maxWidth: '500px',
-          border: '2px solid rgba(80, 105, 219, 0.4)'
-        }}
-      >
-        {[
-          { id: 'for-you', name: 'for-you', display_name: 'For You' },
-          { id: 'trending', name: 'trending', display_name: 'Trending' },
-          { id: 'recent', name: 'recent', display_name: 'Recent' },
-          { id: 'following', name: 'following', display_name: 'Following', requiresAuth: true }
-        ].map(option => {
-          const isDisabled = option.requiresAuth && !isAuthenticated;
-          const isActive = currentTag === option.name;
-          const url = `/tags/${encodeURIComponent(option.name)}`;
-          return (
-            <a
-              key={option.id}
-              href={url}
-              tabIndex={isDisabled ? -1 : 0}
-              className={`tag-option ${option.name} px-2 py-2 text-sm font-semibold cursor-pointer transition-all duration-150 ease-out transform-gpu flex-1 ${
-                isActive 
-                  ? 'bg-linear-to-r from-accent-orange/90 to-neon-pink/90 border border-accent-orange text-white scale-105 opacity-100' 
-                  : isDisabled
-                    ? 'text-white/40 cursor-not-allowed opacity-50'
-                    : 'text-white/80 hover:text-white hover:bg-white/10 opacity-60 hover:opacity-90'
-              } rounded-full focus:outline-none focus:ring-2 focus:ring-neon-blue/50 truncate`}
-              onClick={e => {
-                e.preventDefault();
-                if (!isDisabled) handleTagOptionClick(option.name);
-              }}
-            >
-              {option.display_name}
-              {isDisabled && ' (Login Required)'}
-            </a>
-          );
-        })}
+      {/* Tag switcher navigation wrapper */}
+      <div className="tag-switcher-wrapper">
+        <div
+          id="tagSwitcher"
+          className="fixed left-1/2 top-8 transform -translate-x-1/2 bg-black/50 rounded-full z-10 flex px-1 py-1"
+          style={{ 
+            width: '90%', 
+            maxWidth: '500px',
+            border: '2px solid rgba(80, 105, 219, 0.4)'
+          }}
+        >
+          {[
+            { id: 'for-you', name: 'for-you', display_name: 'For You' },
+            { id: 'trending', name: 'trending', display_name: 'Trending' },
+            { id: 'recent', name: 'recent', display_name: 'Recent' },
+            { id: 'following', name: 'following', display_name: 'Following', requiresAuth: true }
+          ].map(option => {
+            const isDisabled = option.requiresAuth && !isAuthenticated;
+            const isActive = currentTag === option.name;
+            const url = `/tags/${encodeURIComponent(option.name)}`;
+            return (
+              <a
+                key={option.id}
+                href={url}
+                tabIndex={isDisabled ? -1 : 0}
+                className={`tag-option ${option.name} px-2 text-center py-2 text-sm font-semibold cursor-pointer transition-all duration-150 ease-out transform-gpu flex-1 ${
+                  isActive 
+                    ? 'bg-linear-to-r from-accent-orange/90 to-neon-pink/90 border border-accent-orange text-white scale-105 opacity-100' 
+                    : isDisabled
+                      ? 'text-white/40 cursor-not-allowed opacity-50'
+                      : 'text-white/80 hover:text-white hover:bg-white/10 opacity-60 hover:opacity-90'
+                } rounded-full focus:outline-none focus:ring-2 focus:ring-neon-blue/50 truncate`}
+                onClick={e => {
+                  e.preventDefault();
+                  if (!isDisabled) handleTagOptionClick(option.name);
+                }}
+              >
+                {option.display_name}
+                {isDisabled && ' (Login Required)'}
+              </a>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

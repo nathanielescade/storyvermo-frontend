@@ -70,21 +70,22 @@ const HologramIcons = ({
                         display: 'flex', 
                         alignItems: 'center', 
                         justifyContent: 'center', 
-                        boxShadow: '0 4px 15px rgba(255, 107, 53, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)', 
+                        boxShadow: '0 4px 15px rgba(255, 107, 53, 0.4), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 20px rgba(255, 107, 53, 0.2)', 
                         color: '#ffffff', 
                         fontSize: '1.25rem', 
                         cursor: 'pointer',
                         fontWeight: 'bold',
-                        animation: 'pulse 2s infinite',
-                        transition: 'all 0.3s ease'
+                        animation: 'collab-aura 4s ease-in-out infinite',
+                        transition: 'all 0.3s ease',
+                        position: 'relative'
                     }}
                     onMouseEnter={(e) => {
                         e.target.style.transform = 'scale(1.1)';
-                        e.target.style.boxShadow = '0 6px 20px rgba(255, 107, 53, 0.6), inset 0 1px 0 rgba(255,255,255,0.3)';
+                        e.target.style.boxShadow = '0 6px 20px rgba(255, 107, 53, 0.6), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 30px rgba(255, 107, 53, 0.4)';
                     }}
                     onMouseLeave={(e) => {
                         e.target.style.transform = 'scale(1)';
-                        e.target.style.boxShadow = '0 4px 15px rgba(255, 107, 53, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)';
+                        e.target.style.boxShadow = '0 4px 15px rgba(255, 107, 53, 0.4), inset 0 1px 0 rgba(255,255,255,0.3), 0 0 20px rgba(255, 107, 53, 0.2)';
                     }}
                 >
                     <i className="fas fa-users"></i>
