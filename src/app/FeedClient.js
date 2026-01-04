@@ -40,6 +40,8 @@ export default function FeedClient({ initialTag = 'for-you', initialStories = []
 
     // Show loading state when switching tags or refreshing (but not on initial page load with hydrated data)
     const isInitialLoad = currentTag === initialTag && stories.length > 0 && !refreshCount;
+    
+    // Show skeleton loader immediately for tag switches (not initial load)
     if (!isInitialLoad) {
       setLoading(true);
     }
@@ -60,6 +62,15 @@ export default function FeedClient({ initialTag = 'for-you', initialStories = []
         loadedTagsRef.current.add(currentTag); // Mark as loaded even on error to avoid repeated attempts
       });
   }, [currentTag, refreshCount, initialTag, stories.length]);
+
+  // Hide skeleton loader after 300ms if data hasn't loaded yet (show old content instead)
+  useEffect(() => {
+    if (!loading) return;
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [loading, currentTag]);
 
   // Restore scroll position after stories load
   useEffect(() => {
