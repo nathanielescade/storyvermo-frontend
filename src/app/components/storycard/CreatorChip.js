@@ -104,73 +104,6 @@ const CreatorChip = ({
     return (
         <>
             <style>{`
-                @keyframes gradientSwirl {
-                    0% { 
-                        background: linear-gradient(135deg, #3b82f6, #ec4899, #fbbf24);
-                        background-size: 400% 400%;
-                        background-position: 0% 50%;
-                    }
-                    20% {    
-                        background: linear-gradient(135deg, #5b9cf6, #ff6bb3, #f97316);
-                        background-size: 400% 400%;
-                        background-position: 50% 50%;
-                    }
-                    40% { 
-                        background: linear-gradient(135deg, #fbbf24, #f97316, #8b5cf6);
-                        background-size: 400% 400%;
-                        background-position: 100% 50%;
-                    }
-                    60% { 
-                        background: linear-gradient(135deg, #f97316, #8b5cf6, #ec4899);
-                        background-size: 400% 400%;
-                        background-position: 50% 100%;
-                    }
-                    80% { 
-                        background: linear-gradient(135deg, #8b5cf6, #ec4899, #3b82f6);
-                        background-size: 400% 400%;
-                        background-position: 0% 100%;
-                    }
-                    100% { 
-                        background: linear-gradient(135deg, #3b82f6, #ec4899, #fbbf24);
-                        background-size: 400% 400%;
-                        background-position: 0% 50%;
-                    }
-                }
-                
-                @keyframes shimmer {
-                    0% { transform: translateX(-100%); }
-                    100% { transform: translateX(100%); }
-                }
-
-                @keyframes tooltipFadeIn {
-                    0% {
-                        opacity: 0;
-                        transform: translateY(10px);
-                    }
-                    100% {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-                }
-
-                @keyframes tooltipBounce {
-                    0%, 100% {
-                        transform: translateY(0);
-                    }
-                    50% {
-                        transform: translateY(-12px);
-                    }
-                }
-
-                @keyframes fadeOutTooltip {
-                    0% {
-                        opacity: 1;
-                    }
-                    100% {
-                        opacity: 0;
-                    }
-                }
-                
                 .verses-btn-container {
                     position: relative;
                     padding: 4px;
@@ -193,49 +126,6 @@ const CreatorChip = ({
                 
                 .verses-bg {
                     background: linear-gradient(135deg, #3b82f6, #ec4899, #fbbf24);
-                    background-size: 400% 400%;
-                    animation: gradientSwirl 8s ease-in-out infinite;
-                }
-                
-                .shimmer-effect {
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-                    animation: shimmer 2s infinite;
-                }
-
-                .verse-tooltip {
-                    position: absolute;
-                    bottom: 100%;
-                    right: 0;
-                    background: #000000;
-                    color: #ffffff;
-                    padding: 8px 12px;
-                    border-radius: 6px;
-                    font-size: 12px;
-                    font-weight: 600;
-                    white-space: nowrap;
-                    margin-bottom: 8px;
-                    border: 1px solid #3b82f6;
-                    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-                    animation: tooltipFadeIn 0.3s ease-out;
-                    z-index: 50;
-                    pointer-events: none;
-                }
-
-                .verse-tooltip::after {
-                    content: '';
-                    position: absolute;
-                    top: 100%;
-                    right: 10px;
-                    width: 0;
-                    height: 0;
-                    border-left: 5px solid transparent;
-                    border-right: 5px solid transparent;
-                    border-top: 5px solid #000000;
                 }
             `}</style>
             
@@ -322,7 +212,6 @@ const CreatorChip = ({
                                 onClick={handleOpenVerses}
                             >
                                 <div className="verses-bg absolute inset-0 rounded-full"></div>
-                                <div className="shimmer-effect rounded-full"></div>
                                 
                                 <span className="verses-text relative z-10 font-extrabold text-sm text-white drop-shadow-lg">
                                     Verses
