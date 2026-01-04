@@ -68,11 +68,10 @@ export default function RootLayout({ children }) {
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="StoryVermo" />
 
-        {/* 🔥 OPTIMIZED: Defer Font Awesome CSS (non-blocking) */}
+        {/* 🔥 CRITICAL: Font Awesome must load on critical path for icons to show on first visit */}
         <link
           rel="stylesheet"
           href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
-          media="print"
           crossOrigin="anonymous"
         />
 
@@ -83,13 +82,12 @@ export default function RootLayout({ children }) {
           media="print"
         />
 
-        {/* Client-side flipping of deferred CSS media to avoid passing event handlers in Server Components */}
+        {/* Client-side flipping of deferred CSS media (Swiper only now - Font Awesome is critical) */}
         <Script id="deferred-css" strategy="lazyOnload">
           {`
             (function(){
               try {
                 const hrefs = [
-                  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css',
                   'https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css'
                 ];
                 hrefs.forEach((href) => {
