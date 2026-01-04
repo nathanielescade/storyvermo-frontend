@@ -73,7 +73,6 @@ export default async function Home({ initialTag = 'for-you' }) {
   // Images will be lazy-loaded when user opens VerseViewer
   stories = stripVerseImages(stories);
   
-  // Don't pass initialState for homepage - let client fetch fresh "For You" data
-  // This ensures users always see current content, not stale cached data
-  return <FeedClient />;
+  // Pass initial state to FeedClient to avoid skeleton loader on first visit
+  return <FeedClient initialStories={stories} initialNextCursor={initial?.next_cursor} initialTag={initialTag} />;
 }

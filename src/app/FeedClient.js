@@ -8,15 +8,15 @@ import StoryCard from './components/StoryCard';
 import StoryCardSkeleton from './components/StoryCardSkeleton';
 import { storiesApi } from '../../lib/api';
 
-export default function FeedClient({ initialTag = 'for-you' }) {
+export default function FeedClient({ initialTag = 'for-you', initialStories = [], initialNextCursor = null }) {
   const { isAuthenticated, openAuthModal } = useAuth();
 
   const [currentTag, setCurrentTag] = useState(initialTag);
-  const [stories, setStories] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [stories, setStories] = useState(initialStories);
+  const [loading, setLoading] = useState(initialStories.length === 0);
   const [error, setError] = useState(null);
   const [refreshCount, setRefreshCount] = useState(0);
-  const [nextCursor, setNextCursor] = useState(null);
+  const [nextCursor, setNextCursor] = useState(initialNextCursor);
   const [loadingMore, setLoadingMore] = useState(false);
   const [shouldRestoreScroll, setShouldRestoreScroll] = useState(false);
   const loadedTagsRef = React.useRef(new Set()); // Track which tags have been loaded in this session
@@ -38,8 +38,9 @@ export default function FeedClient({ initialTag = 'for-you' }) {
       return;
     }
 
-    // Otherwise, fetch the tag's data
-    setLoading(true);
+    // Always fetch fresh data (don't skip for initial tag)
+    // This ensures users see fresh feeds on each visit, not stale cached data
+    // Initial stories are displayed immediately while fresh data loads
     setError(null);
     
     // Pass the tag as-is to the API (empty string for untagged)
@@ -56,7 +57,7 @@ export default function FeedClient({ initialTag = 'for-you' }) {
         setLoading(false);
         loadedTagsRef.current.add(currentTag); // Mark as loaded even on error to avoid repeated attempts
       });
-  }, [currentTag, refreshCount]);
+  }, [currentTag, refreshCount, initialTag]);
 
   // Restore scroll position after stories load
   useEffect(() => {
