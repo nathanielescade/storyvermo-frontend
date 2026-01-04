@@ -38,9 +38,11 @@ export default function FeedClient({ initialTag = 'for-you', initialStories = []
       return;
     }
 
-    // Always fetch fresh data (don't skip for initial tag)
-    // This ensures users see fresh feeds on each visit, not stale cached data
-    // Initial stories are displayed immediately while fresh data loads
+    // Show loading state when switching tags or refreshing (but not on initial page load with hydrated data)
+    const isInitialLoad = currentTag === initialTag && stories.length > 0 && !refreshCount;
+    if (!isInitialLoad) {
+      setLoading(true);
+    }
     setError(null);
     
     // Pass the tag as-is to the API (empty string for untagged)
@@ -57,7 +59,7 @@ export default function FeedClient({ initialTag = 'for-you', initialStories = []
         setLoading(false);
         loadedTagsRef.current.add(currentTag); // Mark as loaded even on error to avoid repeated attempts
       });
-  }, [currentTag, refreshCount, initialTag]);
+  }, [currentTag, refreshCount, initialTag, stories.length]);
 
   // Restore scroll position after stories load
   useEffect(() => {
