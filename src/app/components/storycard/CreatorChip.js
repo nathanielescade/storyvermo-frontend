@@ -104,6 +104,18 @@ const CreatorChip = ({
     return (
         <>
             <style>{`
+                @keyframes riverFlow {
+                    0% {
+                        background-position: 0% 50%;
+                    }
+                    50% {
+                        background-position: 100% 50%;
+                    }
+                    100% {
+                        background-position: 0% 50%;
+                    }
+                }
+                
                 .verses-btn-container {
                     position: relative;
                     padding: 4px;
@@ -125,7 +137,9 @@ const CreatorChip = ({
                 }
                 
                 .verses-bg {
-                    background: linear-gradient(135deg, #3b82f6, #ec4899, #fbbf24);
+                    background: linear-gradient(135deg, #3b82f6, #ec4899, #fbbf24, #f97316, #8b5cf6, #3b82f6);
+                    background-size: 200% 200%;
+                    animation: riverFlow 4s ease-in-out infinite;
                 }
             `}</style>
             

@@ -234,25 +234,31 @@ export default function StoryCard({
 
     const handleOpenVerses = useCallback(async () => {
         try {
+            // 🚀 OPTIMIZATION: Open viewer IMMEDIATELY with current data
+            setShowVerseViewer(true);
             setIsViewerOpening(true);
             
-            // IMPORTANT: Fetch fresh story data BEFORE opening the viewer
-            // On homepage, verses may have stripped/incomplete data, so we need full verse content and images
-            const fullStory = await storiesApi.getStoryBySlug(story.slug);
-            
-            // Update the story in parent's state with full data
-            if (onStoryUpdate) {
-                onStoryUpdate(fullStory);
+            // Fetch fresh story data in BACKGROUND without blocking the UI
+            try {
+                const fullStory = await storiesApi.getStoryBySlug(story.slug);
+                
+                // Update the story in parent's state with full data
+                if (onStoryUpdate) {
+                    onStoryUpdate(fullStory);
+                }
+                
+                // Update state with full story for VerseViewer to use
+                setFullStoryForViewer(fullStory);
+            } catch (fetchError) {
+                console.error("Error fetching full story data:", fetchError);
+                // Keep viewer open with existing data - don't block on fetch error
+            } finally {
+                setIsViewerOpening(false);
             }
-            
-            // Update state with full story so VerseViewer gets complete data
-            setFullStoryForViewer(fullStory);
-            
-            // Only open the viewer AFTER data is ready
-            setShowVerseViewer(true);
         } catch (e) {
             console.error("Error opening verses:", e);
             setIsViewerOpening(false);
+            setShowVerseViewer(false);
         }
     }, [story.slug, onStoryUpdate]);
 
