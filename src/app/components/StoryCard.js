@@ -49,6 +49,8 @@ export default function StoryCard({
     const [showCommentModal, setShowCommentModal] = useState(false);
     const [showVerseViewer, setShowVerseViewer] = useState(false);
     const [isViewerOpening, setIsViewerOpening] = useState(false);
+    const [verseLoaderProgress, setVerseLoaderProgress] = useState(0);
+    const [showVerseLoader, setShowVerseLoader] = useState(false);
     const [showShareModal, setShowShareModal] = useState(false);
     const [localCommentsCount, setLocalCommentsCount] = useState(story.comments_count || 0);
     const [fullStoryForViewer, setFullStoryForViewer] = useState(story); // Store full story data for VerseViewer
@@ -234,9 +236,47 @@ export default function StoryCard({
 
     const handleOpenVerses = useCallback(async () => {
         try {
-            // 🚀 OPTIMIZATION: Open viewer IMMEDIATELY with current data
-            setShowVerseViewer(true);
+            // 🔗 SEO-FRIENDLY URL: Update URL without navigation (modal stays open)
+            // This ensures the URL is SEO-friendly while keeping the UX smooth
+            const verses = fullStoryForViewer?.verses || story?.verses || [];
+            if (verses.length > 0) {
+                const firstVerseId = verses[0].id || verses[0].public_id;
+                const verseUrl = `/stories/${encodeURIComponent(story.slug)}/?verse=${encodeURIComponent(firstVerseId)}`;
+                
+                if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+                    window.history.pushState(
+                        { modalOpen: 'verses', storySlug: story.slug },
+                        '',
+                        verseUrl
+                    );
+                }
+            }
+            
+            // Show loader and start progress animation
+            setShowVerseLoader(true);
+            setVerseLoaderProgress(0);
             setIsViewerOpening(true);
+            
+            // Animate progress from 0 to 100% over 1 second
+            const startTime = Date.now();
+            const duration = 1000; // 1 second
+            
+            const progressInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const progress = Math.min((elapsed / duration) * 100, 100);
+                setVerseLoaderProgress(progress);
+                
+                if (progress >= 100) {
+                    clearInterval(progressInterval);
+                }
+            }, 16); // ~60fps updates
+            
+            // Open viewer after 1 second (when loader reaches 100%)
+            setTimeout(() => {
+                setShowVerseViewer(true);
+                setShowVerseLoader(false);
+                setVerseLoaderProgress(0);
+            }, duration);
             
             // Fetch fresh story data in BACKGROUND without blocking the UI
             try {
@@ -258,9 +298,10 @@ export default function StoryCard({
         } catch (e) {
             console.error("Error opening verses:", e);
             setIsViewerOpening(false);
-            setShowVerseViewer(false);
+            setShowVerseLoader(false);
+            setVerseLoaderProgress(0);
         }
-    }, [story.slug, onStoryUpdate]);
+    }, [story.slug, story.verses, fullStoryForViewer, onStoryUpdate]);
 
     const handleDeleteStory = async () => {
         setShowDeleteModal(false);
@@ -635,6 +676,53 @@ export default function StoryCard({
                             }
                         }}
                     />
+                )}
+                
+                {showVerseLoader && (
+                    <div className="fixed inset-0 flex items-center justify-center z-[9999] bg-black/50 backdrop-blur-sm">
+                        <div className="flex flex-col items-center gap-6">
+                            {/* Circular Progress Loader */}
+                            <div className="relative w-24 h-24">
+                                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                                    {/* Background circle */}
+                                    <circle
+                                        cx="50"
+                                        cy="50"
+                                        r="45"
+                                        fill="none"
+                                        stroke="rgba(255, 255, 255, 0.1)"
+                                        strokeWidth="3"
+                                    />
+                                    {/* Progress circle */}
+                                    <circle
+                                        cx="50"
+                                        cy="50"
+                                        r="45"
+                                        fill="none"
+                                        stroke="url(#progressGradient)"
+                                        strokeWidth="3"
+                                        strokeDasharray={`${2 * Math.PI * 45}`}
+                                        strokeDashoffset={`${2 * Math.PI * 45 * (1 - verseLoaderProgress / 100)}`}
+                                        strokeLinecap="round"
+                                        style={{ transition: 'stroke-dashoffset 0.016s linear' }}
+                                    />
+                                    <defs>
+                                        <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stopColor="#3b82f6" />
+                                            <stop offset="50%" stopColor="#ec4899" />
+                                            <stop offset="100%" stopColor="#fbbf24" />
+                                        </linearGradient>
+                                    </defs>
+                                </svg>
+                                {/* Center text */}
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <span className="text-white font-bold text-sm">{Math.round(verseLoaderProgress)}%</span>
+                                </div>
+                            </div>
+                            {/* Loading text */}
+                            <p className="text-white text-lg font-semibold">Opening Verses...</p>
+                        </div>
+                    </div>
                 )}
                 
                 {showVerseViewer && (
