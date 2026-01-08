@@ -1,5 +1,6 @@
 // ContributeModal.js
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Modal, Box, TextField, Button, CircularProgress, IconButton } from '@mui/material';
 import { useDropzone } from 'react-dropzone';
 import { X as CloseIcon } from 'lucide-react';
@@ -13,6 +14,7 @@ const ContributeModal = ({
     editingVerse,
     onStoryUpdated
 }) => {
+    const router = useRouter();
     const [verseContent, setVerseContent] = useState('');
     const [localVerseContent, setLocalVerseContent] = useState('');
     const [verseImages, setVerseImages] = useState([]);
@@ -263,6 +265,13 @@ const ContributeModal = ({
             setVerseImages([]);
             setDeletedMoments([]);
             setShowContributeModal(false);
+            
+            // Navigate to the contributed/updated verse
+            const verseId = verseResponse.public_id || verseResponse.id;
+            const storySlug = story?.slug;
+            if (verseId && storySlug) {
+                router.push(`/stories/${storySlug}/?verse=${verseId}`);
+            }
             
             alert(editingVerse ? 'Verse updated successfully!' : 'Verse contributed successfully!');
         } catch (error) {
