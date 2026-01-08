@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { absoluteUrl } from '../../../lib/api';
+import { absoluteUrl, versesApi, userApi } from '../../../lib/api';
 import ContributeModal from './storycard/ContributeModal';
 import { useRouter } from 'next/navigation';
 import ShareModal from './ShareModal';
@@ -366,6 +366,8 @@ const VerseFooter = ({
   isSaved, 
   likeCount, 
   saveCount, 
+  isLikeLoading, 
+  isSaveLoading,
   handleLike, 
   handleSave, 
   handleShare, 
@@ -432,7 +434,7 @@ const VerseFooter = ({
                     if (typeof openAuthModal === 'function') openAuthModal('follow', username);
                     return;
                   }
-                  // Follow API call removed (static)
+                  // Follow API call would go here
                 }}
                 className="follow-button absolute bottom-0 right-0 rounded-full flex items-center justify-center shadow-lg transition-all hover:bg-blue-600 bg-transparent border-2 border-white w-6 h-6"
                 aria-label="Follow"
@@ -489,8 +491,9 @@ const VerseFooter = ({
 
           <div className="flex flex-col items-center">
             <button 
-              className={`w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer relative ${isLiked ? 'bg-accent-orange/10 border-2 border-accent-orange' : 'border border-white/20'} hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110 transition-all duration-200 ease-in-out`}
+              className={`w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer relative ${isLiked ? 'bg-accent-orange/10 border-2 border-accent-orange' : 'border border-white/20'} hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110 ${isLikeLoading ? 'transition-none' : 'transition-all duration-200 ease-in-out'}`}
               onClick={handleLike}
+              disabled={isLikeLoading}
             >
               <div className="relative">
                 <i className={`${isLiked ? 'fas' : 'far'} fa-heart text-[18px] ${isLiked ? 'text-accent-orange' : 'text-white'}`}></i>
@@ -511,8 +514,9 @@ const VerseFooter = ({
           
           <div className="flex flex-col items-center">
             <button 
-              className={`w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer relative ${isSaved ? 'bg-accent-orange/10 border-2 border-accent-orange' : 'border border-white/20'} hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110 transition-all duration-200 ease-in-out`}
+              className={`w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer relative ${isSaved ? 'bg-accent-orange/10 border-2 border-accent-orange' : 'border border-white/20'} hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110 ${isSaveLoading ? 'transition-none' : 'transition-all duration-200 ease-in-out'}`}
               onClick={handleSave}
+              disabled={isSaveLoading}
             >
               <div className="relative">
                 <i className={`${isSaved ? 'fas' : 'far'} fa-bookmark text-[18px] ${isSaved ? 'text-accent-orange' : 'text-white'}`}></i>
@@ -582,17 +586,46 @@ const VerseViewer = ({
   
   const verseOptionsRef = useRef(null);
   const [currentVerseIndex, setCurrentVerseIndex] = useState(initialVerseIndex);
+  const verseMetadataRef = useRef({});
   const storyRef = useRef(story);
   
   // Update story ref when story prop changes
   useEffect(() => {
     if (story && Array.isArray(story.verses)) {
+      const mergedVerses = story.verses.map(verse => {
+        const cachedMetadata = verseMetadataRef.current[verse.id];
+        if (cachedMetadata) {
+          return {
+            ...verse,
+            ...cachedMetadata,
+            user_has_liked: cachedMetadata.is_liked_by_user,
+            user_has_saved: cachedMetadata.is_saved_by_user
+          };
+        }
+        return verse;
+      });
+      
       storyRef.current = {
         ...story,
-        verses: story.verses
+        verses: mergedVerses
       };
     } else {
+      // Ensure storyRef is always set to something to prevent undefined errors
       storyRef.current = story || { verses: [] };
+    }
+    
+    // 🔥 CACHE INITIALIZATION: Initialize cache for all verses in the story
+    if (story?.verses && Array.isArray(story.verses)) {
+      story.verses.forEach((verse, index) => {
+        if (verse && verse.id && !verseMetadataRef.current[verse.id]) {
+          verseMetadataRef.current[verse.id] = {
+            is_liked_by_user: verse.user_has_liked || verse.is_liked_by_user || false,
+            is_saved_by_user: verse.user_has_saved || verse.is_saved_by_user || false,
+            likes_count: verse.likes_count || 0,
+            saves_count: verse.saves_count || 0
+          };
+        }
+      });
     }
   }, [story]);
 
@@ -626,6 +659,9 @@ const VerseViewer = ({
   const [readingProgress, setReadingProgress] = useState(0);
   const [isTextVisible, setIsTextVisible] = useState(true);
   const [showScrollIndicator, setShowScrollIndicator] = useState(false);
+  
+  const [isLikeLoading, setIsLikeLoading] = useState(false);
+  const [isSaveLoading, setIsSaveLoading] = useState(false);
   
   const verseRefs = useRef([]);
   const containerRef = useRef(null);
@@ -671,12 +707,22 @@ const VerseViewer = ({
   // Effect for updating state when current verse changes
   useEffect(() => {
     if (currentVerse && currentVerse.id) {
-      // Set local state based on verse data (Static)
-      const initial = getVerseInitialState(currentVerse);
-      setIsLiked(initial.isLiked);
-      setIsSaved(initial.isSaved);
-      setLikeCount(initial.likeCount);
-      setSaveCount(initial.saveCount);
+      // First try to get from cache
+      const cachedMetadata = verseMetadataRef.current[currentVerse.id];
+      
+      if (cachedMetadata) {
+        setIsLiked(cachedMetadata.is_liked_by_user);
+        setIsSaved(cachedMetadata.is_saved_by_user);
+        setLikeCount(cachedMetadata.likes_count);
+        setSaveCount(cachedMetadata.saves_count);
+      } else {
+        // Fall back to verse object data
+        const initial = getVerseInitialState(currentVerse);
+        setIsLiked(initial.isLiked);
+        setIsSaved(initial.isSaved);
+        setLikeCount(initial.likeCount);
+        setSaveCount(initial.saveCount);
+      }
       
       setCurrentMomentIndex(0);
       setIsContentExpanded(false);
@@ -859,11 +905,26 @@ const VerseViewer = ({
           
           const newVerse = storyRef.current?.verses?.[newIndex];
           if (newVerse) {
-            // Static update - no cache or API
-            setIsLiked(newVerse.user_has_liked || newVerse.is_liked_by_user || false);
-            setIsSaved(newVerse.user_has_saved || newVerse.is_saved_by_user || false);
-            setLikeCount(newVerse.likes_count || 0);
-            setSaveCount(newVerse.saves_count || 0);
+            const cachedMetadata = verseMetadataRef.current[newVerse.id];
+            
+            if (cachedMetadata) {
+              setIsLiked(cachedMetadata.is_liked_by_user);
+              setIsSaved(cachedMetadata.is_saved_by_user);
+              setLikeCount(cachedMetadata.likes_count);
+              setSaveCount(cachedMetadata.saves_count);
+            } else {
+              setIsLiked(newVerse.user_has_liked || newVerse.is_liked_by_user || false);
+              setIsSaved(newVerse.user_has_saved || newVerse.is_saved_by_user || false);
+              setLikeCount(newVerse.likes_count || 0);
+              setSaveCount(newVerse.saves_count || 0);
+              
+              verseMetadataRef.current[newVerse.id] = {
+                is_liked_by_user: newVerse.user_has_liked || newVerse.is_liked_by_user || false,
+                is_saved_by_user: newVerse.user_has_saved || newVerse.is_saved_by_user || false,
+                likes_count: newVerse.likes_count || 0,
+                saves_count: newVerse.saves_count || 0
+              };
+            }
           }
         }
       }
@@ -880,17 +941,161 @@ const VerseViewer = ({
     };
   }, [currentVerseIndex]);
 
-  // STATIC Action handlers
-  const handleLike = () => {
-    // Toggle local state only
-    setIsLiked(!isLiked);
-    setLikeCount(prev => isLiked ? prev - 1 : prev + 1);
+  // Action handlers
+  const handleLike = async () => {
+    if (!currentVerse) return;
+    
+    let verseSlug = currentVerse.slug;
+    if (!verseSlug && currentVerse.id) {
+      const verseInStory = storyRef.current?.verses?.find(v => v.id === currentVerse.id);
+      verseSlug = verseInStory?.slug;
+    }
+    
+    if (!verseSlug) {
+      return;
+    }
+    
+    if (!isAuthenticated) {
+      if (typeof openAuthModal === 'function') openAuthModal('like', { slug: story.slug, verseId: currentVerse.id });
+      return;
+    }
+
+    if (isLikeLoading) return;
+
+    const wasLiked = isLiked;
+    const prevLikeCount = likeCount;
+
+    try {
+      setIsLikeLoading(true);
+      
+      setIsLiked(!wasLiked);
+      setLikeCount(prev => wasLiked ? prev - 1 : prev + 1);
+
+      const response = await versesApi.toggleLikeBySlug(verseSlug);
+
+      const finalIsLiked = response.is_liked_by_user !== undefined ? response.is_liked_by_user : (response.user_has_liked !== undefined ? response.user_has_liked : !wasLiked);
+      const finalLikeCount = response.likes_count !== undefined ? response.likes_count : likeCount;
+
+      setIsLiked(finalIsLiked);
+      setLikeCount(finalLikeCount);
+
+      // 🔥 UPDATE CACHE: Keep verse metadata cache in sync
+      // Make sure we're updating the EXACT verse by ID
+      if (verseMetadataRef.current[currentVerse.id]) {
+        verseMetadataRef.current[currentVerse.id].is_liked_by_user = finalIsLiked;
+        verseMetadataRef.current[currentVerse.id].likes_count = finalLikeCount;
+      } else {
+        verseMetadataRef.current[currentVerse.id] = {
+          is_liked_by_user: finalIsLiked,
+          is_saved_by_user: isSaved,
+          likes_count: finalLikeCount,
+          saves_count: saveCount
+        };
+      }
+
+      if (storyRef.current?.verses) {
+        const updatedVerses = storyRef.current.verses.map(v =>
+          v.id === currentVerse.id
+            ? {
+                ...v,
+                is_liked_by_user: response.is_liked_by_user || response.user_has_liked,
+                user_has_liked: response.is_liked_by_user || response.user_has_liked,
+                likes_count: response.likes_count
+              }
+            : v
+        );
+
+        const updatedStory = { ...storyRef.current, verses: updatedVerses };
+        storyRef.current = updatedStory;
+
+        if (typeof onStoryUpdate === 'function') {
+          onStoryUpdate(updatedStory);
+        }
+      }
+    } catch (error) {
+      setIsLiked(wasLiked);
+      setLikeCount(prevLikeCount);
+    } finally {
+      setIsLikeLoading(false);
+    }
   };
 
-  const handleSave = () => {
-    // Toggle local state only
-    setIsSaved(!isSaved);
-    setSaveCount(prev => isSaved ? prev - 1 : prev + 1);
+  const handleSave = async () => {
+    if (!currentVerse) return;
+    
+    let verseSlug = currentVerse.slug;
+    if (!verseSlug && currentVerse.id) {
+      const verseInStory = storyRef.current?.verses?.find(v => v.id === currentVerse.id);
+      verseSlug = verseInStory?.slug;
+    }
+    
+    if (!verseSlug) {
+      return;
+    }
+    
+    if (!isAuthenticated) {
+      if (typeof openAuthModal === 'function') openAuthModal('save', { slug: story.slug, verseId: currentVerse.id });
+      return;
+    }
+
+    if (isSaveLoading) return;
+
+    const wasSaved = isSaved;
+    const prevSaveCount = saveCount;
+
+    try {
+      setIsSaveLoading(true);
+      
+      setIsSaved(!wasSaved);
+      setSaveCount(prev => wasSaved ? prev - 1 : prev + 1);
+
+      const response = await versesApi.toggleSaveBySlug(verseSlug);
+
+      const finalIsSaved = response.is_saved_by_user !== undefined ? response.is_saved_by_user : (response.user_has_saved !== undefined ? response.user_has_saved : !wasSaved);
+      const finalSaveCount = response.saves_count !== undefined ? response.saves_count : saveCount;
+
+      setIsSaved(finalIsSaved);
+      setSaveCount(finalSaveCount);
+
+      // 🔥 UPDATE CACHE: Keep verse metadata cache in sync
+      // Make sure we're updating the EXACT verse by ID
+      if (verseMetadataRef.current[currentVerse.id]) {
+        verseMetadataRef.current[currentVerse.id].is_saved_by_user = finalIsSaved;
+        verseMetadataRef.current[currentVerse.id].saves_count = finalSaveCount;
+      } else {
+        verseMetadataRef.current[currentVerse.id] = {
+          is_liked_by_user: isLiked,
+          is_saved_by_user: finalIsSaved,
+          likes_count: likeCount,
+          saves_count: finalSaveCount
+        };
+      }
+
+      if (storyRef.current?.verses) {
+        const updatedVerses = storyRef.current.verses.map(v =>
+          v.id === currentVerse.id
+            ? {
+                ...v,
+                is_saved_by_user: response.is_saved_by_user || response.user_has_saved,
+                user_has_saved: response.is_saved_by_user || response.user_has_saved,
+                saves_count: response.saves_count
+              }
+            : v
+        );
+
+        const updatedStory = { ...storyRef.current, verses: updatedVerses };
+        storyRef.current = updatedStory;
+
+        if (typeof onStoryUpdate === 'function') {
+          onStoryUpdate(updatedStory);
+        }
+      }
+    } catch (error) {
+      setIsSaved(wasSaved);
+      setSaveCount(prevSaveCount);
+    } finally {
+      setIsSaveLoading(false);
+    }
   };
 
   const handleShare = () => {
@@ -1151,6 +1356,8 @@ const VerseViewer = ({
         isSaved={isSaved}
         likeCount={likeCount}
         saveCount={saveCount}
+        isLikeLoading={isLikeLoading}
+        isSaveLoading={isSaveLoading}
         handleLike={handleLike}
         handleSave={handleSave}
         handleShare={handleShare}
@@ -1181,10 +1388,12 @@ const VerseViewer = ({
         setShowContributeModal={setShowContributeModal}
         story={story}
         onStoryUpdated={async () => {
-           // API call removed - rely on parent callback or static refresh
-           if (typeof onStoryUpdate === 'function') {
-             await onStoryUpdate();
-           }
+          if (story && story.slug) {
+            try {
+              const updatedStory = await versesApi.getVersesByStorySlug(story.slug);
+            } catch (error) {
+            }
+          }
         }}
       />
       
@@ -1217,14 +1426,17 @@ const VerseViewer = ({
               </button>
               <button
                 onClick={async () => {
-                  // API call removed for static requirement
-                  setShowDeleteModal(false);
-                  onClose();
-                  // Optionally call onStoryUpdate if parent handles list state
-                  if (typeof onStoryUpdate === 'function') {
-                     await onStoryUpdate();
+                  try {
+                    await versesApi.deleteVerse(currentVerse.slug);
+                    setShowDeleteModal(false);
+                    onClose();
+                    if (typeof onStoryUpdate === 'function') {
+                      await onStoryUpdate();
+                    }
+                    alert('Verse deleted successfully!');
+                  } catch (error) {
+                    alert('Error deleting verse. Please try again.');
                   }
-                  alert('Delete simulated (No Backend Connection).');
                 }}
                 className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl transition-colors flex items-center gap-2"
               >
