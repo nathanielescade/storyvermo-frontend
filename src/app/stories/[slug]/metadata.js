@@ -79,8 +79,14 @@ export async function generateMetadata({ params, searchParams }) {
 
     let imageUrl = null;
     if (story.cover_image) {
-      if (typeof story.cover_image === 'string') imageUrl = absoluteUrl(story.cover_image);
-      else imageUrl = absoluteUrl(story.cover_image.file_url || story.cover_image.url || '');
+      if (typeof story.cover_image === 'string') {
+        imageUrl = absoluteUrl(story.cover_image);
+      } else {
+        const coverPath = story.cover_image.file_url || story.cover_image.url || '';
+        if (coverPath) {
+          imageUrl = absoluteUrl(coverPath);
+        }
+      }
     }
 
     // If a verse query param is present, try to return verse-specific metadata

@@ -41,28 +41,3 @@ export default async function Page({ params }) {
 
   return <ProfileClient username={username} initialProfile={initialProfile} />;
 }
-
-// Generate static metadata for SEO
-export async function generateMetadata({ params }) {
-  // Await the params before using its properties
-  const { username } = await params;
-  // Prefer first + last name for the title/description when available,
-  // otherwise fall back to the username.
-  let displayName = username;
-  try {
-    const profile = await userApi.getProfile(username);
-    if (profile) {
-      const first = profile.first_name || profile.creator_first_name || '';
-      const last = profile.last_name || profile.creator_last_name || '';
-      const full = `${first} ${last}`.trim();
-      if (full) displayName = full;
-    }
-  } catch (err) {
-    // Ignore - fall back to username
-  }
-
-  return {
-    title: `${displayName} | StoryVermo`,
-    description: `View ${displayName}'s stories and profile on StoryVermo.`,
-  };
-}

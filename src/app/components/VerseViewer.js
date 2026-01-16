@@ -320,42 +320,6 @@ const MomentsCarousel = ({
   );
 };
 
-// Skeleton Loader Component
-const VerseSkeleton = () => {
-  return (
-    <div className="w-full h-full flex justify-center bg-black/10 relative">
-      <div className="w-full max-w-3xl h-full relative">
-        <div className="overflow-y-auto px-6 py-8" style={{ maxHeight: 'calc(100vh - 160px)', minHeight: '120px', marginTop: '64px', marginBottom: '80px' }}>
-          <div className="space-y-4 animate-pulse">
-            {/* Multiple skeleton lines */}
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={`skeleton-${i}`} className="flex gap-2">
-                <div 
-                  className="h-6 bg-gradient-to-r from-gray-700 via-gray-600 to-gray-700 rounded"
-                  style={{
-                    width: i === 6 ? '60%' : '100%',
-                    animation: 'shimmer 2s infinite'
-                  }}
-                ></div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-      <style jsx>{`
-        @keyframes shimmer {
-          0% {
-            background-position: -1000px 0;
-          }
-          100% {
-            background-position: 1000px 0;
-          }
-        }
-      `}</style>
-    </div>
-  );
-};
-
 // VerseContent Component (previously modular)
 const VerseContent = ({ 
   content, 
@@ -363,11 +327,6 @@ const VerseContent = ({
   setFontSize, 
   toggleFocusMode 
 }) => {
-  // Show skeleton loader if content is not available
-  if (!content) {
-    return <VerseSkeleton />;
-  }
-
   return (
     <div className="w-full h-full flex justify-center bg-black/10 cursor-pointer relative" onClick={toggleFocusMode}>
       <div className="absolute top-20 right-3 z-20 flex flex-row gap-2 items-end">
@@ -391,7 +350,7 @@ const VerseContent = ({
       <div className="w-full max-w-3xl h-full relative">
         <div className="overflow-y-auto px-6 py-8" style={{ maxHeight: 'calc(100vh - 160px)', minHeight: '120px', marginTop: '64px', marginBottom: '80px' }}>
           <div className="text-white font-light" style={{ whiteSpace: 'pre-line', textAlign: 'left', fontSize: fontSize, transition: 'font-size 0.2s' }}>
-            {content}
+            {content || 'No content for this verse'}
           </div>
         </div>
       </div>
