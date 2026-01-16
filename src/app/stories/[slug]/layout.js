@@ -1,34 +1,44 @@
-import { storiesApi, absoluteUrl } from '../../../../lib/api';
+import { storiesApi, absoluteUrl, siteUrl } from '../../../../lib/api';
 
 // Enable ISR: revalidate metadata every 10 seconds
 export const revalidate = 10;
 
-// Helper to resolve a moment image URL
+// Helper to validate URL is not empty
+function isValidUrl(url) {
+  return url && typeof url === 'string' && url.trim().length > 0 && (url.startsWith('http') || url.startsWith('/'));
+}
+
+// Helper to resolve a moment image URL on the server side (handles common shapes)
 function resolveMomentImageUrl(moment) {
   if (!moment) return null;
-  if (typeof moment === 'string') return absoluteUrl(moment);
-  if (moment.image) {
-    if (typeof moment.image === 'string') return absoluteUrl(moment.image);
-    if (Array.isArray(moment.image) && moment.image.length > 0) {
+  let resolvedUrl = null;
+  
+  if (typeof moment === 'string') {
+    resolvedUrl = moment;
+  } else if (moment.image) {
+    if (typeof moment.image === 'string') resolvedUrl = moment.image;
+    else if (Array.isArray(moment.image) && moment.image.length > 0) {
       const im = moment.image[0];
-      if (!im) return null;
-      if (typeof im === 'string') return absoluteUrl(im);
-      return absoluteUrl(im.file_url || im.url || im);
+      if (typeof im === 'string') resolvedUrl = im;
+      else resolvedUrl = im?.file_url || im?.url;
+    } else {
+      resolvedUrl = moment.image?.file_url || moment.image?.url;
+      if (!resolvedUrl && moment.image?.file) {
+        resolvedUrl = typeof moment.image.file === 'string' ? moment.image.file : moment.image.file?.url;
+      }
     }
-    if (moment.image.file_url) return absoluteUrl(moment.image.file_url);
-    if (moment.image.url) return absoluteUrl(moment.image.url);
-    if (moment.image.file) {
-      if (typeof moment.image.file === 'string') return absoluteUrl(moment.image.file);
-      if (moment.image.file.url) return absoluteUrl(moment.image.file.url);
-    }
-  }
-  if (moment.file_url) return absoluteUrl(moment.file_url);
-  if (moment.url) return absoluteUrl(moment.url);
-  if (moment.images && Array.isArray(moment.images) && moment.images.length > 0) {
+  } else if (moment.file_url) {
+    resolvedUrl = moment.file_url;
+  } else if (moment.url) {
+    resolvedUrl = moment.url;
+  } else if (moment.images && Array.isArray(moment.images) && moment.images.length > 0) {
     const im = moment.images[0];
-    if (!im) return null;
-    if (typeof im === 'string') return absoluteUrl(im);
-    return absoluteUrl(im.file_url || im.url || im);
+    if (typeof im === 'string') resolvedUrl = im;
+    else resolvedUrl = im?.file_url || im?.url;
+  }
+  
+  if (isValidUrl(resolvedUrl)) {
+    return absoluteUrl(resolvedUrl);
   }
   return null;
 }
@@ -75,8 +85,24 @@ export async function generateMetadata({ params, searchParams }) {
 
     let imageUrl = null;
     if (story.cover_image) {
-      if (typeof story.cover_image === 'string') imageUrl = absoluteUrl(story.cover_image);
-      else imageUrl = absoluteUrl(story.cover_image.file_url || story.cover_image.url || '');
+      if (typeof story.cover_image === 'string') {
+        if (isValidUrl(story.cover_image)) imageUrl = absoluteUrl(story.cover_image);
+      } else {
+        const coverUrl = story.cover_image.file_url || story.cover_image.url;
+        if (isValidUrl(coverUrl)) imageUrl = absoluteUrl(coverUrl);
+      }
+    }
+    // Fallback to first verse image if no cover image
+    if (!imageUrl && Array.isArray(story.verses) && story.verses.length > 0) {
+      for (const verse of story.verses) {
+        if (verse && Array.isArray(verse.moments) && verse.moments.length > 0) {
+          const momentImage = resolveMomentImageUrl(verse.moments[0]);
+          if (momentImage) {
+            imageUrl = momentImage;
+            break;
+          }
+        }
+      }
     }
 
     // Check for verse-specific metadata request
@@ -107,7 +133,7 @@ export async function generateMetadata({ params, searchParams }) {
             title: verseTitle_display,
             description: verseDescription,
             type: 'article',
-            images: verseImage ? [{ url: verseImage, alt: verseTitle }] : (imageUrl ? [{ url: imageUrl, alt: story.title || 'Story' }] : undefined),
+            images: verseImage ? [{ url: verseImage, alt: verseTitle, width: 1200, height: 630 }] : (imageUrl ? [{ url: imageUrl, alt: story.title || 'Story', width: 1200, height: 630 }] : undefined),
           },
           twitter: {
             card: 'summary_large_image',
@@ -132,7 +158,7 @@ export async function generateMetadata({ params, searchParams }) {
         modifiedTime: story.updated_at,
         authors: creatorDisplay ? [creatorDisplay] : undefined,
         tags: tagList,
-        images: imageUrl ? [{ url: imageUrl, alt: story.title || 'Story cover' }] : undefined,
+        images: imageUrl ? [{ url: imageUrl, alt: story.title || 'Story cover', width: 1200, height: 630 }] : undefined,
       },
       twitter: {
         card: 'summary_large_image',
