@@ -79,14 +79,8 @@ export async function generateMetadata({ params, searchParams }) {
 
     let imageUrl = null;
     if (story.cover_image) {
-      if (typeof story.cover_image === 'string') {
-        imageUrl = absoluteUrl(story.cover_image);
-      } else {
-        const coverPath = story.cover_image.file_url || story.cover_image.url || '';
-        if (coverPath) {
-          imageUrl = absoluteUrl(coverPath);
-        }
-      }
+      if (typeof story.cover_image === 'string') imageUrl = absoluteUrl(story.cover_image);
+      else imageUrl = absoluteUrl(story.cover_image.file_url || story.cover_image.url || '');
     }
 
     // If a verse query param is present, try to return verse-specific metadata
@@ -139,7 +133,7 @@ export async function generateMetadata({ params, searchParams }) {
             url: siteUrl(`/stories/${encodeURIComponent(story.slug || '')}?verse=${encodeURIComponent(verseId)}`),
             authors: readableVerseAuthor ? [readableVerseAuthor] : undefined,
             tags: tagList,
-            images: verseImage ? [{ url: verseImage, alt: verseTitle || story.title }] : undefined,
+            images: verseImage ? [{ url: verseImage, alt: verseTitle || story.title, width: 1200, height: 630 }] : undefined,
           },
           twitter: {
             card: verseImage ? 'summary_large_image' : 'summary',
@@ -176,7 +170,7 @@ export async function generateMetadata({ params, searchParams }) {
         modifiedTime: story.updated_at,
         authors: creatorDisplay ? [creatorDisplay] : undefined,
         tags: tagList,
-        images: imageUrl ? [{ url: imageUrl, alt: story.title || 'Story cover' }] : undefined,
+        images: imageUrl ? [{ url: imageUrl, alt: story.title || 'Story cover', width: 1200, height: 630 }] : undefined,
       },
       twitter: {
         card: 'summary_large_image',

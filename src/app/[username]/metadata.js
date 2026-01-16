@@ -30,7 +30,7 @@ export async function generateMetadata({ params }) {
           firstName: user.first_name || undefined,
           lastName: user.last_name || undefined,
         },
-        images: image ? [{ url: image, alt: displayName }] : undefined,
+        images: image ? [{ url: image, alt: displayName, width: 1200, height: 630 }] : undefined,
       },
       twitter: {
         card: 'summary_large_image',
