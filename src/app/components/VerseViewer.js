@@ -333,6 +333,131 @@ const VerseContent = ({
   );
 };
 
+// VersesTimeline Component
+const VersesTimeline = ({ 
+  story, 
+  currentVerseIndex, 
+  onVerseSelect,
+  isOpen,
+  onClose 
+}) => {
+  if (!isOpen || !story?.verses) return null;
+
+  const getCategoryIcon = (verse) => {
+    const category = verse?.category || '';
+    const categoryLower = category.toLowerCase();
+    
+    if (categoryLower.includes('bed') || categoryLower.includes('room')) return 'fa-door-open';
+    if (categoryLower.includes('bath') || categoryLower.includes('restroom')) return 'fa-bath';
+    if (categoryLower.includes('kitchen') || categoryLower.includes('dine') || categoryLower.includes('dining')) return 'fa-utensils';
+    if (categoryLower.includes('lobby') || categoryLower.includes('hall') || categoryLower.includes('entrance')) return 'fa-chess-rook';
+    if (categoryLower.includes('pool') || categoryLower.includes('garden') || categoryLower.includes('outdoor')) return 'fa-leaf';
+    if (categoryLower.includes('gym') || categoryLower.includes('fitness')) return 'fa-dumbbell';
+    if (categoryLower.includes('spa') || categoryLower.includes('wellness')) return 'fa-heart';
+    if (categoryLower.includes('restaurant') || categoryLower.includes('bar')) return 'fa-glass-cheers';
+    if (categoryLower.includes('conference') || categoryLower.includes('meeting')) return 'fa-chalkboard';
+    return 'fa-star';
+  };
+
+  return (
+    <>
+      {/* Overlay */}
+      <div 
+        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40"
+        onClick={onClose}
+      ></div>
+
+      {/* Timeline Drawer */}
+      <div className="fixed bottom-0 right-0 h-screen w-80 bg-gradient-to-b from-gray-900 to-gray-950 border-l border-cyan-500/40 shadow-2xl shadow-cyan-900/30 z-50 overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-cyan-500/30 to-purple-500/30 border-b border-cyan-500/50 p-4 flex justify-between items-center flex-shrink-0 relative">
+          <h3 className="text-white font-bold text-lg flex items-center gap-2">
+            <i className="fas fa-map text-cyan-400"></i>
+            Tour Menu
+          </h3>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-full bg-red-500/30 hover:bg-red-500/50 flex items-center justify-center text-white transition-all border border-red-500/40 hover:border-red-400 flex-shrink-0"
+            title="Close"
+          >
+            <i className="fas fa-times text-lg"></i>
+          </button>
+        </div>
+
+        {/* Verses List */}
+        <div className="overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-cyan-500/50 scrollbar-track-transparent">
+          <div className="space-y-2 p-3">
+            {story.verses.map((verse, index) => {
+              const isActive = index === currentVerseIndex;
+              const progress = ((index + 1) / story.verses.length) * 100;
+              
+              return (
+                <button
+                  key={`timeline-verse-${verse.id}-${index}`}
+                  onClick={() => {
+                    onVerseSelect(index);
+                    onClose();
+                  }}
+                  className={`w-full text-left p-3 rounded-lg transition-all duration-200 border ${
+                    isActive 
+                      ? 'bg-cyan-500/30 border-cyan-400 shadow-lg shadow-cyan-500/30' 
+                      : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-cyan-400/50'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    {/* Icon */}
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      isActive 
+                        ? 'bg-gradient-to-br from-cyan-400 to-purple-400' 
+                        : 'bg-white/10'
+                    }`}>
+                      <i className={`fas ${getCategoryIcon(verse)} text-white text-sm`}></i>
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-white font-semibold text-sm truncate">
+                        {verse.title || verse.name || verse.heading || (verse.content ? verse.content.substring(0, 30) : `Verse ${index + 1}`)}
+                      </div>
+                      {verse.category && (
+                        <div className={`text-xs ${isActive ? 'text-cyan-300' : 'text-gray-400'}`}>
+                          {verse.category.charAt(0).toUpperCase() + verse.category.slice(1)}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Progress indicator */}
+                    <div className={`text-xs font-mono ${isActive ? 'text-cyan-300' : 'text-gray-500'}`}>
+                      {index + 1}/{story.verses.length}
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  {isActive && (
+                    <div className="mt-2 h-1 bg-black/30 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-cyan-400 to-purple-400 transition-all duration-500"
+                        style={{ width: `${progress}%` }}
+                      ></div>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Footer Stats */}
+        <div className="border-t border-cyan-500/20 bg-black/30 p-3 flex-shrink-0">
+          <div className="text-xs text-gray-400 text-center">
+            <span className="text-cyan-300 font-semibold">{currentVerseIndex + 1}</span> / <span>{story.verses.length}</span> verses
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
 // VerseFooter Component (previously modular)
 const VerseFooter = ({ 
   story, 
@@ -356,7 +481,9 @@ const VerseFooter = ({
   hasMoments,
   hasMultipleMoments,
   currentMomentIndex,
-  setCurrentMomentIndex
+  setCurrentMomentIndex,
+  showVersesTimeline,
+  setShowVersesTimeline
 }) => {
   const router = useRouter();
   
@@ -531,6 +658,20 @@ const VerseFooter = ({
             </div>
           )}
           
+          {/* Tour Menu Button - Available to all users */}
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShowVersesTimeline(!showVersesTimeline);
+            }}
+            className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer transition-all duration-200 ease-in-out relative border border-white/20 hover:bg-cyan-400/20 hover:border-cyan-400 hover:scale-110"
+            title="Tour Menu"
+          >
+            <div className="absolute inset-0 rounded-full bg-black/30"></div>
+            <i className="fas fa-list text-[18px] text-white relative z-10"></i>
+          </button>
+          
           <VerseActionButtons
             verse={currentVerse}
             story={story}
@@ -567,6 +708,7 @@ const VerseViewer = ({
   const [editingVerse, setEditingVerse] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showContributeModal, setShowContributeModal] = useState(false);
+  const [showVersesTimeline, setShowVersesTimeline] = useState(false);
   const [isFollowing, setIsFollowing] = useState(() => {
     return story?.isFollowing || story?.is_following || false;
   });
@@ -1193,6 +1335,8 @@ const VerseViewer = ({
         hasMultipleMoments={hasMultipleMoments}
         currentMomentIndex={currentMomentIndex}
         setCurrentMomentIndex={setCurrentMomentIndex}
+        showVersesTimeline={showVersesTimeline}
+        setShowVersesTimeline={setShowVersesTimeline}
       />
 
       {focusMode && (
@@ -1277,6 +1421,19 @@ const VerseViewer = ({
           }
           setEditingVerse(null);
         }}
+      />
+      
+      <VersesTimeline 
+        story={story}
+        currentVerseIndex={currentVerseIndex}
+        onVerseSelect={(index) => {
+          setCurrentVerseIndex(index);
+          setTimeout(() => {
+            scrollToVerseIndex(index);
+          }, 50);
+        }}
+        isOpen={showVersesTimeline}
+        onClose={() => setShowVersesTimeline(false)}
       />
       
       <style jsx global>{`
