@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useAuth } from '../../../contexts/AuthContext';
 import { absoluteUrl, versesApi, userApi } from '../../../lib/api';
 import ContributeModal from './storycard/ContributeModal';
+import VerseActionButtons from './verseviewer/VerseActionButtons';
 import { useRouter } from 'next/navigation';
 import ShareModal from './ShareModal';
 import { createPortal } from 'react-dom';
@@ -237,32 +238,6 @@ const MomentsCarousel = ({
 
   return (
     <div className="w-full h-full flex items-center justify-center bg-black/10 cursor-pointer relative" onClick={toggleFocusMode}>
-      {!focusMode && hasMultipleMoments && currentMomentIndex > 0 && (
-        <button 
-          className="absolute left-4 z-10 bg-black/50 backdrop-blur-lg rounded-full p-3 animate-pulse hover:bg-black/70 transition-all"
-          style={{ top: '28%' }}
-          onClick={(e) => {
-            e.stopPropagation();
-            goToPreviousMoment();
-          }}
-        >
-          <i className="fas fa-chevron-left text-white"></i>
-        </button>
-      )}
-      
-      {!focusMode && hasMultipleMoments && currentMomentIndex < moments.length - 1 && (
-        <button 
-          className="absolute right-4 z-10 bg-black/50 backdrop-blur-lg rounded-full p-3 animate-pulse hover:bg-black/70 transition-all"
-          style={{ top: '28%' }}
-          onClick={(e) => {
-            e.stopPropagation();
-            goToNextMoment();
-          }}
-        >
-          <i className="fas fa-chevron-right text-white"></i>
-        </button>
-      )}
-      
       <div 
         className="w-full h-full relative overflow-hidden"
         style={{ touchAction: 'pan-y' }}
@@ -362,14 +337,6 @@ const VerseContent = ({
 const VerseFooter = ({ 
   story, 
   currentVerse, 
-  isLiked, 
-  isSaved, 
-  likeCount, 
-  saveCount, 
-  isLikeLoading, 
-  isSaveLoading,
-  handleLike, 
-  handleSave, 
   handleShare, 
   handleOpenContribute,
   isAuthenticated,
@@ -380,7 +347,16 @@ const VerseFooter = ({
   focusMode,
   showVerseOptions,
   setShowVerseOptions,
-  isContribution
+  isContribution,
+  onVerseUpdate,
+  onLikeBurst,
+  setEditingVerse,
+  setShowDeleteModal,
+  setShowContributeModal,
+  hasMoments,
+  hasMultipleMoments,
+  currentMomentIndex,
+  setCurrentMomentIndex
 }) => {
   const router = useRouter();
   
@@ -423,7 +399,7 @@ const VerseFooter = ({
             </a>
             
             {getAuthorUsername(currentVerse) && getAuthorUsername(currentVerse) !== 'anonymous' && !isFollowing && 
-             String(getUserId(currentVerse?.author || story?.creator || '')) !== String(currentUser?.public_id) && (
+             currentUser && String(getUserId(currentVerse?.author || story?.creator || '')) !== String(currentUser?.public_id || currentUser?.id) && (
               <button
                 onClick={(e) => {
                   e.preventDefault();
@@ -466,8 +442,9 @@ const VerseFooter = ({
             </div>
           </div>
         </div>
-        
-        <div className="absolute bottom-4 right-4 flex flex-col items-center gap-6 z-50">
+
+        {/* Verse Action Buttons - Right side */}
+        <div className="absolute bottom-4 right-4 flex flex-col items-center gap-3 z-50">
           {isAuthenticated && currentUser && (() => {
             const currentUserId = String(currentUser?.public_id || currentUser?.id);
             const verseAuthorId = String(getUserId(currentVerse?.author) || '');
@@ -475,6 +452,39 @@ const VerseFooter = ({
             return currentUserId && (currentUserId === verseAuthorId || currentUserId === storyCreatorId);
           })() && (
             <div className="relative">
+              {/* Moment Navigation Arrows - Above ellipsis */}
+              {hasMoments && hasMultipleMoments && (
+                <div className="absolute -top-14 left-1/2 -translate-x-1/2 flex items-center gap-0.5 z-50">
+                  {currentMomentIndex > 0 && (
+                    <button 
+                      className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-lg flex items-center justify-center hover:bg-black/70 transition-all"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setCurrentMomentIndex(prev => prev - 1);
+                      }}
+                      title="Previous moment"
+                    >
+                      <i className="fas fa-chevron-left text-white text-sm"></i>
+                    </button>
+                  )}
+                  
+                  {currentMomentIndex < currentVerse.moments.length - 1 && (
+                    <button 
+                      className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-lg flex items-center justify-center hover:bg-black/70 transition-all"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setCurrentMomentIndex(prev => prev + 1);
+                      }}
+                      title="Next moment"
+                    >
+                      <i className="fas fa-chevron-right text-white text-sm"></i>
+                    </button>
+                  )}
+                </div>
+              )}
+
               <button
                 onClick={(e) => {
                   e.preventDefault();
@@ -484,76 +494,53 @@ const VerseFooter = ({
                 className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer transition-all duration-200 ease-in-out relative border border-white/20 hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110"
                 title="Options"
               >
-                <i className="fas fa-ellipsis-v text-[18px] text-white"></i>
+                <div className="absolute inset-0 rounded-full bg-black/30"></div>
+                <i className="fas fa-ellipsis-v text-[18px] text-white relative z-10"></i>
               </button>
-            </div>
-          )}
 
-          <div className="flex flex-col items-center">
-            <button 
-              className={`w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer relative ${isLiked ? 'bg-accent-orange/10 border-2 border-accent-orange' : 'border border-white/20'} hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110 ${isLikeLoading ? 'transition-none' : 'transition-all duration-200 ease-in-out'}`}
-              onClick={handleLike}
-              disabled={isLikeLoading}
-            >
-              <div className="relative">
-                <i className={`${isLiked ? 'fas' : 'far'} fa-heart text-[18px] ${isLiked ? 'text-accent-orange' : 'text-white'}`}></i>
-                {isLiked && (
-                  <div className="absolute inset-0 rounded-full bg-accent-orange animate-ping opacity-40"></div>
-                )}
-              </div>
-            </button>
-            <span className={`text-xs mt-1 ${isLiked ? 'text-accent-orange' : 'text-white'}`}>{likeCount}</span>
-          </div>
-          
-          <button 
-            className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer transition-all duration-200 ease-in-out relative border border-white/20 hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110"
-            onClick={handleShare}
-          >
-            <i className="fas fa-share text-[18px] text-white"></i>
-          </button>
-          
-          <div className="flex flex-col items-center">
-            <button 
-              className={`w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer relative ${isSaved ? 'bg-accent-orange/10 border-2 border-accent-orange' : 'border border-white/20'} hover:bg-neon-blue/20 hover:border-neon-blue hover:scale-110 ${isSaveLoading ? 'transition-none' : 'transition-all duration-200 ease-in-out'}`}
-              onClick={handleSave}
-              disabled={isSaveLoading}
-            >
-              <div className="relative">
-                <i className={`${isSaved ? 'fas' : 'far'} fa-bookmark text-[18px] ${isSaved ? 'text-accent-orange' : 'text-white'}`}></i>
-                {isSaved && (
-                  <div className="absolute inset-0 rounded-full bg-accent-orange animate-ping opacity-40"></div>
-                )}
-              </div>
-            </button>
-            <span className={`text-xs mt-1 ${isSaved ? 'text-accent-orange' : 'text-white'}`}>{saveCount}</span>
-          </div>
-          
-          {story.allow_contributions ? (
-            <button
-              title="Contribute verse"
-              onClick={handleOpenContribute}
-              className="w-14 h-14 rounded-full flex items-center justify-center transition-all hover:scale-110 relative group"
-              style={{ 
-                background: 'linear-gradient(135deg, #ff6b35 0%, #ff8c42 100%)', 
-                border: '3px solid #ff6b35', 
-                boxShadow: '0 4px 15px rgba(255, 107, 53, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)',
-                animation: 'pulse 2s infinite'
-              }}
-            >
-              <i className="fas fa-users text-white text-2xl font-bold relative z-10"></i>
-            </button>
-          ) : (
-            <div
-              className="w-14 h-14 rounded-full flex items-center justify-center bg-gray-700/40 text-gray-400 cursor-not-allowed relative group border-4 border-gray-400/20 shadow-xl"
-              title="Contributions are disabled for this story."
-            >
-              <span className="absolute inset-0 rounded-full bg-white/5"></span>
-              <i className="fas fa-plus text-2xl relative z-10"></i>
-              <span className="absolute bottom-[-2.2rem] left-1/2 -translate-x-1/2 bg-black/90 text-xs text-white rounded px-2 py-1 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-50">
-                Contributions are disabled for this story.
-              </span>
+              {/* Verse Options Dropdown Menu */}
+              {showVerseOptions && (
+                <div className="absolute top-12 right-0 bg-gradient-to-br from-gray-900 to-gray-800 rounded-lg border border-cyan-500/40 shadow-lg overflow-hidden min-w-[140px] z-50">
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setEditingVerse(currentVerse);
+                      setShowContributeModal(true);
+                      setShowVerseOptions(false);
+                    }}
+                    className="w-full px-4 py-2 text-white text-sm hover:bg-cyan-500/20 flex items-center gap-2 transition-colors border-b border-gray-700"
+                  >
+                    <i className="fas fa-edit text-cyan-400"></i>
+                    Edit
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setShowDeleteModal(true);
+                      setShowVerseOptions(false);
+                    }}
+                    className="w-full px-4 py-2 text-white text-sm hover:bg-red-500/20 flex items-center gap-2 transition-colors"
+                  >
+                    <i className="fas fa-trash-alt text-red-400"></i>
+                    Delete
+                  </button>
+                </div>
+              )}
             </div>
           )}
+          
+          <VerseActionButtons
+            verse={currentVerse}
+            story={story}
+            onOpenContribute={handleOpenContribute}
+            handleShare={handleShare}
+            isAuthenticated={isAuthenticated}
+            openAuthModal={openAuthModal}
+            onVerseUpdate={onVerseUpdate}
+            onLikeBurst={onLikeBurst}
+          />
         </div>
       </div>
     </div>
@@ -584,6 +571,9 @@ const VerseViewer = ({
     return story?.isFollowing || story?.is_following || false;
   });
   
+  // FIX: Add a trigger to force re-renders when verse state changes (likes/saves)
+  const [verseUpdateTrigger, setVerseUpdateTrigger] = useState(0);
+
   const verseOptionsRef = useRef(null);
   const [currentVerseIndex, setCurrentVerseIndex] = useState(initialVerseIndex);
   const verseMetadataRef = useRef({});
@@ -597,9 +587,7 @@ const VerseViewer = ({
         if (cachedMetadata) {
           return {
             ...verse,
-            ...cachedMetadata,
-            user_has_liked: cachedMetadata.is_liked_by_user,
-            user_has_saved: cachedMetadata.is_saved_by_user
+            ...cachedMetadata
           };
         }
         return verse;
@@ -610,58 +598,34 @@ const VerseViewer = ({
         verses: mergedVerses
       };
     } else {
-      // Ensure storyRef is always set to something to prevent undefined errors
       storyRef.current = story || { verses: [] };
     }
     
-    // 🔥 CACHE INITIALIZATION: Initialize cache for all verses in the story
+    // Initialize cache
     if (story?.verses && Array.isArray(story.verses)) {
       story.verses.forEach((verse, index) => {
         if (verse && verse.id && !verseMetadataRef.current[verse.id]) {
-          verseMetadataRef.current[verse.id] = {
-            is_liked_by_user: verse.user_has_liked || verse.is_liked_by_user || false,
-            is_saved_by_user: verse.user_has_saved || verse.is_saved_by_user || false,
-            likes_count: verse.likes_count || 0,
-            saves_count: verse.saves_count || 0
-          };
+          verseMetadataRef.current[verse.id] = {};
         }
       });
     }
   }, [story]);
 
+  // FIX: Add verseUpdateTrigger to dependencies so we re-calculate currentVerse when state changes
   const currentVerse = useMemo(() => {
     const verses = storyRef.current?.verses;
     if (!verses || !Array.isArray(verses) || currentVerseIndex >= verses.length) {
       return null;
     }
     return verses[currentVerseIndex];
-  }, [currentVerseIndex, storyRef.current?.verses]);
+  }, [currentVerseIndex, storyRef.current?.verses, verseUpdateTrigger]);
 
-  const getVerseInitialState = (verse) => {
-    if (!verse) return { isLiked: false, isSaved: false, likeCount: 0, saveCount: 0 };
-    
-    const isLikedStatus = verse.user_has_liked || verse.is_liked_by_user || false;
-    const isSavedStatus = verse.user_has_saved || verse.is_saved_by_user || false;
-    const likeCountVal = verse.likes_count || 0;
-    const saveCountVal = verse.saves_count || 0;
-    
-    return { isLiked: isLikedStatus, isSaved: isSavedStatus, likeCount: likeCountVal, saveCount: saveCountVal };
-  };
-  
-  const initial = getVerseInitialState(currentVerse);
-  const [isLiked, setIsLiked] = useState(initial.isLiked);
-  const [isSaved, setIsSaved] = useState(initial.isSaved);
-  const [likeCount, setLikeCount] = useState(initial.likeCount);
-  const [saveCount, setSaveCount] = useState(initial.saveCount);
   const [currentMomentIndex, setCurrentMomentIndex] = useState(0);
   const [isContentExpanded, setIsContentExpanded] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [readingProgress, setReadingProgress] = useState(0);
   const [isTextVisible, setIsTextVisible] = useState(true);
   const [showScrollIndicator, setShowScrollIndicator] = useState(false);
-  
-  const [isLikeLoading, setIsLikeLoading] = useState(false);
-  const [isSaveLoading, setIsSaveLoading] = useState(false);
   
   const verseRefs = useRef([]);
   const containerRef = useRef(null);
@@ -687,6 +651,46 @@ const VerseViewer = ({
     return String(authorId) !== String(creatorId);
   })();
 
+  const triggerVerseLikeBurst = useCallback(() => {
+    // Visual effect logic
+  }, []);
+
+  // FIX: Updated handleVerseUpdate to sync state to parent and trigger re-renders
+  const handleVerseUpdate = useCallback(async (verseId) => {
+    if (!verseId || !storyRef.current) return;
+    
+    const verseIndex = storyRef.current.verses.findIndex(v => v.id === verseId);
+    if (verseIndex !== -1) {
+      const verse = storyRef.current.verses[verseIndex];
+      
+      // Cache the like/save state
+      verseMetadataRef.current[verseId] = {
+        ...verseMetadataRef.current[verseId],
+        is_liked: verse.is_liked || verse.user_has_liked,
+        user_has_liked: verse.user_has_liked,
+        is_saved: verse.is_saved || verse.user_has_saved,
+        user_has_saved: verse.user_has_saved,
+        likes_count: verse.likes_count,
+        saves_count: verse.saves_count,
+      };
+
+      // Update storyRef to reflect changes immediately (Optimistic Update)
+      // This ensures currentVerse picks up the new state next time it runs
+      storyRef.current.verses[verseIndex] = {
+        ...verse,
+        ...verseMetadataRef.current[verseId]
+      };
+
+      // Force component to re-render to show the orange fill instantly
+      setVerseUpdateTrigger(prev => prev + 1);
+
+      // FIX: Call parent onStoryUpdate to ensure persistence after close/refresh
+      if (typeof onStoryUpdate === 'function') {
+        await onStoryUpdate();
+      }
+    }
+  }, [onStoryUpdate]);
+
   // Effect for handling click outside verse options
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -707,30 +711,11 @@ const VerseViewer = ({
   // Effect for updating state when current verse changes
   useEffect(() => {
     if (currentVerse && currentVerse.id) {
-      // First try to get from cache
-      const cachedMetadata = verseMetadataRef.current[currentVerse.id];
-      
-      if (cachedMetadata) {
-        setIsLiked(cachedMetadata.is_liked_by_user);
-        setIsSaved(cachedMetadata.is_saved_by_user);
-        setLikeCount(cachedMetadata.likes_count);
-        setSaveCount(cachedMetadata.saves_count);
-      } else {
-        // Fall back to verse object data
-        const initial = getVerseInitialState(currentVerse);
-        setIsLiked(initial.isLiked);
-        setIsSaved(initial.isSaved);
-        setLikeCount(initial.likeCount);
-        setSaveCount(initial.saveCount);
-      }
-      
       setCurrentMomentIndex(0);
       setIsContentExpanded(false);
       setIsTextVisible(true);
     }
   }, [currentVerse?.id, currentVerseIndex]);
-
-
 
   // Effect for scroll indicator
   useEffect(() => {
@@ -764,7 +749,6 @@ const VerseViewer = ({
       userScrolledRef.current = true;
       setShowScrollIndicator(false);
       
-      // Calculate reading progress
       if (containerRef.current) {
         const scrollTop = containerRef.current.scrollTop;
         const scrollHeight = containerRef.current.scrollHeight - containerRef.current.clientHeight;
@@ -782,9 +766,6 @@ const VerseViewer = ({
     }
   }, [isOpen]);
 
-
-
-  // Navigation helpers
   const scrollToVerseIndex = (targetIndex) => {
     if (!verseBlockRefs.current || !verseBlockRefs.current.length) return;
     const idx = Math.max(0, Math.min(targetIndex, verseBlockRefs.current.length - 1));
@@ -811,18 +792,7 @@ const VerseViewer = ({
       setFocusMode(false);
       setIsTextVisible(true);
       
-      // Calculate initial reading progress based on which verse we're viewing
       if (story?.verses && story.verses.length > 0) {
-        const initialVerse = story.verses[initialVerseIndex] || story.verses[0];
-        if (initialVerse) {
-          const initial = getVerseInitialState(initialVerse);
-          setIsLiked(initial.isLiked);
-          setLikeCount(initial.likeCount);
-          setIsSaved(initial.isSaved);
-          setSaveCount(initial.saveCount);
-        }
-        
-        // Set initial progress based on verse index
         const progress = ((initialVerseIndex + 1) / story.verses.length) * 100;
         setReadingProgress(progress);
       }
@@ -905,26 +875,7 @@ const VerseViewer = ({
           
           const newVerse = storyRef.current?.verses?.[newIndex];
           if (newVerse) {
-            const cachedMetadata = verseMetadataRef.current[newVerse.id];
-            
-            if (cachedMetadata) {
-              setIsLiked(cachedMetadata.is_liked_by_user);
-              setIsSaved(cachedMetadata.is_saved_by_user);
-              setLikeCount(cachedMetadata.likes_count);
-              setSaveCount(cachedMetadata.saves_count);
-            } else {
-              setIsLiked(newVerse.user_has_liked || newVerse.is_liked_by_user || false);
-              setIsSaved(newVerse.user_has_saved || newVerse.is_saved_by_user || false);
-              setLikeCount(newVerse.likes_count || 0);
-              setSaveCount(newVerse.saves_count || 0);
-              
-              verseMetadataRef.current[newVerse.id] = {
-                is_liked_by_user: newVerse.user_has_liked || newVerse.is_liked_by_user || false,
-                is_saved_by_user: newVerse.user_has_saved || newVerse.is_saved_by_user || false,
-                likes_count: newVerse.likes_count || 0,
-                saves_count: newVerse.saves_count || 0
-              };
-            }
+            verseMetadataRef.current[newVerse.id] = {};
           }
         }
       }
@@ -940,163 +891,6 @@ const VerseViewer = ({
       observer.disconnect();
     };
   }, [currentVerseIndex]);
-
-  // Action handlers
-  const handleLike = async () => {
-    if (!currentVerse) return;
-    
-    let verseSlug = currentVerse.slug;
-    if (!verseSlug && currentVerse.id) {
-      const verseInStory = storyRef.current?.verses?.find(v => v.id === currentVerse.id);
-      verseSlug = verseInStory?.slug;
-    }
-    
-    if (!verseSlug) {
-      return;
-    }
-    
-    if (!isAuthenticated) {
-      if (typeof openAuthModal === 'function') openAuthModal('like', { slug: story.slug, verseId: currentVerse.id });
-      return;
-    }
-
-    if (isLikeLoading) return;
-
-    const wasLiked = isLiked;
-    const prevLikeCount = likeCount;
-
-    try {
-      setIsLikeLoading(true);
-      
-      setIsLiked(!wasLiked);
-      setLikeCount(prev => wasLiked ? prev - 1 : prev + 1);
-
-      const response = await versesApi.toggleLikeBySlug(verseSlug);
-
-      const finalIsLiked = response.is_liked_by_user !== undefined ? response.is_liked_by_user : (response.user_has_liked !== undefined ? response.user_has_liked : !wasLiked);
-      const finalLikeCount = response.likes_count !== undefined ? response.likes_count : likeCount;
-
-      setIsLiked(finalIsLiked);
-      setLikeCount(finalLikeCount);
-
-      // 🔥 UPDATE CACHE: Keep verse metadata cache in sync
-      // Make sure we're updating the EXACT verse by ID
-      if (verseMetadataRef.current[currentVerse.id]) {
-        verseMetadataRef.current[currentVerse.id].is_liked_by_user = finalIsLiked;
-        verseMetadataRef.current[currentVerse.id].likes_count = finalLikeCount;
-      } else {
-        verseMetadataRef.current[currentVerse.id] = {
-          is_liked_by_user: finalIsLiked,
-          is_saved_by_user: isSaved,
-          likes_count: finalLikeCount,
-          saves_count: saveCount
-        };
-      }
-
-      if (storyRef.current?.verses) {
-        const updatedVerses = storyRef.current.verses.map(v =>
-          v.id === currentVerse.id
-            ? {
-                ...v,
-                is_liked_by_user: response.is_liked_by_user || response.user_has_liked,
-                user_has_liked: response.is_liked_by_user || response.user_has_liked,
-                likes_count: response.likes_count
-              }
-            : v
-        );
-
-        const updatedStory = { ...storyRef.current, verses: updatedVerses };
-        storyRef.current = updatedStory;
-
-        if (typeof onStoryUpdate === 'function') {
-          onStoryUpdate(updatedStory);
-        }
-      }
-    } catch (error) {
-      setIsLiked(wasLiked);
-      setLikeCount(prevLikeCount);
-    } finally {
-      setIsLikeLoading(false);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!currentVerse) return;
-    
-    let verseSlug = currentVerse.slug;
-    if (!verseSlug && currentVerse.id) {
-      const verseInStory = storyRef.current?.verses?.find(v => v.id === currentVerse.id);
-      verseSlug = verseInStory?.slug;
-    }
-    
-    if (!verseSlug) {
-      return;
-    }
-    
-    if (!isAuthenticated) {
-      if (typeof openAuthModal === 'function') openAuthModal('save', { slug: story.slug, verseId: currentVerse.id });
-      return;
-    }
-
-    if (isSaveLoading) return;
-
-    const wasSaved = isSaved;
-    const prevSaveCount = saveCount;
-
-    try {
-      setIsSaveLoading(true);
-      
-      setIsSaved(!wasSaved);
-      setSaveCount(prev => wasSaved ? prev - 1 : prev + 1);
-
-      const response = await versesApi.toggleSaveBySlug(verseSlug);
-
-      const finalIsSaved = response.is_saved_by_user !== undefined ? response.is_saved_by_user : (response.user_has_saved !== undefined ? response.user_has_saved : !wasSaved);
-      const finalSaveCount = response.saves_count !== undefined ? response.saves_count : saveCount;
-
-      setIsSaved(finalIsSaved);
-      setSaveCount(finalSaveCount);
-
-      // 🔥 UPDATE CACHE: Keep verse metadata cache in sync
-      // Make sure we're updating the EXACT verse by ID
-      if (verseMetadataRef.current[currentVerse.id]) {
-        verseMetadataRef.current[currentVerse.id].is_saved_by_user = finalIsSaved;
-        verseMetadataRef.current[currentVerse.id].saves_count = finalSaveCount;
-      } else {
-        verseMetadataRef.current[currentVerse.id] = {
-          is_liked_by_user: isLiked,
-          is_saved_by_user: finalIsSaved,
-          likes_count: likeCount,
-          saves_count: finalSaveCount
-        };
-      }
-
-      if (storyRef.current?.verses) {
-        const updatedVerses = storyRef.current.verses.map(v =>
-          v.id === currentVerse.id
-            ? {
-                ...v,
-                is_saved_by_user: response.is_saved_by_user || response.user_has_saved,
-                user_has_saved: response.is_saved_by_user || response.user_has_saved,
-                saves_count: response.saves_count
-              }
-            : v
-        );
-
-        const updatedStory = { ...storyRef.current, verses: updatedVerses };
-        storyRef.current = updatedStory;
-
-        if (typeof onStoryUpdate === 'function') {
-          onStoryUpdate(updatedStory);
-        }
-      }
-    } catch (error) {
-      setIsSaved(wasSaved);
-      setSaveCount(prevSaveCount);
-    } finally {
-      setIsSaveLoading(false);
-    }
-  };
 
   const handleShare = () => {
     if (!currentVerse || !story) return;
@@ -1186,15 +980,15 @@ const VerseViewer = ({
     return particles;
   };
 
-  // Share modal state
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareData, setShareData] = useState(null);
   const [shareImage, setShareImage] = useState(null);
 
-  // FIX: Return null if story or verses are not available
-  if (!isOpen || !story || !story.verses || story.verses.length === 0) {
+  if (!isOpen || !story) {
     return null;
   }
+
+  const hasVerses = story.verses && story.verses.length > 0;
 
   const viewer = (
     <div className={`fixed inset-0 z-[10100] bg-gradient-to-br ${defaultTheme.gradient} ${defaultTheme.shadow} transition-all duration-1000 rounded-3xl border ${defaultTheme.border}`} style={{overflow: 'hidden'}}>
@@ -1228,7 +1022,6 @@ const VerseViewer = ({
         </div>
       )}
 
-      {/* Header */}
       <VerseHeader 
         story={story}
         currentVerseIndex={currentVerseIndex}
@@ -1239,7 +1032,6 @@ const VerseViewer = ({
         currentVerse={currentVerse}
       />
 
-      {/* Left-side navigation arrows */}
       <div className="absolute left-3 z-50 flex flex-col gap-2 pointer-events-auto" style={{ top: 'calc(50% + 48px)' }}>
         <button
           aria-label="Previous verse"
@@ -1259,7 +1051,6 @@ const VerseViewer = ({
         </button>
       </div>
 
-      {/* Vertical scroll container for verses */}
       <div 
         ref={containerRef}
         className="h-full w-full overflow-y-scroll scrollbar-hide scroll-smooth"
@@ -1272,14 +1063,46 @@ const VerseViewer = ({
         }}
       >
         <div ref={contentRef} className="flex flex-col" style={{ height: '100%' }}>
-          {story.verses.map((verse, verseIndex) => (
+          {hasVerses ? (
+            story.verses.map((verse, verseIndex) => (
+              <div 
+                key={`verse-${verse.id}-${verseIndex}`}
+                ref={el => {
+                  verseRefs.current[verseIndex] = el;
+                  verseBlockRefs.current[verseIndex] = el;
+                }}
+                className="w-full flex flex-col relative overflow-hidden"
+                style={{
+                  height: '100vh',
+                  minHeight: '100vh',
+                  maxHeight: '100vh',
+                  flex: '0 0 100vh',
+                  scrollSnapAlign: 'center',
+                  scrollSnapStop: 'always',
+                  willChange: 'transform',
+                }}
+              >
+                {verse.moments && verse.moments.length > 0 ? (
+                  <MomentsCarousel 
+                    moments={verse.moments}
+                    currentMomentIndex={currentMomentIndex}
+                    setCurrentMomentIndex={setCurrentMomentIndex}
+                    toggleFocusMode={toggleFocusMode}
+                    focusMode={focusMode}
+                  />
+                ) : (
+                  <VerseContent 
+                    content={verse.content}
+                    fontSize={fontSize}
+                    setFontSize={setFontSize}
+                    toggleFocusMode={toggleFocusMode}
+                  />
+                )}
+              </div>
+            ))
+          ) : (
             <div 
-              key={`verse-${verse.id}-${verseIndex}`}
-              ref={el => {
-                verseRefs.current[verseIndex] = el;
-                verseBlockRefs.current[verseIndex] = el;
-              }}
-              className="w-full flex flex-col relative overflow-hidden"
+              className="w-full h-screen flex flex-col items-center justify-center relative overflow-hidden"
               style={{
                 height: '100vh',
                 minHeight: '100vh',
@@ -1287,32 +1110,31 @@ const VerseViewer = ({
                 flex: '0 0 100vh',
                 scrollSnapAlign: 'center',
                 scrollSnapStop: 'always',
-                willChange: 'transform',
               }}
             >
-              {/* Moments or content */}
-              {verse.moments && verse.moments.length > 0 ? (
-                <MomentsCarousel 
-                  moments={verse.moments}
-                  currentMomentIndex={currentMomentIndex}
-                  setCurrentMomentIndex={setCurrentMomentIndex}
-                  toggleFocusMode={toggleFocusMode}
-                  focusMode={focusMode}
-                />
-              ) : (
-                <VerseContent 
-                  content={verse.content}
-                  fontSize={fontSize}
-                  setFontSize={setFontSize}
-                  toggleFocusMode={toggleFocusMode}
-                />
-              )}
+              {/* Background decorations */}
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute inset-0 rounded-3xl border-2 border-cyan-500/30 animate-pulse"></div>
+                <div className="absolute inset-0 rounded-3xl border-2 border-purple-500/20 animate-pulse" style={{ animationDelay: '0.5s' }}></div>
+              </div>
+
+              {/* Empty state content */}
+              <div className="relative z-10 text-center flex flex-col items-center justify-center gap-6">
+                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-cyan-500/20 to-purple-500/20 border border-cyan-500/30 flex items-center justify-center">
+                  <i className="fas fa-book text-5xl bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent"></i>
+                </div>
+                <div className="space-y-3">
+                  <h2 className="text-3xl font-bold bg-gradient-to-r from-cyan-300 via-blue-300 to-purple-300 bg-clip-text text-transparent">No Verses Yet</h2>
+                  <p className="text-gray-300 text-lg max-w-md">
+                    This story doesn't have any verses. {story?.allow_contributions ? "Be the first to contribute! 🚀" : "Check back later 📖"}
+                  </p>
+                </div>
+              </div>
             </div>
-          ))}
+          )}
         </div>
       </div>
       
-      {/* Fixed Content Area with glassmorphism */}
       {!focusMode && isTextVisible && hasMoments && (
         <div className="fixed bottom-20 left-0 right-0 z-40 bg-gradient-to-t from-black/60 backdrop-blur-lg to-transparent p-2">
           <div className="max-w-3xl mx-auto">
@@ -1348,18 +1170,9 @@ const VerseViewer = ({
         </div>
       )}
       
-      {/* Footer */}
       <VerseFooter 
         story={story}
         currentVerse={currentVerse}
-        isLiked={isLiked}
-        isSaved={isSaved}
-        likeCount={likeCount}
-        saveCount={saveCount}
-        isLikeLoading={isLikeLoading}
-        isSaveLoading={isSaveLoading}
-        handleLike={handleLike}
-        handleSave={handleSave}
         handleShare={handleShare}
         handleOpenContribute={handleOpenContribute}
         isAuthenticated={isAuthenticated}
@@ -1371,9 +1184,17 @@ const VerseViewer = ({
         showVerseOptions={showVerseOptions}
         setShowVerseOptions={setShowVerseOptions}
         isContribution={isContribution}
+        onVerseUpdate={handleVerseUpdate}
+        onLikeBurst={triggerVerseLikeBurst}
+        setEditingVerse={setEditingVerse}
+        setShowDeleteModal={setShowDeleteModal}
+        setShowContributeModal={setShowContributeModal}
+        hasMoments={hasMoments}
+        hasMultipleMoments={hasMultipleMoments}
+        currentMomentIndex={currentMomentIndex}
+        setCurrentMomentIndex={setCurrentMomentIndex}
       />
 
-      {/* Focus Mode Indicator */}
       {focusMode && (
         <div className="fixed bottom-4 left-0 right-0 flex justify-center z-50">
           <div className="bg-black/50 backdrop-blur-lg rounded-full px-4 py-2 text-white text-sm flex items-center gap-2">
@@ -1382,7 +1203,6 @@ const VerseViewer = ({
         </div>
       )}
 
-      {/* Contribute Modal */}
       <ContributeModal 
         showContributeModal={showContributeModal}
         setShowContributeModal={setShowContributeModal}
@@ -1397,7 +1217,6 @@ const VerseViewer = ({
         }}
       />
       
-      {/* Share Modal */}
       <ShareModal
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
@@ -1406,7 +1225,6 @@ const VerseViewer = ({
         isVerse={true}
       />
 
-      {/* Delete Confirmation Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-lg z-[700] flex items-center justify-center">
           <div className="w-full max-w-md bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl border border-red-500/30 shadow-2xl p-6">
@@ -1448,7 +1266,6 @@ const VerseViewer = ({
         </div>
       )}
 
-      {/* Contribute/Edit Modal */}
       <ContributeModal
         showContributeModal={showContributeModal}
         setShowContributeModal={setShowContributeModal}
@@ -1462,7 +1279,6 @@ const VerseViewer = ({
         }}
       />
       
-      {/* Custom styles */}
       <style jsx global>{`
         * {
           scroll-behavior: smooth;

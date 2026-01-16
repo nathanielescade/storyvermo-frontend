@@ -250,6 +250,15 @@ export default function StoryCard({
                         verseUrl
                     );
                 }
+            } else {
+                // No verses yet, but still open the viewer with empty state
+                if (typeof window !== 'undefined' && window.history && window.history.pushState) {
+                    window.history.pushState(
+                        { modalOpen: 'verses', storySlug: story.slug },
+                        '',
+                        `/stories/${encodeURIComponent(story.slug)}/`
+                    );
+                }
             }
             
             // Show loader and start progress animation
