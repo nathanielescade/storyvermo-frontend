@@ -79,8 +79,19 @@ export async function generateMetadata({ params, searchParams }) {
 
     let imageUrl = null;
     if (story.cover_image) {
-      if (typeof story.cover_image === 'string') imageUrl = absoluteUrl(story.cover_image);
-      else imageUrl = absoluteUrl(story.cover_image.file_url || story.cover_image.url || '');
+      if (typeof story.cover_image === 'string') {
+        imageUrl = absoluteUrl(story.cover_image);
+      } else {
+        const coverUrl = story.cover_image.file_url || story.cover_image.url;
+        if (coverUrl) imageUrl = absoluteUrl(coverUrl);
+      }
+    }
+    // Fallback to first verse image if no cover image
+    if (!imageUrl && Array.isArray(story.verses) && story.verses.length > 0) {
+      const firstVerse = story.verses[0];
+      if (firstVerse && Array.isArray(firstVerse.moments) && firstVerse.moments.length > 0) {
+        imageUrl = resolveMomentImageUrl(firstVerse.moments[0]);
+      }
     }
 
     // If a verse query param is present, try to return verse-specific metadata
