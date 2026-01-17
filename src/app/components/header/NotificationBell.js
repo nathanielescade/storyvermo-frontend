@@ -92,12 +92,12 @@ const NotificationBell = () => {
   return (
     <div className="notification-bell-wrapper relative inline-block">
       <button 
-        className="notification-button w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-r from-neon-blue to-neon-purple flex items-center justify-center shadow-[0_0_15px_rgba(0,212,255,0.7)] transition-transform hover:scale-105" 
+        className="notification-button w-10 h-10 rounded-full bg-gradient-to-r from-neon-blue to-neon-purple flex items-center justify-center shadow-[0_0_15px_rgba(0,212,255,0.7)] transition-transform hover:scale-105" 
         aria-label="Notifications" 
         type="button" 
         onClick={handleNotificationClick}
       >
-        <i className="fas fa-bell text-white text-sm sm:text-xl"></i>
+        <i className="fas fa-bell text-white text-xl"></i>
       </button>
 
       {unreadCount > 0 && (

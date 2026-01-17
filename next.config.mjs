@@ -33,7 +33,7 @@ const nextConfig = {
       // Local development backend
       {
         protocol: 'http',
-        hostname: '10.217.43.100',
+        hostname: '10.188.1.100',
         pathname: '/media/**',
       },
       {

@@ -5,6 +5,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
+import Image from 'next/image';
 
 const DimensionNav = ({ openAuthModal, openStoryFormModal, openDiscoverModal, inStoryCard = false }) => {
   const { currentUser, isAuthenticated } = useAuth();
@@ -126,8 +127,19 @@ const DimensionNav = ({ openAuthModal, openStoryFormModal, openDiscoverModal, in
             id="mobileProfileNavBtn"
             onClick={() => setActiveDimension('profile')}
           >
-            <i className="fas fa-user-astronaut text-lg mb-1"></i>
-            <span className="font-semibold text-xs">Profile</span>
+            <div className="w-10 h-10 rounded-full bg-gradient-to-r from-accent-orange to-neon-pink flex items-center justify-center relative overflow-hidden">
+              {currentUser.profile_image_url ? (
+                <Image 
+                  src={currentUser.profile_image_url} 
+                  alt={`${currentUser.username}'s profile`} 
+                  fill
+                  className="object-cover rounded-full"
+                  quality={75}
+                />
+              ) : (
+                <span className="text-white font-bold text-lg">{currentUser.username?.charAt(0).toUpperCase()}</span>
+              )}
+            </div>
           </Link>
         ) : (
           <div 
@@ -136,8 +148,7 @@ const DimensionNav = ({ openAuthModal, openStoryFormModal, openDiscoverModal, in
             id="mobileProfileNavBtn"
             onClick={handleProfile}
           >
-            <i className="fas fa-user-astronaut text-lg mb-1"></i>
-            <span className="font-semibold text-xs">Profile</span>
+            <i className="fas fa-user-astronaut text-lg"></i>
           </div>
         )}
       </div>

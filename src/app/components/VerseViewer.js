@@ -267,7 +267,7 @@ const MomentsCarousel = ({
                 </div>
               ) : moment && moment.content ? (
                 <div className="w-full h-full flex items-center justify-center p-8">
-                  <div className="text-white text-3xl text-center font-light max-w-3xl">
+                  <div className="text-white text-3xl text-center font-light max-w-3xl" style={{ whiteSpace: 'pre-line' }}>
                     {moment.content}
                   </div>
                 </div>
@@ -1285,7 +1285,7 @@ const VerseViewer = ({
                 <div 
                   className={`overflow-hidden transition-all duration-500 ${isContentExpanded ? 'max-h-96' : 'max-h-16'}`}
                 >
-                  <span className={`bg-gradient-to-r ${defaultTheme.text} bg-clip-text text-transparent text-xl`}>
+                  <span className={`bg-gradient-to-r ${defaultTheme.text} bg-clip-text text-transparent text-xl`} style={{ whiteSpace: 'pre-line', display: 'block' }}>
                     {currentVerse.content}
                   </span>
                 </div>

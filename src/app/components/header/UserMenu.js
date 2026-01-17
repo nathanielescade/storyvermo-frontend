@@ -60,7 +60,7 @@ const UserMenu = ({ openAuthModal, isOpen = false, onOpen, onClose }) => {
       {isAuthenticated && currentUser ? (
         <>
           <button 
-            className="relative w-10 h-10 rounded-full bg-gradient-to-r from-accent-orange to-neon-pink flex items-center justify-center text-white font-bold text-lg shadow-[0_0_15px_rgba(0,212,255,0.7)] transition-transform hover:scale-105 overflow-hidden flex-shrink-0"
+            className="relative w-10 h-10 rounded-full bg-gradient-to-r from-accent-orange to-neon-pink flex items-center justify-center text-white font-bold text-lg shadow-[0_0_15px_rgba(0,212,255,0.7)] transition-transform hover:scale-105 flex-shrink-0"
             onClick={() => {
               if (isOpen) {
                 onClose?.();
@@ -68,32 +68,16 @@ const UserMenu = ({ openAuthModal, isOpen = false, onOpen, onClose }) => {
                 onOpen?.();
               }
             }}
+            title="Menu"
           >
-            {getProfileImageUrl(currentUser) ? (
-              // FIXED: Using Next.js Image for optimization with circular display
-              <Image 
-                src={getProfileImageUrl(currentUser)} 
-                alt={`${getUsername(currentUser)}'s profile`} 
-                fill
-                className="object-cover rounded-full"
-                quality={75}
-              />
-            ) : (
-              getUserInitial(getUsername(currentUser))
-            )}
+            <i className="fas fa-bars text-lg"></i>
           </button>
           <div className={`absolute right-0 mt-2 w-56 bg-gradient-to-b from-gray-900 to-black border border-neon-blue/30 rounded-lg shadow-lg z-50 overflow-hidden ${isOpen ? '' : 'hidden'}`}>
             <div className="p-3 border-b border-neon-blue/20">
               <p className="text-white font-medium">{getUsername(currentUser)}</p>
               <p className="text-gray-400 text-sm">{getUserEmail(currentUser)}</p>
             </div>
-            <Link 
-              href={`/${getUsername(currentUser)}`}
-              className="w-full text-left px-4 py-3 text-white hover:bg-neon-blue/10 transition-colors flex items-center gap-2"
-            >
-              <i className="fas fa-user"></i>
-              <span>Profile</span>
-            </Link>
+            <div className="border-t border-neon-blue/20 my-1" />
             <Link 
               href="/saved"
               className="w-full text-left px-4 py-3 text-white hover:bg-neon-blue/10 transition-colors flex items-center gap-2"

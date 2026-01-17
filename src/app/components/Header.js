@@ -59,7 +59,7 @@ const Header = ({ openAuthModal }) => {
       <div className="flex gap-1.5 sm:gap-2.5 items-center ml-auto relative">
         {/* Trending Tags Button */}
         <button 
-          className="trending-tags-btn w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 flex items-center justify-center shadow-[0_0_15px_rgba(251,191,36,0.8)] transition-all hover:scale-110 hover:shadow-[0_0_25px_rgba(251,191,36,1)]"
+          className="trending-tags-btn w-10 h-10 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 flex items-center justify-center shadow-[0_0_15px_rgba(251,191,36,0.8)] transition-all hover:scale-110 hover:shadow-[0_0_25px_rgba(251,191,36,1)]"
           onClick={() => {
             if (showTrendingTags) {
               setShowTrendingTags(false);
@@ -72,7 +72,7 @@ const Header = ({ openAuthModal }) => {
           }}
           title="Trending Tags"
         >
-          <i className="fas fa-fire text-white text-xs sm:text-lg"></i>
+          <i className="fas fa-fire text-white text-xl"></i>
         </button>
 
         {/* Search bar for desktop */}
@@ -82,7 +82,7 @@ const Header = ({ openAuthModal }) => {
         
         {/* Search icon for mobile */}
         <button 
-          className="search-toggle w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-r from-neon-blue to-neon-purple flex items-center justify-center shadow-[0_0_15px_rgba(0,212,255,0.7)] transition-transform hover:scale-105 md:hidden"
+          className="search-toggle w-10 h-10 rounded-full bg-gradient-to-r from-neon-blue to-neon-purple flex items-center justify-center shadow-[0_0_15px_rgba(0,212,255,0.7)] transition-transform hover:scale-105 md:hidden"
           onClick={() => {
             setShowMobileSearch(!showMobileSearch);
             // Close other panels when opening search
@@ -91,7 +91,7 @@ const Header = ({ openAuthModal }) => {
             }
           }}
         >
-          <i className="fas fa-search text-white text-sm sm:text-xl"></i>
+          <i className="fas fa-search text-white text-xl"></i>
         </button>
         
         <NotificationBell />
