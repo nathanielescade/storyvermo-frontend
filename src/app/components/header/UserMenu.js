@@ -9,6 +9,7 @@ const UserMenu = ({ openAuthModal, isOpen = false, onOpen, onClose }) => {
   const { currentUser, isAuthenticated, logout } = useAuth();
   const router = useRouter();
   const userMenuRef = useRef(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   // Handle click outside to close menu
   useEffect(() => {
@@ -25,7 +26,12 @@ const UserMenu = ({ openAuthModal, isOpen = false, onOpen, onClose }) => {
   }, [onClose]);
 
   const handleLogout = async () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = async () => {
     try {
+      setShowLogoutConfirm(false);
       await logout();
       router.push('/');
     } catch (error) {
@@ -161,6 +167,45 @@ const UserMenu = ({ openAuthModal, isOpen = false, onOpen, onClose }) => {
             </Link>
           </div>
         </>
+      )}
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-gradient-to-b from-gray-900 to-gray-950 border border-cyan-500/40 rounded-xl shadow-2xl shadow-cyan-900/50 w-full max-w-sm p-6 animate-in fade-in zoom-in-95 duration-300">
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center border border-red-500/40">
+                <i className="fas fa-sign-out-alt text-red-400 text-lg"></i>
+              </div>
+              <div>
+                <h3 className="text-white font-bold text-lg">Confirm Logout</h3>
+                <p className="text-gray-400 text-sm">Are you sure?</p>
+              </div>
+            </div>
+
+            {/* Message */}
+            <p className="text-gray-300 mb-6 leading-relaxed">
+              You'll be logged out of your account. You can always log back in anytime.
+            </p>
+
+            {/* Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors border border-gray-700/50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmLogout}
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-medium rounded-lg transition-all shadow-lg shadow-red-900/30"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

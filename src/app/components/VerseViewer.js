@@ -842,7 +842,7 @@ const VerseViewer = ({
       setIsContentExpanded(false);
       setIsTextVisible(true);
     }
-  }, [currentVerse?.id, currentVerseIndex]);
+  }, [currentVerse, currentVerseIndex]);
 
   // Effect for scroll indicator
   useEffect(() => {
