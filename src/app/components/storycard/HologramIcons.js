@@ -55,7 +55,7 @@ const HologramIcons = ({
     };
 
     return (
-        <div className="hologram-icons-row" style={{ position: 'absolute', right: '0.5rem', top: '-32px', display: 'flex', gap: '18px', zIndex: '10' }}>
+        <div className="hologram-icons-row" style={{ position: 'absolute', right: '0.5rem', top: '-32px', display: 'flex', gap: '10px', zIndex: '10' }}>
             {story.allow_contributions && (
                 <button 
                     className="hologram-icon-btn collaborate-btn" 

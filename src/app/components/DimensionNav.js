@@ -148,7 +148,8 @@ const DimensionNav = ({ openAuthModal, openStoryFormModal, openDiscoverModal, in
             id="mobileProfileNavBtn"
             onClick={handleProfile}
           >
-            <i className="fas fa-user-astronaut text-lg"></i>
+            <i className="fas fa-user-astronaut text-lg mb-1"></i>
+            <span className="font-semibold text-xs">Profile</span>
           </div>
         )}
       </div>

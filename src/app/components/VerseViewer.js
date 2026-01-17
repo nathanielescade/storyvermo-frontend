@@ -141,28 +141,6 @@ const VerseHeader = ({
           </span>
         </div>
         
-        <div className="flex items-center gap-4 mr-2">
-          <div className="flex flex-col gap-0.5">
-            {currentVerseIndex > 0 && (
-              <div className="text-cyan-400 text-lg opacity-70 animate-pulse">↑</div>
-            )}
-            {currentVerseIndex < story.verses.length - 1 && (
-              <div className="text-cyan-400 text-lg opacity-70 animate-pulse">↓</div>
-            )}
-          </div>
-          
-          {hasMoments && (
-            <div className="flex gap-2">
-              {currentMomentIndex > 0 && (
-                <div className="text-purple-400 text-lg opacity-70 animate-pulse">←</div>
-              )}
-              {currentMomentIndex < currentVerse.moments.length - 1 && (
-                <div className="text-purple-400 text-lg opacity-70 animate-pulse">→</div>
-              )}
-            </div>
-          )}
-        </div>
-        
         <button 
           className="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center text-white hover:bg-black/60 transition-all border border-cyan-400/20 shadow"
           onClick={onClose}
@@ -282,13 +260,20 @@ const MomentsCarousel = ({
       </div>
       
       {!focusMode && (
-        <div className="absolute bottom-48 left-0 right-0 flex justify-center space-x-2 z-[9999]">
+        <div className="absolute bottom-48 left-0 right-0 flex justify-center space-x-2 z-[99999]">
           {moments.map((_, momentIndex) => (
             <div 
               key={`indicator-${momentIndex}`}
               className={`w-2 h-2 rounded-full transition-all duration-300 shadow-lg ${momentIndex === currentMomentIndex ? 'bg-white w-8' : 'bg-white/30'}`}
             ></div>
           ))}
+        </div>
+      )}
+
+      {/* Image Counter - Top Right */}
+      {!focusMode && moments && moments.length > 1 && (
+        <div className="absolute top-20 right-4 z-[51] bg-black/50 backdrop-blur-md rounded-lg px-3 py-1.5 text-white text-sm font-semibold shadow-lg border border-white/20">
+          {currentMomentIndex + 1}/{moments.length}
         </div>
       )}
     </div>
@@ -368,12 +353,12 @@ const VersesTimeline = ({
       ></div>
 
       {/* Timeline Drawer */}
-      <div className="fixed bottom-0 right-0 h-screen w-80 bg-gradient-to-b from-gray-900 to-gray-950 border-l border-cyan-500/40 shadow-2xl shadow-cyan-900/30 z-50 overflow-hidden flex flex-col">
+      <div className="fixed top-0 right-0 bottom-0 w-80 bg-gradient-to-b from-gray-900 to-gray-950 border-l border-cyan-500/40 shadow-2xl shadow-cyan-900/30 z-50 overflow-hidden flex flex-col">
         {/* Header */}
         <div className="bg-gradient-to-r from-cyan-500/30 to-purple-500/30 border-b border-cyan-500/50 p-4 flex justify-between items-center flex-shrink-0 relative">
           <h3 className="text-white font-bold text-lg flex items-center gap-2">
             <i className="fas fa-map text-cyan-400"></i>
-            Tour Menu
+            Verses Guide
           </h3>
           <button
             onClick={onClose}
@@ -572,6 +557,39 @@ const VerseFooter = ({
 
         {/* Verse Action Buttons - Right side */}
         <div className="absolute bottom-4 right-4 flex flex-col items-center gap-3 z-50">
+          {/* Moment Navigation Arrows - Above buttons (visible to all users) */}
+          {hasMoments && hasMultipleMoments && (
+            <div className="absolute -top-14 left-1/2 -translate-x-1/2 flex items-center gap-0.5 z-50">
+              {currentMomentIndex > 0 && (
+                <button 
+                  className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-lg flex items-center justify-center hover:bg-black/70 transition-all"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setCurrentMomentIndex(prev => prev - 1);
+                  }}
+                  title="Previous moment"
+                >
+                  <i className="fas fa-chevron-left text-white text-sm"></i>
+                </button>
+              )}
+              
+              {currentMomentIndex < currentVerse.moments.length - 1 && (
+                <button 
+                  className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-lg flex items-center justify-center hover:bg-black/70 transition-all"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setCurrentMomentIndex(prev => prev + 1);
+                  }}
+                  title="Next moment"
+                >
+                  <i className="fas fa-chevron-right text-white text-sm"></i>
+                </button>
+              )}
+            </div>
+          )}
+
           {isAuthenticated && currentUser && (() => {
             const currentUserId = String(currentUser?.public_id || currentUser?.id);
             const verseAuthorId = String(getUserId(currentVerse?.author) || '');
@@ -579,39 +597,6 @@ const VerseFooter = ({
             return currentUserId && (currentUserId === verseAuthorId || currentUserId === storyCreatorId);
           })() && (
             <div className="relative">
-              {/* Moment Navigation Arrows - Above ellipsis */}
-              {hasMoments && hasMultipleMoments && (
-                <div className="absolute -top-14 left-1/2 -translate-x-1/2 flex items-center gap-0.5 z-50">
-                  {currentMomentIndex > 0 && (
-                    <button 
-                      className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-lg flex items-center justify-center hover:bg-black/70 transition-all"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setCurrentMomentIndex(prev => prev - 1);
-                      }}
-                      title="Previous moment"
-                    >
-                      <i className="fas fa-chevron-left text-white text-sm"></i>
-                    </button>
-                  )}
-                  
-                  {currentMomentIndex < currentVerse.moments.length - 1 && (
-                    <button 
-                      className="w-8 h-8 rounded-full bg-black/50 backdrop-blur-lg flex items-center justify-center hover:bg-black/70 transition-all"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setCurrentMomentIndex(prev => prev + 1);
-                      }}
-                      title="Next moment"
-                    >
-                      <i className="fas fa-chevron-right text-white text-sm"></i>
-                    </button>
-                  )}
-                </div>
-              )}
-
               <button
                 onClick={(e) => {
                   e.preventDefault();
@@ -658,7 +643,7 @@ const VerseFooter = ({
             </div>
           )}
           
-          {/* Tour Menu Button - Available to all users */}
+          {/* Verses Guide Button - Available to all users */}
           <button
             onClick={(e) => {
               e.preventDefault();
@@ -666,7 +651,7 @@ const VerseFooter = ({
               setShowVersesTimeline(!showVersesTimeline);
             }}
             className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center cursor-pointer transition-all duration-200 ease-in-out relative border border-white/20 hover:bg-cyan-400/20 hover:border-cyan-400 hover:scale-110"
-            title="Tour Menu"
+            title="Verses Guide"
           >
             <div className="absolute inset-0 rounded-full bg-black/30"></div>
             <i className="fas fa-list text-[18px] text-white relative z-10"></i>
@@ -1268,7 +1253,7 @@ const VerseViewer = ({
                 <div className="space-y-3">
                   <h2 className="text-3xl font-bold bg-gradient-to-r from-cyan-300 via-blue-300 to-purple-300 bg-clip-text text-transparent">No Verses Yet</h2>
                   <p className="text-gray-300 text-lg max-w-md">
-                    This story doesn't have any verses. {story?.allow_contributions ? "Be the first to contribute! 🚀" : "Check back later 📖"}
+                    This story doesn&apos;t have any verses. {story?.allow_contributions ? "Be the first to contribute! 🚀" : "Check back later 📖"}
                   </p>
                 </div>
               </div>
