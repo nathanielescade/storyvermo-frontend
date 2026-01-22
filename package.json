@@ -1,0 +1,52 @@
+{
+  "name": "storyvermo-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "analyze": "ANALYZE=true next build",
+    "postinstall": "node -e \"try{require('webpack-bundle-analyzer')}catch(e){}\""
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@fortawesome/fontawesome-svg-core": "^7.1.0",
+    "@fortawesome/free-solid-svg-icons": "^7.1.0",
+    "@fortawesome/react-fontawesome": "^3.1.0",
+    "@mui/material": "^7.3.4",
+    "@swc/helpers": "^0.5.17",
+    "@tanstack/react-query": "^5.90.5",
+    "@tanstack/react-query-devtools": "^5.90.2",
+    "country-state-city": "^3.2.1",
+    "critters": "^0.0.25",
+    "dotenv": "^17.2.3",
+    "framer-motion": "^12.23.24",
+    "lodash-es": "^4.17.21",
+    "lucide-react": "^0.548.0",
+    "next": "^16.0.7",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-country-flag": "^3.1.0",
+    "react-dropzone": "^14.3.8",
+    "react-select": "^5.10.2"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.6",
+    "sharp": "^0.34.5",
+    "tailwindcss": "^4",
+    "webpack-bundle-analyzer": "^4.10.2"
+  },
+  "browserslist": [
+    "last 2 Chrome versions",
+    "last 2 Firefox versions",
+    "last 2 Safari versions",
+    "Edge >= 92",
+    "not ie 11"
+  ]
+}
