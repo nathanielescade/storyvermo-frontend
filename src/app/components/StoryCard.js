@@ -1,6 +1,6 @@
 "use client";
 // StoryCard.js
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import Image from 'next/image';
 import LazyImage from './LazyImage';
@@ -27,7 +27,7 @@ import ShareModal from './ShareModal';
 import CommentModal from './CommentModal';
 
 
-export default function StoryCard({ 
+function StoryCardInner({ 
     story, 
     index, 
     viewType = 'feed',
@@ -73,6 +73,74 @@ export default function StoryCard({
     const cardRef = useRef(null);
     const hologramRef = useRef(null);
     const dropdownRef = useRef(null);
+    const [bubblesCreated, setBubblesCreated] = useState(false);
+    const observerRef = useRef(null);
+
+    // 🚀 PERFORMANCE FIX: Only create bubbles when card is visible in viewport
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        
+        const node = hologramRef.current;
+        if (!node) return;
+
+        // Use Intersection Observer to lazily create bubbles only when visible
+        observerRef.current = new IntersectionObserver(
+            (entries) => {
+                const entry = entries[0];
+                if (entry.isIntersecting && !bubblesCreated) {
+                    // Card is visible - create bubbles
+                    const existingBubbles = node.querySelectorAll('.bubble');
+                    existingBubbles.forEach(bubble => bubble.remove());
+                    
+                    const hologramId = `hologram-${story.id || Math.random().toString(36).substr(2, 9)}`;
+                    node.id = hologramId;
+                    createBubbles(hologramId);
+                    setBubblesCreated(true);
+                } else if (!entry.isIntersecting && bubblesCreated) {
+                    // Card is not visible - remove bubbles to save resources
+                    const existingBubbles = node.querySelectorAll('.bubble');
+                    existingBubbles.forEach(bubble => bubble.remove());
+                    setBubblesCreated(false);
+                }
+            },
+            { threshold: 0.1, rootMargin: '50px' }
+        );
+
+        observerRef.current.observe(node);
+
+        return () => {
+            if (observerRef.current && node) {
+                observerRef.current.unobserve(node);
+            }
+            // Cleanup bubbles
+            const bubbles = node.querySelectorAll('.bubble');
+            bubbles.forEach(bubble => bubble.remove());
+        };
+    }, [story.id, bubblesCreated]);
+
+    // Update following state when story changes
+    useEffect(() => {
+        if (!story) return;
+        
+        const followingValue = story.isFollowing || story.is_following || false;
+        setIsFollowing(followingValue);
+        setLocalCommentsCount(story.comments_count || 0);
+    }, [story]);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setShowDropdown(false);
+                setDropdownCoords(null);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, []);
 
     // Trigger a short burst of extra bubbles in the hologram (e.g., when user likes)
     const triggerLikeBurst = useCallback(() => {
@@ -119,7 +187,7 @@ export default function StoryCard({
     }, []);
 
     // Check if current user is the owner of the story
-    const isOwner = (() => {
+    const isOwner = useMemo(() => {
         if (!currentUser || !story) return false;
   
         const cuUsername = currentUser.username || '';
@@ -148,50 +216,7 @@ export default function StoryCard({
         if (story.creator_user && cuUsername && story.creator_user === cuUsername) return true;
 
         return false;
-    })();
-
-    useEffect(() => {
-        if (!story) return;
-        
-        // Always update state based on the latest props
-        const followingValue = story.isFollowing || story.is_following || false;
-        setIsFollowing(followingValue);
-        setLocalCommentsCount(story.comments_count || 0);
-
-        // Create bubbles around the hologram
-        const node = hologramRef.current;
-        if (node) {
-            const existingBubbles = node.querySelectorAll('.bubble');
-            existingBubbles.forEach(bubble => bubble.remove());
-            
-            const hologramId = `hologram-${story.id || Math.random().toString(36).substr(2, 9)}`;
-            node.id = hologramId;
-            createBubbles(hologramId);
-        }
-
-        // Cleanup function to remove bubbles when component unmounts
-        return () => {
-            if (node) {
-                const existingBubbles = node.querySelectorAll('.bubble');
-                existingBubbles.forEach(bubble => bubble.remove());
-            }
-        };
-    }, [story]);
-
-    // Close dropdown when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-                setShowDropdown(false);
-                setDropdownCoords(null);
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, []);
+    }, [currentUser, story]);
 
     // StoryCard.js - handleFollow function
     const handleFollow = async (event, username) => {
@@ -505,7 +530,7 @@ export default function StoryCard({
                 >
                     {coverImageUrl ? (
                         <div className="relative w-full h-full">
-                            {/* {index === 0 ? (
+                            {index === 0 ? (
                                 <Image
                                     src={coverImageUrl}
                                     alt={story.title || 'Story cover'}
@@ -526,7 +551,7 @@ export default function StoryCard({
                                     quality={60}
                                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
                                 />
-                            )} */}
+                            )}
                         </div>
                     ) : (
                         <div className="scene-bg-placeholder bg-linear-to-br from-slate-800 to-slate-900 flex items-center justify-center">
@@ -860,3 +885,7 @@ export default function StoryCard({
     
     return null;
 }
+
+// 🚀 PERFORMANCE: Memoize component to prevent unnecessary re-renders
+// This is critical for feed performance - prevents all cards from re-rendering when one story changes
+export default React.memo(StoryCardInner);
