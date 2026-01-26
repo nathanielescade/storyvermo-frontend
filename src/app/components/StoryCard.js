@@ -524,7 +524,7 @@ export default function StoryCard({
                                     fill
                                     className="scene-bg w-full h-full"
                                     quality={60}
-                                    // sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
+                                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
                                 />
                             )}
                         </div>

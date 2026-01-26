@@ -198,7 +198,7 @@ export default function FeedClient({ initialTag = 'for-you', initialStories = []
             )}
             {!loading && !error && stories.map((story, index) => (
               <div key={`${story.id || story.slug || index}-${index}`}>
-                <StoryCard 
+                {/* <StoryCard 
                   story={story} 
                   index={index} 
                   viewType="feed"
@@ -206,7 +206,7 @@ export default function FeedClient({ initialTag = 'for-you', initialStories = []
                   onTagSelect={handleTagOptionClick}
                   isAuthenticated={isAuthenticated}
                   openAuthModal={openAuthModal}
-                />
+                /> */}
                </div>
             ))}
 

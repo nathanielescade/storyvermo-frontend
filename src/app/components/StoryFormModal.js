@@ -172,7 +172,7 @@ const VerseItem = memo(({
                       src={buildImageUrl(image, { w: 1080, fmt: 'webp' })}
                       alt={title ? `${title} - Moment ${imgIndex + 1}` : `Moment ${imgIndex + 1}`}
                       fill
-                      // sizes="(max-width: 768px) 50vw, 33vw"
+                      sizes="(max-width: 768px) 50vw, 33vw"
                       className="object-cover rounded-xl border border-gray-700"
                     />
                   </div>
@@ -182,7 +182,7 @@ const VerseItem = memo(({
                       src={image.preview || image.url || image.file_url || (image.file ? URL.createObjectURL(image.file) : '')}
                       alt={title ? `${title} - Moment ${imgIndex + 1}` : `Moment ${imgIndex + 1}`}
                       fill
-                      // sizes="(max-width: 768px) 50vw, 33vw"
+                      sizes="(max-width: 768px) 50vw, 33vw"
                       className="object-cover rounded-xl border border-gray-700"
                     />
                   </div>
