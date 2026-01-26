@@ -1407,19 +1407,26 @@ const StoryFormModal = ({
           verseResponse = await versesApi.updateVerse(verse.slug, verseData);
         } else {
           verseResponse = await versesApi.createVerse(verseData);
-        }
-
-        const imageIds = verse.uploadedImageIds || [];
-        if (imageIds.length > 0) {
-          const momentPromises = imageIds.map((imageId, m) => 
-            momentsApi.createMoment({
-              verse: verseResponse.public_id || verseResponse.id,
-              image_id: imageId,
-              order: m + 1
-            })
-          );
           
-          await Promise.all(momentPromises);
+          // For new verses, if the backend didn't create moments via the serializer,
+          // we need to create them here. Only create if moments don't exist.
+          const imageIds = verse.uploadedImageIds || [];
+          if (imageIds.length > 0 && (!verseResponse.moments || verseResponse.moments.length === 0)) {
+            const momentPromises = imageIds.map((imageId, m) => 
+              momentsApi.createMoment({
+                verse: verseResponse.public_id || verseResponse.id,
+                image_id: imageId,
+                order: m + 1
+              })
+            );
+            
+            try {
+              await Promise.all(momentPromises);
+            } catch (err) {
+              console.error('Error creating moments for new verse:', err);
+              // Don't fail the entire operation if moments fail
+            }
+          }
         }
 
         return verseResponse;

@@ -25,7 +25,7 @@ export default function RootLayout({ children }) {
 
         {/* Google Analytics - DEFERRED to lazyOnload for even better performance */}
         {process.env.NODE_ENV === 'production' && (
-          <>
+          <>  
             <Script
               src="https://www.googletagmanager.com/gtag/js?id=G-JCM36RQZ8G"
               strategy="lazyOnload"  // 🔥 OPTIMIZED: Defer to lazyOnload to reduce critical path
@@ -109,15 +109,7 @@ export default function RootLayout({ children }) {
         </Script>
 
         {/* 🔥 ADD FONT-DISPLAY: SWAP for Font Awesome */}
-        <style dangerouslySetInnerHTML={{__html: `
-          @font-face {
-            font-family: 'Font Awesome 6 Free';
-            font-style: normal;
-            font-weight: 900;
-            font-display: swap;
-            src: url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/webfonts/fa-solid-900.woff2') format('woff2');
-          }
-        `}} />
+
 
         {/* Global Site Schema */}
         <script type="application/ld+json" dangerouslySetInnerHTML={{__html: `

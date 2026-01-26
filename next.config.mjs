@@ -9,26 +9,26 @@ export const config = {
 };
 
 const nextConfig = {
-  eslint: {
-    // Allow deprecated Tailwind class names during build (they still work)
-    ignoreDuringBuilds: true,
-  },
+  // eslint: {
+  //   // Allow deprecated Tailwind class names during build (they still work)
+  //   ignoreDuringBuilds: true,
+  // },
   images: {
     // Let Next.js optimize remote images in production. In development it's fine
     // to leave images unoptimized for local workflows.
     unoptimized: process.env.NODE_ENV === 'development',
-    // Prefer modern formats when possible to reduce transfer sizes
-    formats: ['image/avif', 'image/webp'],
-    // 🔥 AGGRESSIVE: Reduce quality to 60-75 for feed images (user won't notice on mobile)
-    qualities: [60, 75],
-    // 🔥 OPTIMIZED: Reduce device sizes to common breakpoints only
-    deviceSizes: [320, 640, 768, 1024],
-    // 🔥 OPTIMIZED: Smaller image sizes for thumbnails and avatars
-    imageSizes: [32, 48, 64, 96],
-    // 🔥 AGGRESSIVE: Cache optimized remote images longer (6 hours)
-    minimumCacheTTL: 21600,
-    // 🔥 OPTIMIZED: Aggressive dangerously allow SVG optimization
-    dangerouslyAllowSVG: false,
+    // // Prefer modern formats when possible to reduce transfer sizes
+    // formats: ['image/avif', 'image/webp'],
+    // // 🔥 AGGRESSIVE: Reduce quality to 60-75 for feed images (user won't notice on mobile)
+    // qualities: [60, 75],
+    // // 🔥 OPTIMIZED: Reduce device sizes to common breakpoints only
+    // deviceSizes: [320, 640, 768, 1024],
+    // // 🔥 OPTIMIZED: Smaller image sizes for thumbnails and avatars
+    // imageSizes: [32, 48, 64, 96],
+    // // 🔥 AGGRESSIVE: Cache optimized remote images longer (6 hours)
+    // minimumCacheTTL: 21600,
+    // // 🔥 OPTIMIZED: Aggressive dangerously allow SVG optimization
+    // dangerouslyAllowSVG: false,
     remotePatterns: [
       // Local development backend
       {
