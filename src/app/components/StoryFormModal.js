@@ -190,8 +190,8 @@ const VerseItem = memo(({
                 <button 
                   onClick={() => {
                     const imageToDelete = verse.imageIds[imgIndex];
-                    if (imageToDelete && imageToDelete.public_id) {
-                      onDeleteMoment(imageToDelete.public_id);
+                    if (imageToDelete && imageToDelete.momentId) {
+                      onDeleteMoment(imageToDelete.momentId);
                     }
                     onRemoveImage(verse.id, imgIndex);
                   }}
@@ -750,7 +750,8 @@ const StoryFormModal = ({
       isExisting: true,
       imageIds: editingVerse.moments?.filter(m => m.image).map(m => ({ 
         public_id: m.image.public_id,
-        file_url: m.image.file_url
+        file_url: m.image.file_url,
+        momentId: m.id || m.public_id
       })) || [], 
       slug: editingVerse.slug
     }] : 
@@ -762,7 +763,8 @@ const StoryFormModal = ({
       isExisting: true,
       imageIds: verse.moments?.filter(m => m.image).map(m => ({ 
         public_id: m.image.public_id,
-        file_url: m.image.file_url
+        file_url: m.image.file_url,
+        momentId: m.id || m.public_id
       })) || [],
       slug: verse.slug
     })) || [{ id: generateUniqueId(), content: '', url: '', cta_text: '', isExisting: false, imageIds: [] }]
@@ -845,7 +847,8 @@ const StoryFormModal = ({
                 isExisting: true,
                 imageIds: verse.moments?.filter(m => m.image).map(m => ({ 
                   public_id: m.image.public_id,
-                  file_url: m.image.file_url
+                  file_url: m.image.file_url,
+                  momentId: m.id || m.public_id
                 })) || [],
                 slug: verse.slug
               })));
@@ -861,7 +864,8 @@ const StoryFormModal = ({
               isExisting: true,
               imageIds: verse.moments?.filter(m => m.image).map(m => ({ 
                 public_id: m.image.public_id,
-                file_url: m.image.file_url
+                file_url: m.image.file_url,
+                momentId: m.id || m.public_id
               })) || [],
               slug: verse.slug
             })));
@@ -876,7 +880,8 @@ const StoryFormModal = ({
           isExisting: true,
           imageIds: verse.moments?.filter(m => m.image).map(m => ({ 
             public_id: m.image.public_id,
-            file_url: m.image.file_url
+            file_url: m.image.file_url,
+            momentId: m.id || m.public_id
           })) || [],
           slug: verse.slug
         })));
@@ -1404,36 +1409,9 @@ const StoryFormModal = ({
           verseResponse = await versesApi.createVerse(verseData);
         }
 
-        // Handle moments (images) - only create for new ones, delete old ones if changed
         const imageIds = verse.uploadedImageIds || [];
-        
-        // Determine which image IDs are new vs existing
-        const originalImageIds = verse.imageIds
-          ?.filter(img => img.public_id)
-          .map(img => img.public_id) || [];
-        
-        const newImageIds = imageIds.filter(id => !originalImageIds.includes(id));
-        
-        // Delete moments for images that were removed
-        if (verse.slug && editingStory) {
-          const removedImageIds = originalImageIds.filter(id => !imageIds.includes(id));
-          if (removedImageIds.length > 0) {
-            const removedMomentIds = (editingStory.verses || [])
-              .find(v => v.slug === verse.slug)
-              ?.moments
-              ?.filter(m => removedImageIds.includes(m.image?.public_id))
-              ?.map(m => m.public_id) || [];
-            
-            const momentDeletePromises = removedMomentIds.map(momentId =>
-              momentsApi.deleteMoment(momentId).catch(err => {})
-            );
-            await Promise.all(momentDeletePromises);
-          }
-        }
-        
-        // Only create moments for new images
-        if (newImageIds.length > 0) {
-          const momentPromises = newImageIds.map((imageId, m) => 
+        if (imageIds.length > 0) {
+          const momentPromises = imageIds.map((imageId, m) => 
             momentsApi.createMoment({
               verse: verseResponse.public_id || verseResponse.id,
               image_id: imageId,

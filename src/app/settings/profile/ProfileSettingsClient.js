@@ -83,6 +83,7 @@ export default function ProfileSettingsClient() {
     { value: 'fitness', label: 'Fitness & Health', icon: '💪', group: 'Lifestyle' },
     { value: 'mindfulness', label: 'Mindfulness & Growth', icon: '🧘', group: 'Lifestyle' },
     { value: 'travel', label: 'Travel & Adventure', icon: '✈️', group: 'Lifestyle' },
+    { value: 'hotel', label: 'Hotel & Hospitality', icon: '🏨', group: 'Lifestyle' },
     
     // Food & Culture
     { value: 'food', label: 'Food & Cooking', icon: '🍳', group: 'Food & Culture' },
@@ -98,6 +99,7 @@ export default function ProfileSettingsClient() {
     { value: 'startup', label: 'Startups & Business', icon: '💼', group: 'Business' },
     { value: 'finance', label: 'Finance & Investing', icon: '📈', group: 'Business' },
     { value: 'career', label: 'Career & Growth', icon: '🎯', group: 'Business' },
+    { value: 'real_estate', label: 'Real Estate', icon: '🏘️', group: 'Business' },
     
     // Social Causes & Community
     { value: 'causes', label: 'Social Causes', icon: '✊', group: 'Community' },
@@ -310,8 +312,8 @@ export default function ProfileSettingsClient() {
   const handleCategoriesChange = (selectedOption) => {
     if (!selectedOption) return;
     
-    // Only add if less than 3 categories selected
-    if (selectedCategories.length < 3) {
+    // Only add if less than 1 category selected
+    if (selectedCategories.length < 1) {
       const newCategories = [...selectedCategories, selectedOption];
       setSelectedCategories(newCategories);
       setFormData(prev => ({
@@ -589,7 +591,7 @@ export default function ProfileSettingsClient() {
           {/* Categories */}
           <div>
             <label className="block text-sm font-medium text-blue-300 uppercase tracking-wider mb-2">
-              Preferred Content Categories (Optional - Max 3)
+              Preferred Content Category (Optional)
             </label>
             
             {/* Display selected categories as chips */}
@@ -611,8 +613,8 @@ export default function ProfileSettingsClient() {
               </div>
             )}
             
-            {/* Select dropdown - single select, no keyboard input, disabled when 3 selected */}
-            {selectedCategories.length < 3 && (
+            {/* Select dropdown - single select, no keyboard input, disabled when 1 selected */}
+            {selectedCategories.length < 1 && (
               <Select
                 value={null}
                 onChange={handleCategoriesChange}
@@ -647,9 +649,9 @@ export default function ProfileSettingsClient() {
               />
             )}
             
-            {selectedCategories.length >= 3 && (
+            {selectedCategories.length >= 1 && (
               <div className="p-3 bg-blue-900/30 border border-blue-500/30 rounded-lg text-blue-200 text-sm text-center">
-                Maximum 3 categories selected
+                Category selected
               </div>
             )}
           </div>

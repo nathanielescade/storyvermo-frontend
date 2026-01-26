@@ -10,6 +10,56 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://storyvermo.com';
 // Then revalidates in background, so next visitor gets fresh data
 export const revalidate = 10;
 
+// 🔥 CRITICAL FOR SEO: Allow search engine indexing and caching
+export async function generateMetadata({ params }) {
+  try {
+    const { slug } = await params;
+    const story = await storiesApi.getStoryBySlug(slug);
+    
+    if (!story) {
+      return {
+        title: 'Story Not Found',
+      };
+    }
+
+    const primaryImage = (() => {
+      if (story.cover_image) {
+        if (typeof story.cover_image === 'string') return story.cover_image;
+        return story.cover_image.file_url || story.cover_image.url || null;
+      }
+      if (Array.isArray(story.verses) && story.verses.length > 0) {
+        const v = story.verses[0];
+        if (v) {
+          const m = Array.isArray(v.moments) && v.moments.length > 0 ? v.moments[0] : (Array.isArray(v.images) && v.images.length > 0 ? v.images[0] : null);
+          if (m) {
+            if (typeof m === 'string') return m;
+            if (m.file_url) return m.file_url;
+            if (m.url) return m.url;
+            if (m.image && typeof m.image === 'string') return m.image;
+          }
+        }
+      }
+      return null;
+    })();
+
+    return {
+      title: story.title || 'Story',
+      description: story.description || 'Read this amazing story on StoryVermo',
+      image: primaryImage || undefined,
+      openGraph: {
+        title: story.title,
+        description: story.description,
+        image: primaryImage,
+        type: 'article',
+      },
+    };
+  } catch (error) {
+    return {
+      title: 'Story Not Found',
+    };
+  }
+}
+
 // Metadata is now handled in layout.js for faster generation (single API call instead of duplicate)
 
 // Server Component - no 'use client'

@@ -13,6 +13,50 @@ const nextConfig = {
     // Allow deprecated Tailwind class names during build (they still work)
     ignoreDuringBuilds: true,
   },
+  // 🔥 CRITICAL FOR SEO: Set proper cache headers for dynamic content
+  async headers() {
+    return [
+      {
+        source: '/stories/:slug',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+        ],
+      },
+      {
+        source: '/verses/:verseId',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+        ],
+      },
+      {
+        source: '/tags/:tag',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=1800, s-maxage=1800, stale-while-revalidate=86400',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+        ],
+      },
+    ];
+  },
   images: {
     // Let Next.js optimize remote images in production. In development it's fine
     // to leave images unoptimized for local workflows.

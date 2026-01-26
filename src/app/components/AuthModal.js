@@ -60,6 +60,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
     // BUSINESS & COMMERCE
     { value: 'business', label: 'Business & Sales', icon: '💰' },
     { value: 'entrepreneurship', label: 'Entrepreneurship', icon: '🚀' },
+    { value: 'real_estate', label: 'Real Estate', icon: '🏘️' },
     
     // FARMING & AGRICULTURE
     { value: 'agriculture', label: 'Agriculture & Farming', icon: '🚜' },
@@ -73,6 +74,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
     { value: 'fashion', label: 'Fashion & Shopping', icon: '🛍️' },
     { value: 'food', label: 'Food & Cooking', icon: '🍳' },
     { value: 'travel', label: 'Travel', icon: '✈️' },
+    { value: 'hotel', label: 'Hotel & Hospitality', icon: '🏨' },
     { value: 'fitness', label: 'Fitness & Health', icon: '💪' },
     
     // TECHNOLOGY & AUTOMOTIVE
@@ -208,8 +210,8 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
   const handleCategoriesChange = (selectedOption) => {
     if (!selectedOption) return;
     
-    // Only add if less than 3 categories selected
-    if (selectedCategories.length < 3) {
+    // Only add if less than 1 category selected
+    if (selectedCategories.length < 1) {
       const newCategories = [...selectedCategories, selectedOption];
       setSelectedCategories(newCategories);
       setFormData(prev => ({
@@ -891,7 +893,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
                 {signupStep === 2 && (
                   <>
                     <div className="mt-4">
-                      <label className="block text-sm font-medium text-blue-300 mb-2">Bio</label>
+                      <label className="block text-sm font-medium text-blue-300 mb-2">Bio <span className="text-gray-400">(optional)</span></label>
                       <textarea
                         name="bio"
                         value={formData.bio}
@@ -904,7 +906,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
                     </div>
 
                     <div className="mt-4">
-                      <label className="block text-sm font-medium text-blue-300 mb-2">Categories <span className="text-gray-400">(max 3, optional)</span></label>
+                      <label className="block text-sm font-medium text-blue-300 mb-2">Category <span className="text-gray-400">(optional)</span></label>
                       
                       {/* Display selected categories as chips */}
                       {selectedCategories.length > 0 && (
@@ -925,8 +927,8 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
                         </div>
                       )}
                       
-                      {/* Select dropdown - single select, no keyboard input, disabled when 3 selected */}
-                      {selectedCategories.length < 3 && (
+                      {/* Select dropdown - single select, no keyboard input, disabled when 1 selected */}
+                      {selectedCategories.length < 1 && (
                         <Select
                           value={null}
                           onChange={handleCategoriesChange}
@@ -969,13 +971,14 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
                     </div>
 
                     <div className="mt-4">
-                      <label className="block text-sm font-medium text-blue-300 mb-2">Country</label>
+                      <label className="block text-sm font-medium text-blue-300 mb-2">Country <span className="text-gray-400">(optional)</span></label>
                       <Select
                         value={selectedCountry}
                         onChange={handleCountryChange}
                         options={countryOptions}
                         styles={customSelectStyles}
                         isClearable
+                        isSearchable={false}
                         placeholder="Country (optional)"
                         formatOptionLabel={country => (
                           <div className="flex items-center gap-2">
@@ -994,7 +997,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
                     </div>
 
                     <div className="mt-4">
-                      <label className="block text-sm font-medium text-blue-300 mb-2">City</label>
+                      <label className="block text-sm font-medium text-blue-300 mb-2">City <span className="text-gray-400">(optional)</span></label>
                       <Select
                         value={selectedCity}
                         onChange={handleCityChange}
@@ -1084,7 +1087,7 @@ const AuthModal = ({ isOpen, onClose, onAuthSuccess, initialMode = 'login' }) =>
                 disabled={loading}
               >
                 <span id="authSubmitText">
-                  {loading ? 'PROCESSING...' : (isLoginMode ? 'LOGIN' : (signupStep === 1 ? 'NEXT' : 'SIGN UP'))}
+                  {loading ? (isLoginMode ? 'LOGGING IN...' : 'SIGNING UP...') : (isLoginMode ? 'LOGIN' : (signupStep === 1 ? 'NEXT' : 'SIGN UP'))}
                 </span>
                 {!loading && (
                   <i id="authSubmitIcon" className="fas fa-arrow-right text-white group-hover:translate-x-1 transition-transform"></i>
