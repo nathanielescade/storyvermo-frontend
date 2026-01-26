@@ -505,14 +505,14 @@ export default function StoryCard({
                 >
                     {coverImageUrl ? (
                         <div className="relative w-full h-full">
-                            {index === 0 ? (
+                            {/* {index === 0 ? (
                                 <Image
                                     src={coverImageUrl}
                                     alt={story.title || 'Story cover'}
                                     fill
                                     className="scene-bg w-full h-full"
                                     quality={60}
-                                    // sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
+                                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
                                     priority
                                     fetchPriority="high"
                                     loading="eager"
@@ -526,7 +526,7 @@ export default function StoryCard({
                                     quality={60}
                                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
                                 />
-                            )}
+                            )} */}
                         </div>
                     ) : (
                         <div className="scene-bg-placeholder bg-linear-to-br from-slate-800 to-slate-900 flex items-center justify-center">
