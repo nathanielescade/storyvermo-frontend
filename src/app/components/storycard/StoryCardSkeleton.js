@@ -83,7 +83,7 @@ export default function StoryCardSkeleton({ story, index, viewType = 'feed' }) {
                                 quality={50}
                                 loading="eager"
                                 className="scene-bg w-full h-full"
-                                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
+                                // sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
                             />
                         ) : (
                             <Image
@@ -92,7 +92,7 @@ export default function StoryCardSkeleton({ story, index, viewType = 'feed' }) {
                                 fill
                                 quality={60}
                                 className="scene-bg w-full h-full"
-                                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
+                                // sizes="(max-width: 640px) 100vw, (max-width: 1024px) 80vw, 50vw"
                             />
                         )}
                     </div>
