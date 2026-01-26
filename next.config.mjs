@@ -64,7 +64,7 @@ const nextConfig = {
       },
       {
         protocol: 'https',
-        hostname: ['storyvermo.com', '**.storyvermo.com'],
+        hostname: '**.storyvermo.com',
         pathname: '/**',
       },
     ],
