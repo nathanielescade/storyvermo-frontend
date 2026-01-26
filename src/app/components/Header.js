@@ -95,7 +95,7 @@ const Header = ({ openAuthModal }) => {
           <i className="fas fa-search text-white text-xl"></i>
         </button>
         
-        <NotificationBell 
+        {/* <NotificationBell 
           isOpen={showNotifications}
           onOpen={() => {
             setShowNotifications(true);
@@ -103,7 +103,7 @@ const Header = ({ openAuthModal }) => {
             setShowUserMenu(false);
           }}
           onClose={() => setShowNotifications(false)}
-        />
+        /> */}
         
         {/* User menu or login button */}
         <UserMenu 
