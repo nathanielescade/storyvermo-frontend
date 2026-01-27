@@ -92,6 +92,97 @@ const DeleteVerseConfirmation = ({ isOpen, verseNumber, onConfirm, onCancel }) =
   );
 };
 
+const SocialInputModal = ({ isOpen, onClose, onConfirm, title, placeholder, icon, color, description, prefix = '' }) => {
+  const [inputValue, setInputValue] = React.useState('');
+  const inputRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (isOpen && inputRef.current) {
+      setInputValue(prefix);
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [isOpen, prefix]);
+
+  const handleConfirm = () => {
+    if (inputValue.trim() && inputValue.trim() !== prefix) {
+      onConfirm(inputValue);
+      setInputValue('');
+      onClose();
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      handleConfirm();
+    } else if (e.key === 'Escape') {
+      onClose();
+      setInputValue('');
+    }
+  };
+
+  if (!isOpen) return null;
+
+  const colorClasses = {
+    green: 'from-green-600 to-green-700 border-green-500/40',
+    blue: 'from-blue-600 to-blue-700 border-blue-500/40',
+    cyan: 'from-cyan-600 to-cyan-700 border-cyan-500/40',
+    sky: 'from-sky-600 to-sky-700 border-sky-500/40',
+    pink: 'from-pink-600 to-pink-700 border-pink-500/40'
+  };
+
+  const colorClass = colorClasses[color] || colorClasses.blue;
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[10200] flex items-center justify-center p-4">
+      <div className="bg-gradient-to-br from-slate-900 to-indigo-900 border border-gray-700/50 rounded-2xl p-8 max-w-md w-full shadow-2xl">
+        {/* Icon and Title */}
+        <div className="flex items-center gap-3 mb-6">
+          <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${colorClass} flex items-center justify-center shadow-lg`}>
+            <i className={`${icon} text-white text-lg`}></i>
+          </div>
+          <div>
+            <h3 className="text-xl font-bold text-white">{title}</h3>
+            {description && <p className="text-xs text-gray-400">{description}</p>}
+          </div>
+        </div>
+
+        {/* Input Field */}
+        <div className="mb-6">
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder={placeholder}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            className="w-full px-4 py-3 bg-slate-800/60 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 transition-all"
+          />
+        </div>
+
+        {/* Buttons */}
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={() => {
+              onClose();
+              setInputValue('');
+            }}
+            className="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={!inputValue.trim()}
+            className={`px-6 py-2 bg-gradient-to-r ${colorClass} text-white rounded-lg transition-all font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            <i className={icon}></i> Add
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const VerseItem = memo(({ 
   verse, 
   index, 
@@ -104,7 +195,9 @@ const VerseItem = memo(({
   onDeleteMoment,
   isEditingVerse,
   title,
-  isPremium = false
+  isPremium = false,
+  setSocialModalConfig,
+  setShowSocialModal
 }) => {
   const textareaRef = useRef(null);
   const isExisting = verse.isExisting;
@@ -255,7 +348,146 @@ const VerseItem = memo(({
             <label className="block text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
               <i className="fas fa-link text-purple-400"></i> Verse Link (Optional)
             </label>
-            <p className="text-xs text-gray-500 mb-2">Add a secure HTTPS link for this verse</p>
+            
+            {/* Social Media Quick Buttons */}
+            <div className="mb-4">
+              <p className="text-xs text-gray-500 mb-2">Quick social links:</p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSocialModalConfig({
+                      title: 'WhatsApp',
+                      placeholder: '1234567890 (add your number after the +)',
+                      icon: 'fab fa-whatsapp',
+                      color: 'green',
+                      description: 'Country code is required (e.g., +1, +44, +91)',
+                      prefix: '+',
+                      verseId: verse.id,
+                      onConfirm: (phone) => {
+                        const cleaned = phone.replace(/[^0-9+]/g, '');
+                        if (!cleaned.startsWith('+')) {
+                          alert('Please include country code (e.g., +1 for USA)');
+                          return;
+                        }
+                        const waLink = `https://wa.me/${cleaned}`;
+                        onVerseUrlChange(verse.id, waLink);
+                        onVerseCtaTextChange(verse.id, 'Chat on WhatsApp');
+                      }
+                    });
+                    setShowSocialModal(true);
+                  }}
+                  className="px-3 py-1.5 text-xs bg-green-600/30 hover:bg-green-600/50 text-green-300 border border-green-600/40 rounded-full transition-colors"
+                  title="Add WhatsApp link"
+                >
+                  <i className="fab fa-whatsapp mr-1"></i>WhatsApp
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSocialModalConfig({
+                      title: 'Email',
+                      placeholder: 'Enter email address',
+                      icon: 'fas fa-envelope',
+                      color: 'blue',
+                      description: 'Your email address',
+                      verseId: verse.id,
+                      onConfirm: (email) => {
+                        const mailtoLink = `mailto:${email}`;
+                        onVerseUrlChange(verse.id, mailtoLink);
+                        onVerseCtaTextChange(verse.id, 'Send Email');
+                      }
+                    });
+                    setShowSocialModal(true);
+                  }}
+                  className="px-3 py-1.5 text-xs bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-600/40 rounded-full transition-colors"
+                  title="Add email link"
+                >
+                  <i className="fas fa-envelope mr-1"></i>Email
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSocialModalConfig({
+                      title: 'Phone Call',
+                      placeholder: '1234567890 (add your number after the +)',
+                      icon: 'fas fa-phone',
+                      color: 'cyan',
+                      description: 'Country code is required (e.g., +1, +44, +91)',
+                      prefix: '+',
+                      verseId: verse.id,
+                      onConfirm: (phone) => {
+                        const cleaned = phone.replace(/[^0-9+]/g, '');
+                        if (!cleaned.startsWith('+')) {
+                          alert('Please include country code (e.g., +1 for USA)');
+                          return;
+                        }
+                        const telLink = `tel:${cleaned}`;
+                        onVerseUrlChange(verse.id, telLink);
+                        onVerseCtaTextChange(verse.id, 'Call Now');
+                      }
+                    });
+                    setShowSocialModal(true);
+                  }}
+                  className="px-3 py-1.5 text-xs bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-300 border border-cyan-600/40 rounded-full transition-colors"
+                  title="Add phone link"
+                >
+                  <i className="fas fa-phone mr-1"></i>Phone
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSocialModalConfig({
+                      title: 'Telegram',
+                      placeholder: 'Enter Telegram username or phone',
+                      icon: 'fab fa-telegram',
+                      color: 'sky',
+                      description: 'Username or phone number',
+                      verseId: verse.id,
+                      onConfirm: (username) => {
+                        const tgLink = `https://t.me/${username.replace(/[^a-zA-Z0-9_]/g, '')}`;
+                        onVerseUrlChange(verse.id, tgLink);
+                        onVerseCtaTextChange(verse.id, 'Chat on Telegram');
+                      }
+                    });
+                    setShowSocialModal(true);
+                  }}
+                  className="px-3 py-1.5 text-xs bg-sky-600/30 hover:bg-sky-600/50 text-sky-300 border border-sky-600/40 rounded-full transition-colors"
+                  title="Add Telegram link"
+                >
+                  <i className="fab fa-telegram mr-1"></i>Telegram
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSocialModalConfig({
+                      title: 'Instagram',
+                      placeholder: 'Enter Instagram username',
+                      icon: 'fab fa-instagram',
+                      color: 'pink',
+                      description: 'Your Instagram handle',
+                      verseId: verse.id,
+                      onConfirm: (username) => {
+                        const igLink = `https://instagram.com/${username.replace(/[^a-zA-Z0-9_.]/g, '')}`;
+                        onVerseUrlChange(verse.id, igLink);
+                        onVerseCtaTextChange(verse.id, 'Follow on Instagram');
+                      }
+                    });
+                    setShowSocialModal(true);
+                  }}
+                  className="px-3 py-1.5 text-xs bg-pink-600/30 hover:bg-pink-600/50 text-pink-300 border border-pink-600/40 rounded-full transition-colors"
+                  title="Add Instagram link"
+                >
+                  <i className="fab fa-instagram mr-1"></i>Instagram
+                </button>
+              </div>
+            </div>
+            
+            <p className="text-xs text-gray-500 mb-2">Or add a secure HTTPS link</p>
             <div className="relative">
               <input 
                 type="text"
@@ -337,7 +569,9 @@ const VerseList = ({
   validationErrors, 
   editingVerse, 
   title,
-  isPremium = false
+  isPremium = false,
+  setSocialModalConfig,
+  setShowSocialModal
 }) => {
   return (
     <div className="mb-10">
@@ -361,6 +595,8 @@ const VerseList = ({
             onVerseUrlChange={handleVerseUrlChange}
             onVerseCtaTextChange={handleVerseCtaTextChange}
             isPremium={isPremium}
+            setSocialModalConfig={setSocialModalConfig}
+            setShowSocialModal={setShowSocialModal}
             onRemoveImage={(verseId, imgIndex) => {
               setVerses(prevVerses => 
                 prevVerses.map(v => {
@@ -790,6 +1026,19 @@ const StoryFormModal = ({
   const [showDeleteVerseConfirmation, setShowDeleteVerseConfirmation] = useState(false);
   const [verseToDelete, setVerseToDelete] = useState(null);
   
+  // Social input modal state
+  const [showSocialModal, setShowSocialModal] = useState(false);
+  const [socialModalConfig, setSocialModalConfig] = useState({
+    title: '',
+    placeholder: '',
+    icon: '',
+    color: '',
+    description: '',
+    prefix: '',
+    onConfirm: null,
+    verseId: null
+  });
+  
   const verseRefs = useRef([]);
   const versesRef = useRef(verses);
 
@@ -844,6 +1093,8 @@ const StoryFormModal = ({
               setVerses(fullStory.verses.map(verse => ({
                 id: verse.slug || generateUniqueId(),
                 content: verse.content || '',
+                url: verse.url || '',
+                cta_text: verse.cta_text || '',
                 isExisting: true,
                 imageIds: verse.moments?.filter(m => m.image).map(m => ({ 
                   public_id: m.image.public_id,
@@ -861,6 +1112,8 @@ const StoryFormModal = ({
             setVerses(editingStory.verses.map(verse => ({
               id: verse.slug || generateUniqueId(),
               content: verse.content || '',
+              url: verse.url || '',
+              cta_text: verse.cta_text || '',
               isExisting: true,
               imageIds: verse.moments?.filter(m => m.image).map(m => ({ 
                 public_id: m.image.public_id,
@@ -877,6 +1130,8 @@ const StoryFormModal = ({
         setVerses(editingStory.verses.map(verse => ({
           id: verse.slug || generateUniqueId(),
           content: verse.content || '',
+          url: verse.url || '',
+          cta_text: verse.cta_text || '',
           isExisting: true,
           imageIds: verse.moments?.filter(m => m.image).map(m => ({ 
             public_id: m.image.public_id,
@@ -1678,39 +1933,41 @@ const StoryFormModal = ({
                   )}
                 </div>
                 
-                <div className="mb-8">
-                  <label className="block text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
-                    <span className="fas fa-link text-cyan-400"></span> Story Link (Optional)
-                  </label>
-                  <p className="text-xs text-gray-500 mb-2">Add a secure link (https:// only) to your website, social media, WhatsApp, etc.</p>
-                  <div className="relative">
-                    <input 
-                      type="text"
-                      placeholder="https://example.com or https://wa.me/... or https://instagram.com/..."
-                      value={storyUrl}
-                      onChange={(e) => {
-                        setStoryUrl(normalizeUrl(e.target.value));
-                      }}
-                      className="w-full px-5 py-2 pr-12 bg-slate-900/60 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 text-lg"
-                    />
-                    {storyUrl && (
-                      <button
-                        type="button"
-                        onClick={() => setStoryUrl('')}
-                        className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-red-400 transition-colors duration-200 z-10"
-                        title="Clear URL"
-                      >
-                        <i className="fas fa-times text-lg"></i>
-                      </button>
-                    )}
-                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500/5 to-blue-500/5 opacity-0 pointer-events-none transition-opacity duration-300"></div>
+                {(currentUser?.profile?.is_premium || currentUser?.is_premium) && (
+                  <div className="mb-8">
+                    <label className="block text-sm font-medium text-gray-300 mb-4 flex items-center gap-2">
+                      <span className="fas fa-link text-cyan-400"></span> Story Link (Optional)
+                    </label>
+                    <p className="text-xs text-gray-500 mb-2">Add a secure link (https:// only) to your website, social media, WhatsApp, etc.</p>
+                    <div className="relative">
+                      <input 
+                        type="text"
+                        placeholder="https://example.com or https://wa.me/... or https://instagram.com/..."
+                        value={storyUrl}
+                        onChange={(e) => {
+                          setStoryUrl(normalizeUrl(e.target.value));
+                        }}
+                        className="w-full px-5 py-2 pr-12 bg-slate-900/60 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/30 transition-all duration-300 text-lg"
+                      />
+                      {storyUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setStoryUrl('')}
+                          className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-red-400 transition-colors duration-200 z-10"
+                          title="Clear URL"
+                        >
+                          <i className="fas fa-times text-lg"></i>
+                        </button>
+                      )}
+                      <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500/5 to-blue-500/5 opacity-0 pointer-events-none transition-opacity duration-300"></div>
+                    </div>
+                    {storyUrl && isValidUrl(storyUrl) ? (
+                      <p className="text-green-400 text-sm mt-2">✅ Valid URL</p>
+                    ) : storyUrl ? (
+                      <p className="text-red-400 text-sm mt-2">❌ Invalid URL format</p>
+                    ) : null}
                   </div>
-                  {storyUrl && isValidUrl(storyUrl) ? (
-                    <p className="text-green-400 text-sm mt-2">✅ Valid URL</p>
-                  ) : storyUrl ? (
-                    <p className="text-red-400 text-sm mt-2">❌ Invalid URL format</p>
-                  ) : null}
-                </div>
+                )}
                 
                 <TagInput 
                   tagInput={tagInput}
@@ -1813,6 +2070,8 @@ const StoryFormModal = ({
                 handleVerseCtaTextChange={handleVerseCtaTextChange}
                 handleAddVerse={handleAddVerse}
                 isPremium={currentUser?.profile?.is_premium || currentUser?.is_premium || false}
+                setSocialModalConfig={setSocialModalConfig}
+                setShowSocialModal={setShowSocialModal}
               />
             </div>
           </div>
@@ -1836,6 +2095,22 @@ const StoryFormModal = ({
         verseNumber={verseToDelete?.number}
         onConfirm={handleConfirmVerseDelete}
         onCancel={handleCancelVerseDelete}
+      />
+      
+      <SocialInputModal
+        isOpen={showSocialModal}
+        onClose={() => setShowSocialModal(false)}
+        onConfirm={(value) => {
+          if (socialModalConfig.onConfirm) {
+            socialModalConfig.onConfirm(value);
+          }
+        }}
+        title={socialModalConfig.title}
+        placeholder={socialModalConfig.placeholder}
+        icon={socialModalConfig.icon}
+        color={socialModalConfig.color}
+        description={socialModalConfig.description}
+        prefix={socialModalConfig.prefix}
       />
       
       <ConfirmationDialog 

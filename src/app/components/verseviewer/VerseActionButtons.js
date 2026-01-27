@@ -190,7 +190,7 @@ const VerseActionButtons = ({
     const saveButtonClasses = `${baseButtonClasses} ${hoverClasses} ${isSaved ? activeClasses : inactiveClasses} ${isSaveLoading ? 'transition-none' : ''}`;
 
     return (
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-end gap-3">
             {/* LIKE button (top) - HIDDEN */}
             <div 
                 className={likeButtonClasses}
@@ -242,53 +242,6 @@ const VerseActionButtons = ({
                          title="You saved this verse"></div>
                 )}
             </div>
-
-            {/* VERSE CTA button - Show link icon, on click reveal CTA text button */}
-            {verse?.url && isValidUrl(verse.url) && (
-                <div className="relative">
-                    {!showCtaText ? (
-                        // Show only link icon
-                        <button 
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setShowCtaText(true);
-                            }}
-                            className="w-12 h-12 rounded-full flex items-center justify-center cursor-pointer transition-all duration-200 ease-in-out relative border border-cyan-500/50 hover:scale-110"
-                            title="Click to show CTA"
-                            style={{ 
-                                background: 'linear-gradient(135deg, #00d4ff 0%, #0099ff 100%)', 
-                                boxShadow: '0 4px 15px rgba(0, 212, 255, 0.3), inset 0 1px 0 rgba(255,255,255,0.3)'
-                            }}
-                        >
-                            <i className="fas fa-link text-white text-lg"></i>
-                        </button>
-                    ) : (
-                        // Show CTA text button
-                        <button 
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                window.open(verse.url, '_blank', 'noopener,noreferrer');
-                                setShowCtaText(false);
-                            }}
-                            onBlur={() => {
-                                // Hide CTA text when user clicks away
-                                setTimeout(() => setShowCtaText(false), 200);
-                            }}
-                            className="px-4 py-2 rounded-full flex items-center justify-center cursor-pointer transition-all duration-200 ease-in-out border border-cyan-500/50 hover:scale-105 whitespace-nowrap text-sm font-medium text-white"
-                            style={{ 
-                                background: 'linear-gradient(135deg, #00d4ff 0%, #0099ff 100%)', 
-                                boxShadow: '0 4px 15px rgba(0, 212, 255, 0.3), inset 0 1px 0 rgba(255,255,255,0.3)'
-                            }}
-                            autoFocus
-                        >
-                            <i className="fas fa-external-link-alt text-white text-sm mr-2"></i>
-                            {verse.cta_text || 'Open Link'}
-                        </button>
-                    )}
-                </div>
-            )}
 
             {/* CONTRIBUTE button (bottom) - Bigger and with gradient like HologramIcons */}
             {story?.allow_contributions ? (

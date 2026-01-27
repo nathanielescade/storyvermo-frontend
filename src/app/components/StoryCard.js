@@ -558,7 +558,7 @@ function StoryCardInner({
                     
                     <div 
                         ref={hologramRef}
-                        className="fixed-hologram absolute bottom-36  left-[5%] right-[5%] bg-black/60 backdrop-blur-[0.5px] border-3 border-[rgba(0,212,255,0.5)] rounded-2xl p-3 overflow-visible shadow-2xl shadow-blue-500/40"
+                        className={`fixed-hologram absolute bottom-36 left-[5%] right-[5%] bg-black/60 backdrop-blur-[0.5px] rounded-2xl p-3 overflow-visible shadow-2xl ${story.featured ? 'border-l-4 border-l-amber-400 border-3 border-amber-400/40 shadow-amber-500/40' : 'border-3 border-[rgba(0,212,255,0.5)] shadow-blue-500/40'}`}
                         style={{
                             position: 'absolute',
                             transform: 'translateZ(0)',
@@ -566,6 +566,15 @@ function StoryCardInner({
                             userSelect: 'none'
                         }}
                     >
+                        {/* Featured Crown Icon */}
+                        {story.featured && (
+                            <div className="absolute left-4 z-20" style={{top: '-14px'}}>
+                                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-amber-400 to-amber-500 flex items-center justify-center shadow-lg shadow-amber-500/50 border border-amber-200/80">
+                                    <i className="fas fa-crown text-white text-xs drop-shadow-lg"></i>
+                                </div>
+                            </div>
+                        )}
+                        
                         <HologramIcons 
                             story={story}
                             isOwner={isOwner}

@@ -55,7 +55,7 @@ export default function ExploreCategoriesGrid({ onSelectCategory, onClose }) {
           <div className="relative max-w-2xl">
             <input
               type="text"
-              placeholder="Search categories..."
+              placeholder="Search categories/tags..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-4 py-3 rounded-lg bg-slate-900/60 text-white placeholder-gray-500 border border-cyan-500/30 focus:border-cyan-500/60 focus:outline-none focus:ring-1 focus:ring-cyan-500/40 transition-all"
@@ -85,13 +85,47 @@ export default function ExploreCategoriesGrid({ onSelectCategory, onClose }) {
 
       {/* Categories Grid */}
       {!loading && !error && filteredTags.length > 0 && (
-        <div className="max-w-7xl mx-auto px-4 mb-12">
+        <div className="max-w-7xl mx-auto px-4 mt-16 mb-20">
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Golden - Featured Stories Card */}
+            <button
+              onClick={() => onSelectCategory('featured')}
+              className="group cursor-pointer rounded-xl p-6 border border-amber-500/60 hover:border-amber-300/100 transition-all duration-300 hover:shadow-2xl hover:shadow-amber-500/40 hover:-translate-y-2 bg-gradient-to-br from-amber-900/50 to-yellow-900/40 text-center relative overflow-hidden h-48 lg:col-span-2 lg:row-span-2"
+            >
+              {/* Hover bar */}
+              <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
+
+              {/* Animated background gradient effect - golden */}
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-yellow-600/5 group-hover:from-amber-500/20 group-hover:to-yellow-600/15 transition-all duration-300 animate-pulse"></div>
+
+              {/* Glow effect on hover */}
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-radial-gradient pointer-events-none" style={{backgroundImage: 'radial-gradient(circle at center, rgba(251, 191, 36, 0.1) 0%, transparent 70%)'}}></div>
+
+              {/* Content */}
+              <div className="relative z-10 h-full flex flex-col justify-between items-center">
+                {/* Icon and Title */}
+                <div className="w-full flex flex-col items-center">
+                  <div className="flex items-center justify-center w-16 h-16 rounded-lg bg-gradient-to-br from-amber-500/40 to-yellow-500/30 mb-4 group-hover:from-amber-400/60 group-hover:to-yellow-400/50 transition-all border border-amber-400/60 group-hover:scale-110 duration-300">
+                    <i className="fas fa-crown text-amber-200 text-2xl group-hover:animate-bounce"></i>
+                  </div>
+                  <h2 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-200 to-yellow-300 group-hover:from-amber-100 group-hover:to-yellow-200 transition-all">
+                    Golden
+                  </h2>
+                </div>
+
+                {/* Stats at bottom */}
+                <div className="flex items-center gap-2 text-base text-amber-200/80 group-hover:text-amber-100 transition-colors">
+                  <i className="fas fa-sparkles text-amber-300 group-hover:text-amber-200 group-hover:scale-125 transition-all"></i>
+                  <span>Exclusive</span>
+                </div>
+              </div>
+            </button>
+
             {filteredTags.map((tag) => (
               <button
                 key={tag.id || tag.slug}
                 onClick={() => onSelectCategory(tag.slug)}
-                className="group cursor-pointer rounded-xl p-6 border border-gray-700/40 hover:border-cyan-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/15 hover:-translate-y-1 bg-gradient-to-br from-slate-800/40 to-slate-900/40 text-left relative overflow-hidden h-40"
+                className="group cursor-pointer rounded-xl p-6 border border-gray-700/40 hover:border-cyan-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/15 hover:-translate-y-1 bg-gradient-to-br from-slate-800/40 to-slate-900/40 text-center relative overflow-hidden h-40"
               >
                 {/* Hover bar */}
                 <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300"></div>
@@ -100,9 +134,9 @@ export default function ExploreCategoriesGrid({ onSelectCategory, onClose }) {
                 <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/0 to-blue-600/0 group-hover:from-cyan-500/5 group-hover:to-blue-600/5 transition-all duration-300"></div>
 
                 {/* Content */}
-                <div className="relative z-10 h-full flex flex-col justify-between">
+                <div className="relative z-10 h-full flex flex-col justify-between items-center">
                   {/* Icon and Title */}
-                  <div>
+                  <div className="flex flex-col items-center">
                     <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-600/20 mb-3 group-hover:from-cyan-500/30 group-hover:to-blue-600/30 transition-all border border-cyan-500/20">
                       <i className="fas fa-tag text-cyan-400 text-lg"></i>
                     </div>
@@ -112,10 +146,7 @@ export default function ExploreCategoriesGrid({ onSelectCategory, onClose }) {
                   </div>
 
                   {/* Stats at bottom */}
-                  <div className="flex items-center gap-2 text-sm text-gray-400 group-hover:text-gray-300 transition-colors">
-                    <i className="fas fa-fire text-orange-400/60"></i>
-                    <span>Hot</span>
-                  </div>
+                  <div></div>
                 </div>
               </button>
             ))}

@@ -54,8 +54,11 @@ export default function FeedClient({ initialTag = 'for-you', initialStories = []
     }
     setError(null);
     
-    // Pass the tag as-is to the API (empty string for untagged)
-    storiesApi.getPaginatedStories({ tag: currentTag })
+    // Convert 'featured' to 'explore' for backend compatibility
+    const tagToSend = currentTag === 'featured' ? 'explore' : currentTag;
+    
+    // Pass the tag to the API
+    storiesApi.getPaginatedStories({ tag: tagToSend })
       .then((data) => {
         setStories(data.results || data);
         setNextCursor(data.next_cursor || null);
@@ -114,8 +117,10 @@ export default function FeedClient({ initialTag = 'for-you', initialStories = []
     setLoadingMore(true);
     setError(null);
     try {
-      // Pass the tag as-is to the API (empty string for untagged)
-      const data = await storiesApi.getPaginatedStories({ tag: currentTag, cursor: nextCursor });
+      // Convert 'featured' to 'explore' for backend compatibility
+      const tagToSend = currentTag === 'featured' ? 'explore' : currentTag;
+      
+      const data = await storiesApi.getPaginatedStories({ tag: tagToSend, cursor: nextCursor });
       setStories(prev => [...prev, ...(data.results || [])]);
       setNextCursor(data.next_cursor || null);
     } catch (err) {
@@ -161,6 +166,7 @@ export default function FeedClient({ initialTag = 'for-you', initialStories = []
         {currentTag === 'explore' && (
           <ExploreCategoriesGrid
             onSelectCategory={(category) => {
+              // Both 'explore' (from Curated button) and other tags switch to feed view
               setCurrentTag(category);
               const feedEl = document.getElementById('imageFeed');
               if (feedEl) {

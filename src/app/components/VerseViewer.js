@@ -591,7 +591,7 @@ const VerseFooter = React.memo(({
         </div>
 
         {/* Verse Action Buttons - Right side */}
-        <div className="absolute bottom-4 right-4 flex flex-col items-center gap-3 z-50">
+        <div className="absolute bottom-4 right-4 flex flex-col items-end gap-3 z-50">
           {/* Moment Navigation Arrows - Above buttons (visible to all users) */}
           {hasMoments && hasMultipleMoments && (
             <div className="absolute -top-14 left-1/2 -translate-x-1/2 flex items-center gap-0.5 z-50">
@@ -620,6 +620,39 @@ const VerseFooter = React.memo(({
                   title="Next moment"
                 >
                   <i className="fas fa-chevron-right text-white text-sm"></i>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* CTA Button - Show at top if verse has URL */}
+          {currentVerse?.url && currentVerse.url && (
+            <div className="relative">
+              {currentVerse?.cta_text ? (
+                // Show CTA text button directly if CTA text exists
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.open(currentVerse.url, '_blank', 'noopener,noreferrer');
+                  }}
+                  className="px-4 py-2 rounded-full flex items-center justify-center cursor-pointer transition-all duration-200 ease-in-out border border-cyan-500/50 hover:scale-105 whitespace-nowrap text-sm font-bold text-white bg-black/30"
+                >
+                  <i className="fas fa-external-link-alt text-white text-sm mr-2"></i>
+                  {currentVerse.cta_text}
+                </button>
+              ) : (
+                // Show only link icon if no CTA text
+                <button 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.open(currentVerse.url, '_blank', 'noopener,noreferrer');
+                  }}
+                  className="w-12 h-12 rounded-full flex items-center justify-center cursor-pointer transition-all duration-200 ease-in-out relative border border-cyan-500/50 hover:scale-110 bg-black/30"
+                  title="Open Link"
+                >
+                  <i className="fas fa-link text-white text-lg"></i>
                 </button>
               )}
             </div>
