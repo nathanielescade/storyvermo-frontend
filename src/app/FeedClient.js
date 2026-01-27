@@ -239,7 +239,8 @@ export default function FeedClient({ initialTag = 'for-you', initialStories = []
         >
           {[
             { id: 'for-you', name: 'for-you', display_name: 'For You' },
-            { id: 'collaborative', name: 'collaborative', display_name: 'Collab' },
+            // { id: 'collaborative', name: 'collaborative', display_name: 'Collab' },
+            { id: 'trending', name: 'trending', display_name: 'Trending' },
             { id: 'explore', name: 'explore', display_name: 'Explore' },
             { id: 'following', name: 'following', display_name: 'Following', requiresAuth: true }
           ].map(option => {

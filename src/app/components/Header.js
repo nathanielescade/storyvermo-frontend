@@ -54,7 +54,7 @@ const Header = ({ openAuthModal }) => {
   };
 
   return (
-    <div className="fixed-header ">
+    <div className="fixed-header hidden">
       <Logo />
       
       <div className="flex gap-1.5 sm:gap-2.5 items-center ml-auto relative">

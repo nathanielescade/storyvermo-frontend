@@ -553,13 +553,7 @@ function StoryCardInner({
                                 />
                             )}
                         </div>
-                    ) : (
-                        <div className="scene-bg-placeholder bg-linear-to-br from-slate-800 to-slate-900 flex items-center justify-center">
-                            <div className="text-slate-600 text-4xl">
-                                <i className="fas fa-image"></i>
-                            </div>
-                        </div>
-                    )}
+                    ) : null}
                     <div className="scene-overlay"></div>
                     
                     <div 

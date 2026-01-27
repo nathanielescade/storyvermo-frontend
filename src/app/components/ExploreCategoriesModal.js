@@ -107,7 +107,7 @@ export default function ExploreCategoriesModal({ isOpen, onClose, onSelectTag })
 
                   {/* Tag Name */}
                   <h3 className="text-lg font-bold text-white mb-2 truncate">
-                    #{tag.name}
+                    {tag.name}
                   </h3>
 
                   {/* Tag Stats */}

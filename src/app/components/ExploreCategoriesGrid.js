@@ -107,7 +107,7 @@ export default function ExploreCategoriesGrid({ onSelectCategory, onClose }) {
                       <i className="fas fa-tag text-cyan-400 text-lg"></i>
                     </div>
                     <h2 className="text-xl font-bold text-white truncate group-hover:text-cyan-300 transition-colors">
-                      #{tag.name}
+                      {tag.name}
                     </h2>
                   </div>
 
