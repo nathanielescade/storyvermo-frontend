@@ -19,7 +19,7 @@ export default function PricingPage() {
             Choose the plan that fits your storytelling needs
           </p>
           <p className="text-lg text-purple-300">
-            Start free and upgrade whenever you're ready
+            Start free and upgrade whenever you&apos;re ready
           </p>
         </div>
       </section>
@@ -51,7 +51,7 @@ export default function PricingPage() {
                 </button>
 
                 <div className="space-y-4 mb-8">
-                  <p className="text-purple-200 font-semibold mb-6">What's Included:</p>
+                  <p className="text-purple-200 font-semibold mb-6">What&apos;s Included:</p>
                   
                   <div className="space-y-3">
                     <div className="flex items-start">
@@ -170,14 +170,14 @@ export default function PricingPage() {
             <div className="bg-slate-800 rounded-lg p-8 border border-slate-700">
               <h3 className="text-xl font-bold text-white mb-3">Can I switch from monthly to annual billing?</h3>
               <p className="text-slate-300">
-                Yes! You can switch between monthly and annual billing anytime. If you switch to annual, you'll get a 17% discount. Pro-rata adjustments apply if you switch mid-cycle.
+                Yes! You can switch between monthly and annual billing anytime. If you switch to annual, you&apos;ll get a 17% discount. Pro-rata adjustments apply if you switch mid-cycle.
               </p>
             </div>
 
             <div className="bg-slate-800 rounded-lg p-8 border border-slate-700">
               <h3 className="text-xl font-bold text-white mb-3">Is there a free trial for Creator?</h3>
               <p className="text-slate-300">
-                Yes! Start with our monthly plan at GH₵ 1 (test price). If you're not satisfied in the first 14 days, we offer a full refund. No questions asked.
+                Yes! Start with our monthly plan at GH₵ 1 (test price). If you&apos;re not satisfied in the first 14 days, we offer a full refund. No questions asked.
               </p>
             </div>
 
@@ -191,7 +191,7 @@ export default function PricingPage() {
             <div className="bg-slate-800 rounded-lg p-8 border border-slate-700">
               <h3 className="text-xl font-bold text-white mb-3">Can I cancel anytime?</h3>
               <p className="text-slate-300">
-                Absolutely! You can cancel your subscription anytime. Your stories remain accessible and you can keep any content you've created.
+                Absolutely! You can cancel your subscription anytime. Your stories remain accessible and you can keep any content you&apos;ve created.
               </p>
             </div>
           </div>
