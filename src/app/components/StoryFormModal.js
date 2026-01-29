@@ -377,7 +377,7 @@ const VerseItem = memo(({
                     });
                     setShowSocialModal(true);
                   }}
-                  className="px-3 py-1.5 text-xs bg-green-600/30 hover:bg-green-600/50 text-green-300 border border-green-600/40 rounded-full transition-colors"
+                  className="px-2 py-1 text-xs bg-green-600/30 hover:bg-green-600/50 text-green-300 border border-green-600/40 rounded-full transition-colors"
                   title="Add WhatsApp link"
                 >
                   <i className="fab fa-whatsapp mr-1"></i>WhatsApp
@@ -401,7 +401,7 @@ const VerseItem = memo(({
                     });
                     setShowSocialModal(true);
                   }}
-                  className="px-3 py-1.5 text-xs bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-600/40 rounded-full transition-colors"
+                  className="px-2 py-1 text-xs bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-600/40 rounded-full transition-colors"
                   title="Add email link"
                 >
                   <i className="fas fa-envelope mr-1"></i>Email
@@ -431,7 +431,7 @@ const VerseItem = memo(({
                     });
                     setShowSocialModal(true);
                   }}
-                  className="px-3 py-1.5 text-xs bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-300 border border-cyan-600/40 rounded-full transition-colors"
+                  className="px-2 py-1 text-xs bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-300 border border-cyan-600/40 rounded-full transition-colors"
                   title="Add phone link"
                 >
                   <i className="fas fa-phone mr-1"></i>Phone
@@ -455,7 +455,7 @@ const VerseItem = memo(({
                     });
                     setShowSocialModal(true);
                   }}
-                  className="px-3 py-1.5 text-xs bg-sky-600/30 hover:bg-sky-600/50 text-sky-300 border border-sky-600/40 rounded-full transition-colors"
+                  className="px-2 py-1 text-xs bg-sky-600/30 hover:bg-sky-600/50 text-sky-300 border border-sky-600/40 rounded-full transition-colors"
                   title="Add Telegram link"
                 >
                   <i className="fab fa-telegram mr-1"></i>Telegram
@@ -479,7 +479,7 @@ const VerseItem = memo(({
                     });
                     setShowSocialModal(true);
                   }}
-                  className="px-3 py-1.5 text-xs bg-pink-600/30 hover:bg-pink-600/50 text-pink-300 border border-pink-600/40 rounded-full transition-colors"
+                  className="px-2 py-1 text-xs bg-pink-600/30 hover:bg-pink-600/50 text-pink-300 border border-pink-600/40 rounded-full transition-colors"
                   title="Add Instagram link"
                 >
                   <i className="fab fa-instagram mr-1"></i>Instagram
@@ -508,9 +508,9 @@ const VerseItem = memo(({
               )}
             </div>
             {verse.url && isValidUrl(verse.url) ? (
-              <p className="text-green-400 text-xs mt-2">✅ Valid URL</p>
+              <p className="text-green-400 text-xs mt-2">✅ Valid URL (https://, www., or tel:)</p>
             ) : verse.url ? (
-              <p className="text-red-400 text-xs mt-2">❌ Invalid URL format</p>
+              <p className="text-red-400 text-xs mt-2">❌ Invalid format - Use https://, www., or tel: prefix</p>
             ) : null}
           </>
         )}

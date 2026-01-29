@@ -24,34 +24,22 @@ export function buildImageUrl(imageUrl, opts = {}) {
 /**
  * Normalize URL to ensure it has a protocol
  * Accepts: https://example.com, http://example.com, www.example.com, example.com
- * Returns: URL with https:// prepended if needed
+ * Returns: URL as-is (no prepending)
  */
 export function normalizeUrl(url) {
   if (!url) return '';
   
-  const trimmed = url.trim();
-  
-  // Already has a protocol
-  if (trimmed.startsWith('https://') || trimmed.startsWith('http://')) {
-    return trimmed;
-  }
-  
-  // Starts with www
-  if (trimmed.startsWith('www.')) {
-    return `https://${trimmed}`;
-  }
-  
-  // No protocol, assume https
-  return `https://${trimmed}`;
+  return url.trim();
 }
 
 /**
- * Check if a URL is valid (has protocol after normalization)
+ * Check if a URL is valid
+ * Considers URLs with https://, starting with www., or tel: as valid
  */
 export function isValidUrl(url) {
   if (!url) return false;
-  const normalized = normalizeUrl(url);
-  return normalized.startsWith('https://') || normalized.startsWith('http://');
+  const trimmed = url.trim();
+  return trimmed.startsWith('https://') || trimmed.startsWith('www.') || trimmed.startsWith('tel:');
 }
 
 export default {

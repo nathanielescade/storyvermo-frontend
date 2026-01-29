@@ -6,6 +6,7 @@ import Select from 'react-select';
 import ReactCountryFlag from 'react-country-flag';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { userApi } from '../../../../lib/api';
+import ChangePasswordModal from './ChangePasswordModal';
 
 // 🔥 OPTIMIZED: Lazy load country-state-city only when settings page loads
 let CountryStateCityModule = null;
@@ -24,6 +25,7 @@ export default function ProfileSettingsClient() {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
   const [toast, setToast] = useState(null); // Toast notification state
+  const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const formRef = useRef(null);
   const [countries, setCountries] = useState([]); // Lazy loaded countries
   const [countriesLoaded, setCountriesLoaded] = useState(false);
@@ -347,12 +349,25 @@ export default function ProfileSettingsClient() {
         return;
       }
 
-      // Create a copy of formData with username
-      const dataToSend = { 
-        ...formData,
-        username: currentUser.username // Include username for the API endpoint
+      // FIX: Structure the payload to match the backend's nested serializer
+      // The backend expects { user: { email, first_name, last_name }, ...profileFields }
+      const dataToSend = {
+        user: {
+          email: formData.email,
+          first_name: formData.first_name,
+          last_name: formData.last_name,
+        },
+        account_type: formData.account_type,
+        brand_name: formData.brand_name,
+        bio: formData.bio,
+        country: formData.country,
+        city: formData.city,
+        gender: formData.gender,
+        preferred_categories: formData.preferred_categories
       };
       
+      // Note: We no longer send 'username' in the body as it is read-only
+       
       // Try to update the profile on the server and refresh auth state.
       const updateResp = await userApi.updateCurrentUserProfile(dataToSend);
       const refreshed = await refreshAuth(); // Try to refresh auth context with new user data
@@ -411,21 +426,32 @@ export default function ProfileSettingsClient() {
         </div>
         {/* Form */}
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-6 p-6 pt-0 flex-grow">
-          <div className="mb-8 flex items-center gap-3">
+          <div className="mb-8 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="flex items-center px-3 py-2 rounded-lg bg-gray-800 hover:bg-blue-900 text-blue-300 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                aria-label="Go back"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 mr-2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+                Back
+              </button>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent mb-2">
+                Edit Profile
+              </h1>
+            </div>
             <button
               type="button"
-              onClick={() => router.back()}
-              className="flex items-center px-3 py-2 rounded-lg bg-gray-800 hover:bg-blue-900 text-blue-300 font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-              aria-label="Go back"
+              onClick={() => setShowChangePasswordModal(true)}
+              className="flex items-center px-4 py-2 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-semibold transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-orange-500/30"
+              aria-label="Change password"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 mr-2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-              </svg>
-              Back
+              <i className="fas fa-lock mr-2"></i>
+              Change Password
             </button>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500 bg-clip-text text-transparent mb-2">
-              Edit Profile
-            </h1>
           </div>
           <p className="text-gray-400 mb-4">Update your profile information and preferences</p>
           {/* Name Fields */}
@@ -678,6 +704,16 @@ export default function ProfileSettingsClient() {
           )}
         </button>
       </div>
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={showChangePasswordModal}
+        onClose={() => setShowChangePasswordModal(false)}
+        onSuccess={() => {
+          setToast({ type: 'success', message: 'Password changed successfully!' });
+          setTimeout(() => setToast(null), 3000);
+        }}
+      />
     </div>
   );
 }

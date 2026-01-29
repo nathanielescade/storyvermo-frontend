@@ -380,12 +380,23 @@ export function AuthProvider({ children }) {
   // Refresh auth status
   const refreshAuth = async () => {
     try {
+      // Get the latest token from localStorage (in case it was just updated by password change)
+      const accessToken = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      const headers = {
+        'Accept': 'application/json',
+      };
+      
+      // Include token if available
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+      
       // Perform a direct check so we can inspect HTTP status codes and
       // avoid treating transient/network errors as an explicit logout.
       const resp = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://api.storyvermo.com'}/auth/check/`, {
         method: 'GET',
         credentials: 'include',
-        headers: { 'Accept': 'application/json' },
+        headers: headers,
       });
 
       if (resp.ok) {
