@@ -1,6 +1,39 @@
 import VerseViewer from '../../components/VerseViewer';
 import { absoluteUrl } from '../../../../lib/api';
 
+// Generate static params for verse routes to enable Google indexing
+export async function generateStaticParams() {
+  try {
+    console.log('Generating static params for verse IDs...');
+    
+    // Fetch verses from the API - adjust endpoint if needed based on your API structure
+    const verses = await fetch(absoluteUrl(`/api/verses/?page_size=500`), {
+      headers: { 'Accept': 'application/json' }
+    })
+      .then(r => r.json())
+      .catch(err => {
+        console.error('Failed to fetch verses for static generation:', err);
+        return { results: [] };
+      });
+
+    if (!verses || !verses.results) {
+      console.warn('No verses returned for static generation');
+      return [];
+    }
+
+    const params = verses.results
+      .filter(v => v && (v.verseId || v.id))
+      .map(v => ({ verseId: String(v.verseId || v.id).trim() }))
+      .slice(0, 1000);
+
+    console.log(`Generated ${params.length} static verse routes`);
+    return params;
+  } catch (error) {
+    console.error('generateStaticParams error:', error);
+    return [];
+  }
+}
+
 export async function generateMetadata({ params }) {
   const { verseId } = params;
   try {

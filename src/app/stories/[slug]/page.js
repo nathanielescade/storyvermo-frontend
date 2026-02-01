@@ -10,6 +10,38 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://storyvermo.com';
 // Then revalidates in background, so next visitor gets fresh data
 export const revalidate = 10;
 
+// Generate static params for story routes to enable Google indexing
+export async function generateStaticParams() {
+  try {
+    console.log('Generating static params for story slugs...');
+    
+    const stories = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/stories/paginated_stories/?page_size=500`, {
+      headers: { 'Accept': 'application/json' }
+    })
+      .then(r => r.json())
+      .catch(err => {
+        console.error('Failed to fetch stories for static generation:', err);
+        return { results: [] };
+      });
+
+    if (!stories || !stories.results) {
+      console.warn('No stories returned for static generation');
+      return [];
+    }
+
+    const params = stories.results
+      .filter(s => s && s.slug)
+      .map(s => ({ slug: String(s.slug).trim() }))
+      .slice(0, 1000);
+
+    console.log(`Generated ${params.length} static story routes`);
+    return params;
+  } catch (error) {
+    console.error('generateStaticParams error:', error);
+    return [];
+  }
+}
+
 // Metadata is now handled in layout.js for faster generation (single API call instead of duplicate)
 
 // Server Component - no 'use client'

@@ -66,3 +66,37 @@ export async function generateMetadata({ params }) {
     description: `View ${displayName}'s stories and profile on StoryVermo.`,
   };
 }
+
+// Pre-generate static params for dynamic user profiles
+// This is CRITICAL for Google indexing - without this, all /[username] pages return 404
+export async function generateStaticParams() {
+  try {
+    console.log('Generating static params for user profiles...');
+    
+    // Fetch all user profiles from API
+    const profiles = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/profiles/?page_size=500`, {
+      headers: { 'Accept': 'application/json' }
+    })
+      .then(r => r.json())
+      .catch(err => {
+        console.error('Failed to fetch profiles for static generation:', err);
+        return { results: [] };
+      });
+
+    if (!profiles || !profiles.results) {
+      console.warn('No profiles returned for static generation');
+      return [];
+    }
+
+    const params = profiles.results
+      .filter(p => p && p.username)
+      .map(p => ({ username: String(p.username).trim() }))
+      .slice(0, 1000); // Limit to 1000 profiles
+
+    console.log(`Generated ${params.length} static profile routes`);
+    return params;
+  } catch (error) {
+    console.error('generateStaticParams error:', error);
+    return [];
+  }
+}
