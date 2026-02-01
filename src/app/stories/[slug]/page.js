@@ -1,5 +1,6 @@
 // app/stories/[slug]/page.js
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 import { storiesApi } from '../../../../lib/api';
 import StoryDisplay from './StoryDisplay';
 
@@ -134,7 +135,9 @@ export default async function StoryPage({ params }) {
     return (
       <>
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(ld) }} />
-        <StoryDisplay initialStory={story} slug={slug} />
+        <Suspense fallback={<div>Loading story...</div>}>
+          <StoryDisplay initialStory={story} slug={slug} />
+        </Suspense>
       </>
     );
   } catch (error) {
