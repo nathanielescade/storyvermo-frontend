@@ -76,7 +76,7 @@ export default function PaystackButton({
     setError(null);
 
     try {
-      const amount = planType === 'monthly' ? 100 : 249000; // TEST: GH₵ 1 (monthly) or GH₵ 2,490 (yearly)
+      const amount = planType === 'monthly' ? 24900 : 249000; // GH₵ 249 or GH₵ 2,490 in pesewas
       const userId = user.id || user.pk || user.user_id;
       const userEmail = user.email || user.user_email;
       
@@ -166,7 +166,7 @@ export default function PaystackButton({
         disabled={loading}
         className={className}
       >
-        {loading ? 'Processing...' : 'Get Creator Plan'}
+        {loading ? 'Processing...' : planType === 'monthly' ? 'Pay Monthly (GH₵ 249)' : 'Pay Yearly (GH₵ 2,490)'}
       </button>
       {error && (
         <p className="text-red-400 text-sm mt-2">{error}</p>

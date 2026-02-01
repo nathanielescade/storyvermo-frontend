@@ -97,8 +97,8 @@ export default function PricingPage() {
                 <div className="mb-8">
                   <div className="space-y-2">
                     <p className="text-4xl font-bold text-white">
-                      GH₵ 1
-                      <span className="text-lg text-purple-300 font-normal"> / month (TEST)</span>
+                      GH₵ 249
+                      <span className="text-lg text-purple-300 font-normal"> / month</span>
                     </p>
                     <p className="text-purple-300 text-sm">
                       Or <span className="font-bold text-white">GH₵ 2,490</span>/year (Save 17%)
@@ -110,6 +110,10 @@ export default function PricingPage() {
                   <PaystackButton
                     planType="monthly"
                     className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-3 rounded-lg transition duration-200"
+                  />
+                  <PaystackButton
+                    planType="annually"
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold py-3 rounded-lg transition duration-200"
                   />
                   <p className="text-purple-300 text-xs text-center">Full refund within 14 days if not satisfied</p>
                 </div>
@@ -177,7 +181,7 @@ export default function PricingPage() {
             <div className="bg-slate-800 rounded-lg p-8 border border-slate-700">
               <h3 className="text-xl font-bold text-white mb-3">Is there a free trial for Creator?</h3>
               <p className="text-slate-300">
-                Yes! Start with our monthly plan at GH₵ 1 (test price). If you&apos;re not satisfied in the first 14 days, we offer a full refund. No questions asked.
+                Yes! Start with our monthly plan at GH₵ 249. If you&apos;re not satisfied in the first 14 days, we offer a full refund. No questions asked.
               </p>
             </div>
 

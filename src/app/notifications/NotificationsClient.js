@@ -298,6 +298,57 @@ export function NotificationsClient() {
             ⭐
           </div>
         );
+      case 'PAYMENT_INITIATED':
+        return (
+          <div className={`${iconClasses} bg-gradient-to-r from-yellow-400 to-orange-500`}>
+            💳
+          </div>
+        );
+      case 'PAYMENT_SUCCESS':
+        return (
+          <div className={`${iconClasses} bg-gradient-to-r from-green-400 to-emerald-500`}>
+            ✅
+          </div>
+        );
+      case 'PREMIUM_ACTIVATED':
+        return (
+          <div className={`${iconClasses} bg-gradient-to-r from-purple-500 to-pink-500`}>
+            🎉
+          </div>
+        );
+      case 'PREMIUM_RENEWAL':
+        return (
+          <div className={`${iconClasses} bg-gradient-to-r from-purple-400 to-pink-400`}>
+            🔄
+          </div>
+        );
+      case 'PREMIUM_REMINDER_1MONTH':
+      case 'PREMIUM_REMINDER_7DAYS':
+      case 'PREMIUM_REMINDER_3DAYS':
+      case 'PREMIUM_REMINDER_1DAY':
+        return (
+          <div className={`${iconClasses} bg-gradient-to-r from-orange-400 to-yellow-500`}>
+            ⏰
+          </div>
+        );
+      case 'PREMIUM_EXPIRING_SOON':
+        return (
+          <div className={`${iconClasses} bg-gradient-to-r from-amber-400 to-orange-500`}>
+            ⚠️
+          </div>
+        );
+      case 'PREMIUM_EXPIRED':
+        return (
+          <div className={`${iconClasses} bg-gradient-to-r from-gray-400 to-gray-500`}>
+            ⏳
+          </div>
+        );
+      case 'REFUND_PROCESSED':
+        return (
+          <div className={`${iconClasses} bg-gradient-to-r from-blue-400 to-cyan-500`}>
+            💰
+          </div>
+        );
       default:
         return (
           <div className={`${iconClasses} bg-gradient-to-r from-blue-300 to-pink-200`}>
