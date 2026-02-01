@@ -1,4 +1,4 @@
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://storyvermo.com';
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.storyvermo.com';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.storyvermo.com';
 
 function formatDate(d) {
