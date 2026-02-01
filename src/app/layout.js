@@ -20,7 +20,7 @@ export default function RootLayout({ children }) {
         <link rel="dns-prefetch" href="https://storyvermo.nyc3.cdn.digitaloceanspaces.com" />
         <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
-        
+        <link rel="canonical" href={`https://www.storyvermo.com${pathname}`} />
         {/* Font preload removed to avoid adding large font to initial payload; CSS is deferred below */}
 
         {/* Google Analytics - DEFERRED to lazyOnload for even better performance */}
