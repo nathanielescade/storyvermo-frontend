@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import FeedClient from '../../FeedClient';
 
@@ -37,6 +35,11 @@ export async function generateStaticParams() {
 }
 
 export default function TagPage({ params }) {
+  return <TagPageClient params={params} />;
+}
+
+function TagPageClient({ params }) {
+  'use client';
   const { tag } = React.use(params);
   const decodedTag = decodeURIComponent(tag);
 
